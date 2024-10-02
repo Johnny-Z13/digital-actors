@@ -3,8 +3,8 @@ import re
 import asyncio
 
 class AntServer(AntServerBase):
-    def __init__(self, websocket, console, voice_client):
-        super().__init__(websocket, console, voice_client)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.state = 0
 
     async def on_user_transcript(self, message):

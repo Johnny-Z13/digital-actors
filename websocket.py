@@ -15,7 +15,6 @@ from ant_server import AntServer
 voice_client = CachedVoiceClient(None, "ChcIf9hNw4gUMX5XTD4A", "eleven_turbo_v2", 3)
 
 async def client_handler(websocket, path):
-    console.print("client connected")
     # Client connect
     pong_waiter = await websocket.ping()
     latency = await pong_waiter
