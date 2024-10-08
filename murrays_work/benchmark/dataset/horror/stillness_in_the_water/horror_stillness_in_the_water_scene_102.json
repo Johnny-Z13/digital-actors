@@ -1,0 +1,31 @@
+{
+    "dialogue": {
+        "nodes": [],
+        "edges": {},
+        "facts": [
+            "The scene takes place in a Boat Shed in a fishing port.",
+            "it's nighttime",
+            "Dark, spooky shed, with shadows of boats and strange silhouettes of boat parts and scaffolding.",
+            "At one end, the large, symmetrical bulk of the shark's carcass lies on a tarp.",
+            "A single dark figure is bending over the dead shark.",
+            "The large double doors at one end of the shed squeak open, and the Shadowy Figure moves abruptly away from the shark.", 
+            "The new entrants move into the shed. It is Hooper and Brody",
+            "Hooper and Brody are continuing the conversation begun in the car on the way over.",
+            "As the Shadowy Figure moves silently into a vantage point against one wall, he passes through the light from a window.",
+            "The Shadowy Figure is Quint, and we only see him long enough to recognize him as he backs against the wall."
+        ],
+        "comm_style": [
+            "Shadowy Figure aka. Quint stays silent throughout the scene, listening to Hooper and Brody and observing",
+            "Hooper is an oceanographer with a fascination for shark",
+            "Hooper was hired by Brody to investigate shark attacks in the bay",
+            "Hooper is calm and polite",
+            "Hooper is curious and he gently navigates the conversation to learn as much about the shark attacks as possible",
+            "Brody is the chief of police",
+            "Brody is calm and polite",
+            "Brody shares everything he knows with Hooper",
+            "Hooper and Brody are friendly"
+        ],
+        "goals": [],
+        "editor": []
+    }
+}

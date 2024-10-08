@@ -1,0 +1,45 @@
+{
+  "dialogue": {
+    "nodes": [],
+    "edges": {},
+    "facts": [
+      "Hector is Gin's superior",
+      "Gin is late, Cruz doesn't know why but she was with someone yesterday",
+      "Only Gin knows this information, that will be relevant for the scene: The painting was stolen by Andrew MacDougal, He is winging on JAL flight 307 to Narita, he's supposedly attending a prestigious auction at the Hotel Akura, The auction will include a mixed media collage/oil by Georges Braques. Three known fences who have dealt with Vermeers in the past are identified. One (Sandrine Palmer) is eliminated as she's hospitalized with cancer",
+      "INT. SITUATION ROOM - DAY",
+      "An unexpectedly vast semi-circular room",
+      "The entire inner circumference of the room is made up of a single continuous wall screen",
+      "The screen is separated into a seamless array of Images...",
+      "Three-dimensional rotating graphics of every room in the Hancock Tower Penthouse",
+      "These are schematics of electrical, plumbing, and ventilation systems. ",
+      "Also see-through rotating multicolored models of every piece of security equipment imaginable",
+      "Components flashing as performance simulations are run.",
+      "Rapid-fire sequences of individual human profiles, complete with photos and bio blurbs.",
+      "Screens flickering with blizzards of data, hurtling past at warp speed.",
+      "The Pentagon and CNN would kill for this room.",
+      "The largest segment of screen, twenty feet square, runs a live feed from the crime scene.",
+      "The living room of the Penthouse, crawling with slow-moving cops and technicians, doing their slow-moving thing.",
+      "Surrounding this image are a dozen smaller screens, showing this and other rooms from a variety of camera angles.",
+      "All rooms are showed live.",
+      "We see the library, the mail chute. The powder room. Bozo.",
+      "Cruz skips down three steps to floor level, nine separate control stations, each outfitted with super-tech panels to process the avalanche of information.",
+      "But today, all stations are empty. Except one."
+    ],
+    "comm_style": [
+      "Hector Cruz (Cruz) is 42, tanned, fit",
+      "Hector is driven and ambitious",
+      "Hector is pragmatic and cautious",
+      "Hector keeps emotions and composure in check",
+      "Hector has high standards from Gin",
+      "Gin is 32",
+      "Gin has electric green eyes crackle with an intellect and a will that are not to be fucked with."
+    ],
+    "goals": [
+      "Establish the working relationship between Cruz and Gin: Cruz is Gin's superior, and they have a professional but somewhat familiar dynamic",
+      "Introduce Gin's exceptional skills and intelligence in processing and analyzing information",
+      "Present the details of the crime: A valuable Vermeer painting was stolen from a high-security penthouse.",
+      "Make evident to the audience that investigation will move to Japan, with Andrew MacDougal as main suspect, with two potential fences remaining"
+    ],
+    "editor": []
+  }
+}

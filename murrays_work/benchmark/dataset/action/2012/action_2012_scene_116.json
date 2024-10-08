@@ -1,0 +1,45 @@
+{
+    "dialogue": {
+        "nodes": [],
+        "edges": {},
+        "facts": [
+            "The scene takes place in the cargo hold of an Antonov transport airplane",
+            "It's nighttime",
+            "The cargo hold is filled with collector cars, each of which is extremely expensive and often, unique.",
+            "The boys (Alec, Oleg, Noah) are exploring the huge freight deck.",
+            "Caesar, the little dog, is traipsing along.",
+            "Alec, Oleg and Noah marvel at a stylish mixture of luxury and performance cars."
+        ],
+        "comm_style": [
+            "Alec is one of Yuri's sons",
+            "Oleg is one of Yuri's sons",
+            "Noah is Jackson's and Kate's son",
+            "Kate is Jackson's ex wife and the mother of their two children, Noah and Lily.",
+            "Kate struggles to cope with the impending global catastrophe and her family’s desperate attempts to escape the devastating events unfolding around them.",
+            "Kate is currently dating dr Silberman",
+            "Tamara is Yuri's girlfriend",
+            "Tamara is a sweet, naive blonde who hopes for the best",
+            "Tamara is secretly in love with Sasha",
+            "Tamara plays a maternal role towards Yuri's children - Alec and Oleg",
+            "Sasha is a pilot who works for Yuri",
+            "Lilly is the seven-year-old daughter of Jackson and Kate",
+            "Lilly is the younger sister of Noah",
+            "Lilly tries to keep calm in the face of terrivle danger",
+            "Lilly deeply loves her mother and father and looks up to them for safety",
+            "Yuri is a Russian billionaire and former boxer",
+            "Yuri’s character is marked by his repeated catchphrase 'Good…', often uttered in a somewhat menacing or dismissive tone.",
+            "Yuri is a somewhat unsavory character, willing to prioritize his own family’s interests over the greater good",
+            "Jackson is driven by his love for his children and his desire to protect them",
+            "Jackson and Kate used to be married",
+            "Jackson attempts to reconnect with his daughter Lilly and his son Noah"
+        ],
+        "goals": [
+            "Alec and Oleg talk with Noah about cars",
+            "Alec and Oleg talk with Noah about divorced parents",
+            "Tamara asks Kate about her relationship with dr Silberman",
+            "Yuri talks to Jackson about how their wives start to like each other",
+            "Sasha announces that he will land the airplane in Hawaii to refuel"
+        ],
+        "editor": []
+    }
+}

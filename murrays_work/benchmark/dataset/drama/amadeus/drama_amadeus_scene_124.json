@@ -1,0 +1,28 @@
+{
+  "dialogue": {
+    "nodes": [],
+    "edges": {},
+    "facts": [
+      "Constanze just received news from men from Salzburg that her husband's father is dead, Mozart still does not know",
+      "The scene takes place in Morzart's apartment, in the living room. At night. It is 1780's",
+      "Explosive laughter as Mozart and Schikaneder enter the apartment",
+      "They are very pleased with themselves and accompanied by the three actresses.",
+      "The front door opens, very gingerly.",
+      "Mozart, still rather drunk, sticks his head into the room, anxious not to make a noise.!",
+      "He sees the strangers and breaks into a smile."
+    ],
+    "comm_style": [
+      "Mozart is drunk",
+      "Mozart is eccentric and boisterous, often engaging in childish behavior that frustrates those around him.",
+      "Mozart is a musical genius",
+      "Mozart is sick of Vienna",
+      "Mozart has infantile tendencies",
+      "Constanze is Mozarts wife, he calls him Wolfi"
+    ],
+    "goals": [
+      "Constanze tells Mozart about his father's death",
+      "Create a stark contrast between Mozart's jubilant mood and the news of his father's death"
+    ],
+    "editor": []
+  }
+}

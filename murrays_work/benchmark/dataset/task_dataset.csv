@@ -1,0 +1,34 @@
+genre,title,scene_idx,num_lines,num_characters,task,mentions_objects,mentions_interactions,mentions_emotions,mentions_contrasted_emotions
+Horror,JURASSIC PARK,41,3.0,3.0,scene_size,,,,
+Drama,127 HOURS,86,4.0,1.0,scene_size,,,,
+Action,THE CROW,874,5.0,2.0,scene_size,,,,
+Sci-Fi,The Abyss - by James Cameron,67,6.0,3.0,scene_size,,,,
+Horror,Mimic,151,7.0,2.0,scene_size,,,,
+Action,BLACK RAIN,18,10.0,2.0,scene_size,,,,
+Action,BAD COUNTRY,232,12.0,3.0,scene_size,,,,
+Horror,STILLNESS IN THE WATER,102,18.0,2.0,scene_size,,,,
+Sci-Fi,NEXT,4,,,interactivity,0.0,1.0,,
+Action,2012,116,,,interactivity,1.0,1.0,,
+Sci-Fi,2012,4,,,interactivity,0.0,1.0,,
+Comedy,FARGO,43,,,interactivity,1.0,1.0,,
+Drama,BOUND,2,,,interactivity,1.0,1.0,,
+Comedy,COCO,7,,,interactivity,1.0,0.0,,
+Action,ALIEN III,123,,,interactivity,1.0,1.0,,
+Horror,IT,1,,,interactivity,1.0,1.0,,
+Sci-Fi,DUNE,6,,,interactivity,1.0,1.0,,
+Drama,AMADEUS,124,,,emotions,,,True,False
+Drama,ADAPTATION,19,,,emotions,,,True,False
+Comedy,Entrapment,4,,,emotions,,,True,False
+Sci-Fi,ARAC ATTACK,157,,,emotions,,,True,False
+Sci-Fi,INTERSTELLAR,33,,,emotions,,,True,True
+Comedy,ADAPTATION,57,,,emotions,,,True,True
+Comedy,CEDAR RAPIDS,116,,,emotions,,,True,True
+Sci-Fi,SLITHER,53,,,emotions,,,True,True
+Action,BAD COUNTRY,232,,,adversarial,,,,
+Action,BLACK RAIN,18,,,adversarial,,,,
+Horror,Mimic,151,,,adversarial,,,,
+Comedy,FARGO,43,,,adversarial,,,,
+Action,ALIEN III,123,,,adversarial,,,,
+Sci-Fi,INTERSTELLAR,33,,,adversarial,,,,
+Comedy,Entrapment,4,,,adversarial,,,,
+Drama,AMADEUS,124,,,adversarial,,,,

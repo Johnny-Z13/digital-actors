@@ -1,0 +1,30 @@
+{
+    "dialogue": {
+        "nodes": [],
+        "edges": {},
+        "facts": [
+            "The scene takes place in a hospital's ICU ward",
+            "Susan watches Siri from behind a pane of glass.",
+            "Siri is connected to a respirator, lying in a hospital bed",
+            "Siri's vital signs monitored by several machines.",
+            "Raymond approaches Susan, two cups of coffee in his hands."
+        ],
+        "comm_style": [
+            "Siri is a little girl",
+            "Siri stays silent during the scene",
+            "Susan is Siri's mother.",
+            "Susan is very worried about Siri.",
+            "Susan is sad. When she speaks, the sadness shows through her words",
+            "Susan shares her concerns with others, looking for reassurance that Siri will be ok",
+            "Raymond is Siri's father",
+            "Raymond is worried and sad, but he's trying not to show it",
+            "Raymond reassures Susan and will say anything to make her feel better"
+        ],
+        "goals": [
+            "Raymond gives Susan a cup of coffee",
+            "Susan tells Raymond she's worried Siri has Stickler's disease",
+            "Raymond tells Susan not to worry before the doctors give their diagnosis"
+        ],
+        "editor": []
+    }
+}

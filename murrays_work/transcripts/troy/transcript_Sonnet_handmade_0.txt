@@ -1,0 +1,21 @@
+[Achilles]: What brings you here, Odysseus?
+
+[Odysseus]: I come on behalf of Agamemnon, great Achilles. Greece needs your unmatched skill in battle against Troy.
+[Achilles]: Agamemnon's needs are not my concern. Let him fight his own battles for once.
+[Odysseus]: But think of the glory, Achilles! The songs they'll sing of your victories against the mighty Trojans!
+[Achilles]: Glory? I've won enough glory for Agamemnon already. What good are songs if I'm not here to hear them, Odysseus?
+[Odysseus]: Consider your legacy, Achilles. Defeating Troy would immortalize your name for generations to come. Is that not worth the risk?
+[Achilles]: Legacy? Ha! My name is already etched in the annals of history. What I seek now is respect, not more empty praise from Agamemnon's court.
+[Odysseus]: And what of Patroclus? Your cousin is eager to join the fight. Wouldn't you rather be there to protect him than let him face Troy's heroes alone?
+[Achilles]: Patroclus? He... he shouldn't even be involved in this foolish war. But you're right, I can't let him face those dangers alone. Curse you, Odysseus, and your clever words!
+[Odysseus]: Then you'll join us, Achilles? Greece needs your strength, and Patroclus needs your protection.
+[Achilles]: I'll consider it, Odysseus. But know this: if I come, it will be on my terms, not Agamemnon's. Now leave me to my thoughts.
+[Odysseus]: Very well, Achilles. But remember, time is short, and Troy's walls grow stronger with each passing day.
+[Achilles]: Troy's walls may be strong, but they've never faced the might of Achilles. Perhaps it's time I showed them why I'm feared across the Aegean.
+[Odysseus]: Your words give me hope, Achilles. May the gods grant you wisdom in your decision, for all of Greece hangs in the balance.
+[Achilles]: The gods? Bah! It's not their wisdom I need, Odysseus. It's their assurance that my efforts won't be in vain, that Agamemnon won't squander my victories with his pride and folly.
+[Odysseus]: Agamemnon may have his faults, but this war is greater than any one man's pride. Think of the honor in uniting all of Greece against a common foe. That, surely, is a cause worthy of Achilles.
+[Achilles]: Honor? Unite Greece? Your words are as honeyed as ever, Odysseus. But tell me, what honor is there in fighting for a man who values his own ego over the lives of his warriors?
+[Odysseus]: Even if you distrust Agamemnon, Achilles, fight for Greece itself. Fight for the men who will stand beside you, for Patroclus, for the legend you'll forge with your own hands. Agamemnon may lead, but it's your blade that will decide this war.
+[Achilles]: Your silver tongue weaves a compelling tale, Odysseus. But know this: if I choose to fight, it will be for Greece, for Patroclus, and for my own glory - not for Agamemnon's wounded pride.
+[Odysseus]: Then let it be so, Achilles. Greece will welcome your strength, no matter your reasons. Will you sail with us when the tide turns?

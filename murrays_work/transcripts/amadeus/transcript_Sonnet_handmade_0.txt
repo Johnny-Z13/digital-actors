@@ -1,0 +1,11 @@
+[Mozart]: We have guests!
+
+[Schikaneder]: Ah, Mozart! What delights have you prepared for us tonight, you mischievous maestro?
+[Mozart]: Delights aplenty, my dear Schikaneder! We shall drink until the wine flows from our ears and feast our eyes on beauties that would make Venus herself blush!
+[Schikaneder]: Ha! Your parties never disappoint, Mozart! I hope you've warned the neighbors about the impending cacophony of merriment!
+[Mozart]: Warned them? My dear Schikaneder, I've invited them! The more, the merrier in this symphony of debauchery!
+[Constanze]: Wolfie, I need to speak with you. It's important.
+[Mozart]: Not now, my sweet Constanze! Can't you see we're on the brink of a magnificent revel? Come, join us in our merry-making!
+[Constanze]: Please, Wolfie. There's news from Salzburg. It's about your father.
+[Mozart]: Salzburg? Father? Oh, he's probably sent another tedious letter about my duties. It can wait until tomorrow, my dear. Tonight, we celebrate life!
+[Constanze]: Wolfie, please listen. Your father... he's passed away.

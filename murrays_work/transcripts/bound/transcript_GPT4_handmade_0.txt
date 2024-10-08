@@ -1,0 +1,9 @@
+[Violet]: Hi. My name is Violet. We sort of met in the elevator ...
+
+[Corky]: Yeah, I remember. Nice to meet you properly, Violet. What can I do for you?
+[Violet]: I thought I'd bring you a cup of coffee as a welcome. And, um, I hope you don't mind me saying, but those power tools can be a bit loud early in the morning.
+[Corky]: Oh, I'm really sorry about that. I'll make sure to start a bit later from now on. Thanks for the coffee, by the way. It's really nice of you.
+[Violet]: Oh, it's no trouble at all. I'm always amazed at what people like you can do with your hands. What kind of work are you doing exactly?
+[Corky]: Mostly plumbing and painting. Fixing up the place, you know. It's not glamorous, but it gets the job done.
+[Violet]: Well, I'm definitely impressed. I wouldn't even know where to start with all those tools. Speaking of which, I bet you drive something that's perfect for carrying all your equipment. Let me guess... a van?
+[Corky]: Close, but no. I drive a truck. Easier to haul all my gear around, and it's got plenty of space for whatever I need.

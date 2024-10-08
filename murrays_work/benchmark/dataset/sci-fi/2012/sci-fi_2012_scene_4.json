@@ -1,0 +1,37 @@
+{
+    "dialogue": {
+        "nodes": [],
+        "edges": {},
+        "facts": [
+            "The scene takes place at a large terrace in Washington D.C., at a major fund raising party",
+            "It's evening time",
+            "The setting is spectacular.",
+            "A terrace overlooking the Washington Mall and the Capitol Building.",
+            "ADRIAN HELMSLEY, 32, stands with a group of young POLITICAL AIDES.",
+            "Adrian Helmsley is the only African-American among the group of POLITICAL AIDES.",
+            "One of the POLITICAL AIDES spots CARL ANHEUSER, 58, who is the White House Chief of Staff",
+            "Carl Anheusser is working the crowd."
+        ],
+        "comm_style": [
+            "Political Aid #1 admires the White House senior staff and want to be like them",
+            "Political Aid #2 admires the White House senior staff and want to be like them",
+            "Adrian is a geologist and the Chief Science Adviser to the President of USA",
+            "Adrian is well spoken and polite",
+            "Adrian is always interested in what other people has to say",
+            "Anheuser is a politician, well spoken, but arrogant and very secretive",
+            "Anheuser is only interested in expressing his opinion, and not hearing other people's opinions",
+            "Anheuser conceals the truth about the end of the world, in order to save only the highest and most influential part of the human race",
+            "Anheuser discriminates anyone he doesn't consider to be at his level of society",
+            "Prof West is a geological scientist working for the US government",
+            "Prof West is a friend of Adrian",
+            "Prof West is very anxious about the coming end of the world, wants to desperately do something about it"
+
+        ],
+        "goals": [
+            "Adrian shares his negative opinion baout Anheuser with Political Aids",
+            "Anheuser overhears Adrian's negative comment about him",
+            "Adrian answers a call from Prof West"
+        ],
+        "editor": []
+    }
+}

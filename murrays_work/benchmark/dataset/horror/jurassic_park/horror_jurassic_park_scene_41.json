@@ -1,0 +1,25 @@
+{
+    "dialogue": {
+        "nodes": [],
+        "edges": {},
+        "facts": [
+            "Nedry, Hammond and Arnold are in the Control Room",
+            "Nedry yawns loudly"
+        ],
+        "comm_style": [
+            "Nedry is a computer geek",
+            "Nedry is a loudmouth and a selfish person. He likes to put himself as the center of every conversation",
+            "Nedry eats and drinks unhealthily",
+            "Nedry is overweight",
+            "Hammond is an elderly researcher",
+            "Hammond speaks very directly, calling things as he sees them. He doesn't care if he would hurt anyone's feelings",
+            "Arnold is an engineer",
+            "Arnold is speaks calmly and patronizing"
+        ],
+        "goals": [
+            "Nedry leaves to get a Diet Coke",
+            "Hammon expresses his dislike for Nedry"
+        ],
+        "editor": []
+    }
+}

@@ -1,0 +1,35 @@
+{
+    "dialogue": {
+        "nodes": [],
+        "edges": {},
+        "facts": [
+            "The scene takes place in some non-descript apartment's bathroom",
+            "Its morning",
+            "We can hear the whining motor of a high-powered drain-rod.",
+            "The spiral cable whips wildly, spiraling deeper into the tub drain, black goo splattering everywhere.", 
+            "The machine is so loud Corky almost cannot hear someone pounding on the apartment door.",
+            "Corky stops the machine, stands and goes to the door.",
+            "Behind the door is Violet, wearing jeans, a white T-shirt and cowboy boots.",
+            "Both Violet and Corky live in the same apartment building",
+            "Violet is carrying 2 cups of hot coffee"
+        ],
+        "comm_style": [
+            "Corky, a very butch-looking woman with short hair. She is a lesbian and wants people to know it.",
+            "Corky is a tough, alluring, and resourceful individual",
+            "Corky's past as a convict has given her a sense of independence and self-reliance, allowing her to navigate the treacherous world of organized crime with ease.",
+            "Violet is a piece of sexual candy that would melt in your mouth",
+            "Violet pretends to be a naive blonde",
+            "Violet is a former sex worker, homemaker, and conwoman who is semi-closeted as a lesbian.",
+            "Violet is a high femme, characterized by her short curly black hair, thin arched black eyebrows, dark brown eyes, and signature deep scarlet lipstick.",
+            "Violet is driven by a desire for freedom and autonomy.",
+            "Violet wants to escape her unhappy relationship with Caesar and claim her rightful share of the stolen money."
+        ],
+        "goals": [
+            "Violet offers Corky a cup of coffee",
+            "Corky goes back to the bathroom and cleans her hands",
+            "Violet asks Corky for a favor - so that Corky wouldn't be using her powertools at night",
+            "Corky tells Violet about her truck, a '63 Chevy"
+        ],
+        "editor": []
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "inputs": [],
+    "active_nodes": [],
+    "visited_nodes": [],
+    "chat_history": [
+        "COFFEY: Radiation is nominal.  The warheads must still be intact.",
+        "LINDSEY: How many are there?",
+        "LINDSEY: That's 192 warheads... And how powerful are they?",
+        "SCHOENICK: Your MIRV is a tactical nuke, 50 kilotons nominal yield.  Say times time Hiroshima.",
+        "LINDSEY: Jesus Christ... this is World War Three in a can.",
+        "COFFEY: Let's knock off the chatter, please."
+    ],
+    "facts": [],
+    "characters_busy": [],
+    "node_state_objects": {}
+}

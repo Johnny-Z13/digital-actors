@@ -1,0 +1,28 @@
+{
+  "inputs": [],
+  "active_nodes": [],
+  "visited_nodes": [],
+  "chat_history": [
+    "Cooper: Well I don't know what the hell it's made of, but I can't crack it open.",
+    "Donald: Good. Clear it off the table so I can serve dinner.",
+    "Narrator: Tom and Murph walk in. Murph's got another black eye.",
+    "Donald: What happened this time?",
+    "Murph: I got suspended. Paul said anyone who believed we went to the moon was an idiot. So I hit him.",
+    "Cooper: Good boy. Hand me the scanner.",
+    "Narrator: Murph hands his dad a defibrillator he's modified for the purpose. He attaches the shock pads to the sides of the probe and turns on the power.Numbers flash across the screen. Cooper hits a button on the controls and it pulses.",
+    "Cooper: Here we go. Standard NASA encryption. Memory's been damaged. Just noise. Hold on. I've got something.",
+    "Narrator: Cooper unplugs a monitor from his computer and plugs it into the defibrillator. After a moment, an image fills the screen: An ice-covered planet nestled in the center of a system impossibly dense with stars. Murph stares, transfixed.",
+    "Murph: Where is that, dad?",
+    "Cooper: I don't know.",
+    "Narrator: Cooper looks at the probe.",
+    "Cooper: Where the hell did you come from?",
+    "Narrator: Cooper shrugs. Turns off the monitor.",
+    "Cooper: We'll take it down to Tyson's tomorrow and have it melted down. Might be some copper inside.",
+    "Murph: But what about its mission? What about the information onboard?",
+    "Cooper: There's no one for it to report to. NASA is all gone. I'm sorry, son. It got home too late.",
+    "Narrator: Donald pulls his chowder off the boil and slides the pot unceremoniously onto the table."
+  ],
+  "facts": [],
+  "characters_busy": [],
+  "node_state_objects": {}
+}

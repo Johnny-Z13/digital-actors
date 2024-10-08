@@ -1,0 +1,9 @@
+[Violet]: Hi. My name is Violet. We sort of met in the elevator ...
+
+[Corky]: Yeah, I remember. What can I do for you?
+[Violet]: Well, I thought I'd bring you a cup of coffee. Welcome to the building... though I have to say, those power tools of yours are quite the wake-up call.
+[Corky]: Oh, sorry about that. I'll try to start a bit later tomorrow. Thanks for the coffee, by the way.
+[Violet]: No problem. So, what exactly are you working on in there? It sounds... intense.
+[Corky]: Just some renovations. Fixing up the place, you know. Plumbing, painting, the usual stuff. Nothing too exciting.
+[Violet]: Wow, you can do all that? I'm impressed. I can barely change a light bulb. What kind of vehicle do you need to haul all those tools around? Let me guess... a van? Or maybe something sportier?
+[Corky]: Actually, I drive a truck. Nothing fancy, just gets the job done.

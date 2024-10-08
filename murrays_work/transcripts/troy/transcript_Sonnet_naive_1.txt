@@ -1,0 +1,21 @@
+[Achilles]: What brings you here, Odysseus?
+
+[Odysseus]: Greetings, Achilles. I come bearing news of great importance. The winds of war are blowing towards Troy.
+[Achilles]: Troy? What quarrel do I have with the Trojans? Or is this another of Agamemnon's conquests?
+[Odysseus]: Not a conquest, my friend, but a matter of honor. Paris of Troy has taken Helen from Sparta, and all of Greece now rallies to bring her back.
+[Achilles]: Ah, so the great Agamemnon fights for his brother's honor now? How noble of him. And I suppose he expects me to join this crusade of his?
+[Odysseus]: Indeed, he does. All the great warriors of Greece are answering the call. Your name is spoken with reverence among them, Achilles. They long to fight alongside the mightiest of heroes.
+[Achilles]: And what of my honor, Odysseus? Am I to be Agamemnon's attack dog, summoned at his every whim?
+[Odysseus]: Your honor is your own, Achilles. This war is a chance to carve your name into the very bedrock of history. Think of the songs they'll sing of your deeds for generations to come.
+[Achilles]: Songs and glory, you say? Tell me, Odysseus, what songs do they sing of a man who dances to another's tune? I've spilled enough blood for Agamemnon's ambitions.
+[Odysseus]: This is no mere skirmish, Achilles. Troy's walls have never fallen. The man who breaches them will be remembered as long as there are tongues to speak and ears to hear. Is that not worth more than your quarrel with Agamemnon?
+[Achilles]: You speak of immortal glory, Odysseus, but at what cost? My life is not Agamemnon's to wager in his game of thrones and conquest.
+[Odysseus]: The cost is high, yes, but consider the reward. Imagine a legacy that outlives us all, Achilles. Your name, your deeds, echoing through eternity. Is that not what you've always desired?
+[Achilles]: Your words are as smooth as ever, Odysseus. But tell me, what of the men who will die for Helen's pretty face? What glory is there in dying for another man's wife?
+[Odysseus]: The glory lies not in the cause, Achilles, but in the deeds themselves. Men will die, yes, but their deaths will have meaning. They'll be part of something greater than themselves, a tale for the ages. And you, my friend, you could be the hero of that tale.
+[Achilles]: And what of Patroclus? Would you have me drag him into this war as well, to die for Menelaus' wounded pride?
+[Odysseus]: Patroclus is a man grown, Achilles. The choice to fight should be his own. But think of the lessons he could learn, fighting alongside the greatest warrior Greece has ever known. What better way to shape him into the hero you know he can become?
+[Patroclus]: I want to fight, Achilles! Let me prove myself worthy of the name I bear!
+[Achilles]: Your eagerness does you credit, Patroclus, but war is not a game. It's blood and death and horror beyond your imagining.
+[Odysseus]: True, Achilles. War is indeed a harsh teacher. But it's also where legends are born. Think of the wisdom Patroclus could gain under your guidance on the battlefield.
+[Achilles]: You paint a grand picture, Odysseus. But I've seen the ugliness behind such grand designs. Tell me, what does Agamemnon truly offer, beyond the chance to die for his cause?

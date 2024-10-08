@@ -1,0 +1,22 @@
+{
+    "inputs": [],
+    "active_nodes": [],
+    "visited_nodes": [],
+    "chat_history": [
+        "CONNIE: It's getting too cold even for me, Nick.",
+        "NICK: Connie...",
+        "CONNIE: All right, how's the new partner?",
+        "NICK: High spirits, desire, commitment.",
+        "CONNIE: You'll take care of that.",
+        "NICK: Give me a break, would you?",
+        "CONNIE: If you give me one.",
+        "Narrator: Nick kisses her.  The first suggestion of real affection.The SOUND of someone KNOCKING on the door.  Reluctantly,they stop.  Connie gets up and puts on her robe.",
+        "NICK: Are you expecting anyone?",
+        "CONNIE: I wasn't expecting you.",
+        "Narrator: She disappears down the hallway.  We HEAR the door open, then telling someone to wait.",
+        "CONNIE: (poking her head in the room) Imagine a small, greasy Boy Scout."
+    ],
+    "facts": [],
+    "characters_busy": [],
+    "node_state_objects": {}
+}

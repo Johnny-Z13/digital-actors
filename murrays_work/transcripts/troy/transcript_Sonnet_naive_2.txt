@@ -1,0 +1,21 @@
+[Achilles]: What brings you here, Odysseus?
+
+[Odysseus]: I come with news, Achilles. The greatest army ever assembled is gathering to sail for Troy.
+[Achilles]: And let me guess, Agamemnon wants me to join his little war party?
+[Odysseus]: Not just Agamemnon. All of Greece calls for its greatest warrior. This is a chance for glory that comes once in a lifetime, my friend.
+[Achilles]: Glory? I've had my fill of glory fighting Agamemnon's petty wars. What makes this one any different?
+[Odysseus]: This is no petty war, Achilles. This is a war that will be remembered for ages. Your name could live on forever as the hero who brought Troy to its knees.
+[Achilles]: Forever, you say? And what of Agamemnon? Will he not claim all the credit for himself, as he always does?
+[Odysseus]: Agamemnon may be king, but it's the warriors who make legends. Your skill in battle is unmatched, Achilles. No one can take that glory from you.
+[Achilles]: And what of the Trojans? I have no quarrel with them. Why should I spill their blood for Agamemnon's wounded pride?
+[Odysseus]: The Trojans have wronged us all, Achilles. They've broken sacred laws of hospitality. This isn't just about Agamemnon's pride; it's about honor, justice, and the very foundations of our society.
+[Achilles]: Honor? Justice? Pretty words, Odysseus, but they don't change the fact that I'd be risking my life for Agamemnon's cause. Tell me, what's in it for me?
+[Odysseus]: Immortality, Achilles. Your name will be spoken with reverence for generations to come. No one will forget the hero who conquered Troy.
+[Achilles]: Immortality... You know how to tempt a man, Odysseus. But tell me, what of the other great warriors? Surely they're not all so eager to die for Agamemnon's brother and his unfaithful wife.
+[Odysseus]: All the great heroes are joining this cause, Achilles. Ajax, Diomedes, even old Nestor. They see the glory in this war. But make no mistake, they all know that without you, our chances diminish greatly.
+[Achilles]: So, the old guard is rallying. And what of you, Odysseus? Will you leave your beloved Ithaca to chase glory on distant shores?
+[Odysseus]: Indeed, I will. Even a simple island king like myself can't resist the call of legend. But more than that, I go because it's the right thing to do. We all must stand together in this.
+[Achilles]: And what of the boy? Would you have Patroclus join this grand adventure of yours as well?
+[Odysseus]: The choice is his to make, as it is yours. But a young man could learn much in such a war, especially under the guidance of a mentor like you, Achilles.
+[Patroclus]: I want to go, cousin! Let me fight alongside you and the other great heroes of Greece!
+[Achilles]: Hold your tongue, boy. You're not ready for the horrors of war. This isn't some grand adventure from the stories.

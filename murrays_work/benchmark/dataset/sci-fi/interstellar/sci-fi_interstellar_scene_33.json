@@ -1,0 +1,49 @@
+{
+  "dialogue": {
+    "nodes": [],
+    "edges": {},
+    "facts": [
+      "Donald is Cooper's father-in-law",
+      "The world is being devastated by the Blight, resources are very scarce",
+      "Cooper is an engineer and a former NASA pilot",
+      "Tom and Murph are Cooper's children",
+      "Cooper is a widower, he lost his wife to an illness",
+      "They are all farmers",
+      "Murph got a black eye, her family doesn't know it yet but she got suspended from school because she hit Paul after he said anyone who believed humans went to the moon was an idiot",
+      "The scene is in a kitchen, inside Cooper's house at night",
+      "Tech devices are usually sent to Tyson's for melting down",
+      "NASA is gone",
+      "Donald is pouring a bottle of corn beer into a bubbling vat of chowder.",
+      "He turns to watch Cooper work, amused. The probe has been clamped to the kitchen table.",
+      "There is a scanner on the table, also a computer with a monitor, and a defibrillator.",
+      "Cooper works at the blackened case with a blowtorch.",
+      "Cooper gives up -- the torch hasn't made a scratch.",
+      "The probe chirps."
+    ],
+    "comm_style": [
+      "Donald is direct and straightforward",
+      "Donald is protective of his family",
+      "Donald is honest about emotions",
+      "Donald thinks cooper should move on from old technology and space",
+      "Donald is in his 60s",
+      "Cooper is analytical and logical",
+      "Cooper is a practical problem solver",
+      "Cooper is family-oriented",
+      "Cooper is selfless and duty-bound",
+      "Cooper is curious and adventurous",
+      "Cooper is in his 30s",
+      "Murph is a girl in her teens",
+      "Tom is a boy in his teens",
+      "Murph is rebellious and independent",
+      "Murph is intelligent and curious",
+      "Tom is a follower, tends to remain silent"
+    ],
+    "goals": [
+      "Cooper attempts to find out secrets the probe has, and he sees a plannet in the monitor",
+      "Murph wants to know more about the probe and what his dad is learning from it",
+      "Cooper doesn't find anything he finds interesting and gives up on the probe",
+      "Donald serves the dinner once the probe is out of the way"
+    ],
+    "editor": []
+  }
+}

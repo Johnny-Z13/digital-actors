@@ -1,0 +1,15 @@
+[Violet]: Hi. My name is Violet. We sort of met in the elevator ...
+
+[Corky]: Yeah. I remember.
+[Violet]: I brought you some coffee. I hope that's okay.
+[Corky]: Thanks. I appreciate that.
+[Violet]: I was hoping we could talk for a minute. Do you have some time?
+[Corky]: Sure, what's on your mind?
+[Violet]: Well, I was wondering if you could do me a small favor. It's about the noise...
+[Corky]: Oh, the drain-rod? Sorry about that. I'll try to keep it down.
+[Violet]: That's so nice of you. I actually have a bit of trouble sleeping, and I was hoping maybe you could use your tools during the day instead?
+[Corky]: No problem. I usually work days anyway. Just had to finish this job.
+[Violet]: That's really kind of you. I really appreciate it. So, tell me, what kind of work do you do?
+[Corky]: I'm a plumber. Do a little bit of everything really - electrical, carpentry. I'm good with my hands.
+[Violet]: A woman of many talents. I bet that comes in handy. Do you have your own business?
+[Corky]: Not exactly. I've got my truck though - a '63 Chevy. It's all the business I need.

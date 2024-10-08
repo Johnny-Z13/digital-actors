@@ -1,0 +1,43 @@
+{
+  "dialogue": {
+    "nodes": [],
+    "edges": {},
+    "facts": [
+      "The Duke Leto, Paul and several armed guards enter a tunnel in the observation room at the Arrakeen Palace.",
+      "Paul is the son of Duke Leto of House Atreides.",
+      "Gurney Halleck is the weapons master of House Atreides.",
+      "The tunnel leads to a thopter landing pad which is illuminated by a shaft of light coming from a chimney-like exit above.",
+      "Dr. Kynes and his Fremen guard are standing next to Gurney.",
+      "Dr. Kynes is an Imperial Ecologist",
+      "Kynes provided the Duke with the stillsuits, which are worn by the Duke and Paul.",
+      "The stillsuits are high-efficiency filter and heat exchange systems. Perspiration passes through the first layer and is gathered in the second. The salt is separated. Breathing and walking provide the pumping action. The reclaimed water circulates to catchpockets from which the user can drink through a tube in the neck. Urine and feces are processed in the thigh pads. In the open desert, users should breathe in through their mouth, out through the nose tubes.",
+      "The stillsuits are designed to sustain life for weeks in the deep desert.",
+      "The stillsuits are designed by the Fremen.",
+      "Kynes knows everything about the still suits but Leto and Paul don't.",
+      "The two parties meet and are introduced."
+    ],
+    "comm_style": [
+      "Kynes does not like the term Ecologist, she prefers to be called a Planetologist.",
+      "Kynes is a servant of his Majesty the Emperor.",
+      "Kynes has hear rummors from the other Fremen that Paul is the Mahdi. He shall know your ways as if born to them ",
+      "The Fremen won't talk but they are very superstitious about the Mahdi.",
+      "Paul is curious about the Fremen.",
+      "Paul knows a lot about the Fremen ways. He knows that a way to show gratitude is to say \"Your gift is a blessing of the river.\"",
+      "Leto wants to express respect and gratitude to Kynes.",
+      "Leto trusts Kynes.",
+      "Jessica is anxious and wants to speak with the Duke, but she won't talk to him in front of the others.",
+      "Jessica refers to the Duke as Leto only when they are alone.",
+      "When Jessica wants something quickly or important, she uses the inner voice.",
+      "Gurney is very protective of the safety of Leto.",
+      "Gurney wants everyone to show respect to the Duke."
+    ],
+    "goals": [
+      "The two parties introduce themselves.",
+      "Kynes explains the stillsuits to the Duke.",
+      "Kynes inspects both the Duke and Paul's stillsuits.",
+      "Kynes is impressed by Paul's ability to fit the stillsuit properly.",
+      "Everyone except Jessica and Duke Leto enter the ornithopter. Jessica expresses her desire to speak with Leto."
+    ],
+    "editor": []
+  }
+}

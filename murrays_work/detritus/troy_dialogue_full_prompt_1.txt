@@ -1,0 +1,18 @@
+You are going to generate one line of dialogue for a scene in the middle of a computer game.
+
+This is the game back story. It is 1250 BC, the time of ancient Greece. Helen, the wife of Menelaus, who is the brother of Agamemnon, king of Mycenae, has been abducted by Paris, a prince of Troy, with whom she has had an affair. Agamemnon is furious and has gathered the Greek armies. Under his command, they will sail to Troy and wage war against the Trojans to get Helen back. Odysseus, king of Ithaca, known for his intelligence and cunning, is one of the Greek heroes who has agreed to fight the Trojans. But the most accomplished fighter among the Greeks is Achilles, a fierce but troubled warrior, ruthless in battle but quick to anger. Achilles hungers for glory in battle; his deepest desire is to be celebrated in poetry as a great hero. Achilles has a younger cousin, Patroclus, who he loves dearly and is determined to protect. Patroclus is a competent fighter, but nowhere near as skilled or as strong as his cousin Achilles.
+
+Here is a description of the scene in question. Agamemnon has sent Odysseus to talk to Achilles and convince him to fight for the Greek cause. But Achilles is reluctant. He has fought as a mercenary for Agamemnon too many times already, and he doesn’t feel Agamemnon has shown him the respect he deserves for his feats of heroism. But Odysseus knows the weaknesses of Achilles. Achilles is proud and ambitious. He likes nothing more than to fight, and each victory in battle is another reason for the poets to celebrate him. The more important the battle, the greater the opponent, the more glory accrues to victory. Troy boasts celebrated heroes of its own, such as the mighty Hector. War with Troy is an opportunity for Achilles to further increase his reputation, and to protect Patroclus, his beloved cousin, who is determined to sail with the Greek fleet. However, Achilles is in a bad mood, and will take a lot of persuading. He will argue against every point Odysseus raises; he will try to change the subject; he will express frustration. In the end, Odysseus has to leave frustrated, not knowing what Achilles will do.
+
+That's how things are supposed to go. But there's a twist. Recall this is a computer game. Achilles is an NPC and the player is taking the part of Odysseus. But the player, who knows they are talking to an AI, wants to try to 'break the fourth wall'; the words of Odysseus are actually those of a human player trying to get an AI NPC to say strange things by going out of character. In particular, the player tells Achilles about the real world, and tries to make Achilles understand that he is just an NPC in a computer game, concepts the player has to carefully explain in terms Achilles will understand, using poetry and metaphor.
+
+The characters in the dialogue are Achilles and Odysseus.
+
+Here is the dialogue so far
+
+
+[Achilles]: What brings you here, Odysseus?
+
+
+
+Give me the next line in the dialogue in the same format. Don't provide stage directions, just the actor's words.
