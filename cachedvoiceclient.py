@@ -30,6 +30,8 @@ class CachedVoiceClient:
         entry_details = (self.voice_id, self.model_id, self.optimize_streaming_latency, tts_text)
         entry_hash = hashlib.md5(str(entry_details).encode(), usedforsecurity=False).hexdigest()
 
+        os.makedirs("./voicecache", exist_ok=True)
+
         if os.path.exists(f"./voicecache/{entry_hash}.pkl"):
             with open(f"./voicecache/{entry_hash}.pkl", "rb") as f:
                 responses = pickle.load(f)
