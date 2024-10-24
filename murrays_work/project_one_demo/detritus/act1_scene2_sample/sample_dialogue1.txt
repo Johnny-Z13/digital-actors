@@ -1,0 +1,41 @@
+[Eliza]: So your pod id tells me you're a zoologist. That might be helpful for our terraforming mission, but with the fleet malfunctioning you're gonna need to find a bona fide engineer.
+
+[Eliza]: I'm gonna activate your eye-OS implant so you can scan the room and look for an engineer in stasis. Hang on, this won't take long.
+
+[Eliza]: Did it work? You should be seeing a sort of advanced visual interface.
+
+[Player]: Er, I think so.
+
+[Eliza]: Great. Now, you can use Luna, the ship's AI assistant, to control eye-OS. Just say "Luna Scan" to activate the scanning feature.
+
+[Player]: Luna Tick! Ha ha
+
+[Eliza]: Very funny. But let's focus on the task at hand. Please say "Luna Scan" to activate the scanning feature so we can find an engineer.
+
+[Player]: Oka, okay. Luna Scan.
+
+[Eliza]: Perfect. Now you should see information overlays on the stasis pods. Look around and see if you can spot a pod containing an engineer.
+
+[Player]: There are a lot of pods. What are those weird flying things?
+
+[Eliza]: Those are maintenance droids. Don't worry about them for now. Keep focusing on the stasis pods and finding an engineer. Can you see the occupations listed next to each pod?
+
+[Player]: There's a medical dude called Simon.
+
+[Eliza]: That's good, but we're specifically looking for an engineer. Keep scanning the pods until you find someone with "Engineer" listed as their occupation.
+
+[Player]: Pkay. Got one. John Lusty.
+
+[Eliza]: Excellent work! Can you read out the pod ID for John Lusty's stasis pod? I'll need that to attempt a remote wake-up.
+
+[Player]: It's ED3122
+
+[Eliza]: Great, I'm initiating the wake-up sequence for ED3122 now. Keep your eyes on that pod and tell me what you see happening.
+
+[Player]: Fuck!
+
+[Eliza]: What's wrong? What's happening with the pod?
+
+[Player]: It's started to burn. We're in trouble!
+
+Mini scene completed successfully

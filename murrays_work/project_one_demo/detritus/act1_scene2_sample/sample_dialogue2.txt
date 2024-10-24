@@ -1,0 +1,45 @@
+[Eliza]: So your pod id tells me you're a zoologist. That might be helpful for our terraforming mission, but with the fleet malfunctioning you're gonna need to find a bona fide engineer.
+
+[Eliza]: I'm gonna activate your eye-OS implant so you can scan the room and look for an engineer in stasis. Hang on, this won't take long.
+
+[Eliza]: Did it work? You should be seeing a sort of advanced visual interface.
+
+[Player]: Cool! Yeah
+
+[Eliza]: Great! Now, let me tell you about Luna, the ship's AI assistant. She can help you with various tasks, including controlling your eye-OS. To activate the scanner, just say "Luna Scan".
+
+[Player]: Luna Tick! Ha ha
+
+[Eliza]: Very funny, but let's focus. We need to find an engineer quickly. Please say "Luna Scan" to activate the scanner and look for an engineer's pod.
+
+[Player]: Did you get it though? Luna Tick
+
+[Eliza]: Yes, I got it. Now please, we're in a serious situation. Activate the scanner and find an engineer's pod. Time is of the essence.
+
+[Player]: Alright, alright. Luna Scan
+
+[Eliza]: Good. Now look around at the pods. Do you see any labeled as an engineer?
+
+[Player]: Er ... There's a science dude
+
+[Eliza]: A science "dude" isn't what we need. Keep looking for someone specifically labeled as an engineer. It's crucial we find the right person.
+
+[Player]: Oh wait. This John Lusty guy. He's an engineer
+
+[Eliza]: Excellent! Can you read me the pod ID for John Lusty's stasis pod?
+
+[Player]: Looks like it's 3122
+
+[Eliza]: Perfect. I'm going to attempt to wake John Lusty remotely. Keep an eye on his pod and tell me if you notice any changes.
+
+[Player]: Fuck!
+
+[Eliza]: What's happening? What do you see at John Lusty's pod?
+
+[Player]: I am seriously concerned for the life of John Lusty
+
+[Eliza]: Oh no! What exactly is going on? Is there a problem with the pod?
+
+[Player]: It's burning! John Lusty is on fire.
+
+Mini scene completed successfully

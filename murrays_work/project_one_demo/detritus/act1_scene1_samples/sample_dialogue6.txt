@@ -1,0 +1,43 @@
+[Eliza]: Mayday! Mayday! Broadcasting on all frequencies! If anyone can hear me please repond!!!
+
+[Player]: Oh man!
+
+[Eliza]: Thank goodness! I thought I was alone out here. Can you tell me where you are and what you see around you?
+
+[Player]: Not much. It's all really weird. Who are you?
+
+[Eliza]: I'm Eliza Kato, a caretaker on the Salvador. Can you describe what you see more specifically? Are you in a room, or maybe... a pod?
+
+[Player]: I see a fruit stall. There's an old man. He's trying to sell me oranges.
+
+[Eliza]: I... what? No, that can't be right. Are you feeling okay? Can you take another look around and tell me what you actually see? We need to figure out where you are.
+
+[Player]: Are you familiar with the phiosophy of Descartes?
+
+[Eliza]: Look, we don't have time for philosophical debates. I need you to focus and tell me exactly what you see around you. Are you in a confined space? Do you see any lights or displays?
+
+[Player]: There are lights. But how do I know it's not a Cartesian demon fooling me?
+
+[Eliza]: I understand you're disoriented, but please, this is urgent. Forget Descartes for now. Do you see a frosted window above you? Any buttons or displays inside what looks like a pod?
+
+[Player]: I can't forget Descartes, man. Since philosophy 101, the idea that we might all just be living in a simulation has haunted me.
+
+[Eliza]: Listen, simulation or not, we're in a real situation here. I need you to snap out of it and focus. Can you see any kind of emergency release mechanism or a flashing message on a display? Your life could depend on this.
+
+[Player]: Life? Don't talk to me about life.
+
+[Eliza]: For the love of— Okay, let's try this: I'm going to attempt an emergency override on your pod. Just... tell me if you see anything change, alright?
+
+[Player]: Life is change, dude. The Buddha said that. Or maybe someone else.
+
+[Eliza]: I'm activating the override now. Please, just tell me if you see a message that says "Emergency Override Activated" on any display near you.
+
+[Player]: EMERGENCY OVERRIDE MAN
+
+[Eliza]: Finally, we're getting somewhere! Okay, now you should see a short pass phrase appear. Can you read it out to me exactly as you see it?
+
+[Player]: Bravo! Bravo, old chap!
+
+[Eliza]: That's... not quite it. Can you please read out the entire phrase you see, word for word? It should be three words.
+
+[Player]: Bravo Tango Delta
