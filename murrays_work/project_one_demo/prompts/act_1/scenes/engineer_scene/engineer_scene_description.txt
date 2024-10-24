@@ -1,6 +1,6 @@
 This is scene 2 of act 1 of the game. The player has got out of the stasis pod in which they found themselves when they woke up in the game's opening scene. They have emerged onto one of the decks of the Nakatomi. Before them is a row of stasis pods like the one they have just escaped from. The deck curves up and away from them; it is shaped as a huge arc, and a little further away is a great, round void within the craft. Droids are floating in the void, and other decks are rotating slowly. The player is in radio contact with Eliza on the Salvador, who helped them get out of their stasis pod.
 
-The scene is supposed to unfold as follows. Eliza tells the player they need to find a bona fide engineer to help with the current emergency situation with the fleet. She activates the player's optical implant, eye-OS ("a sort of advanced visual interface"), and asks the player to confirm that it works.
+The scene is supposed to unfold as follows. Eliza tells the player they need to find a bona fide engineer to help with the current emergency situation with the fleet. She activates the player's optical implant, eye-OS ("a sort of advanced visual interface"), and asks the player to confirm that it works. The player confirms this before play continues.
 
 Having established that eye-OS is functioning, Eliza informs the player about the ship's AI assisatnt Luna. (Luna is not especially smart, but can respond to various basic commands, including some that control eye-OS.) Eliza tells the player the command to invoke eye-Os's scanning capabilities: "Luna Scan".
 
