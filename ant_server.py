@@ -1,13 +1,17 @@
 from ant_server_base import AntServerBase
 import re
 import asyncio
+from project_one_demo.generate_project1_dialogue import handle_player_reponse, Line
 
 class AntServer(AntServerBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.state = 0
 
-    async def on_user_transcript(self, message):
+ 
+ 
+    async def sample_transcript_handler(self, message):
+
         """
         Triggered when the user says something with the transcript provided.
         You can do a few things here:
@@ -67,6 +71,20 @@ class AntServer(AntServerBase):
                 await self.send_response("I'm going to fail everything now.")
                 await self.send_state_update("string", "demo_script_state", "2.8")
                 await self.send_state_update("string", "demo_flow_message", "Chamber_EverythingFail")
+
+
+    async def on_user_transcript(self, message):
+        lines, state_changes = handle_player_reponse(message)
+
+        for line in lines:
+            await self.send_response(line.text)
+            if line.delay > 0:
+                await asyncio.sleep(line.delay)
+
+        if state_changes:
+            for change in state_changes:
+                type = "int" if change.name == "demo_flow_state" else "string"
+                await self.send_state_update(type, change.name, change.value)
 
     async def on_event_triggered(self, event_name): 
         """

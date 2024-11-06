@@ -5,6 +5,7 @@ from rich.console import Console
 from protocol import Protocol
 import abc
 import re
+from project_one_demo.generate_project1_dialogue import SceneData, Query, Line, load_scene_data
 
 from cachedvoiceclient import CachedVoiceClient
 
@@ -46,6 +47,8 @@ async def client_handler(websocket, path):
         # Put any client cleanup here
 
 
+scene_data = load_scene_data("meet_the_caretaker")
+print(scene_data)
 
 print("Server ready!")
 new_loop = asyncio.new_event_loop()
