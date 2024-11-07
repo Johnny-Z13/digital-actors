@@ -1,0 +1,7 @@
+The player has told Eliza about the falling drones.
+
+The player has told Eliza about the alarm.
+
+The player has told Eliza that the stasis pods are on fire.
+
+Eliza has told the player to abandon the engineer and find the control room.
