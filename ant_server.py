@@ -1,13 +1,13 @@
 from ant_server_base import AntServerBase
 import re
 import asyncio
-from project_one_demo.generate_project1_dialogue import handle_player_reponse, Line
+from project_one_demo.generate_project1_dialogue import reset_reponse_handler, handle_player_reponse, start_scene, Line
 
 class AntServer(AntServerBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.state = 0
-
+        reset_reponse_handler()
  
  
     async def sample_transcript_handler(self, message):
@@ -73,22 +73,42 @@ class AntServer(AntServerBase):
                 await self.send_state_update("string", "demo_flow_message", "Chamber_EverythingFail")
 
 
-    async def on_user_transcript(self, message):
-        lines, state_changes = handle_player_reponse(message)
-
-        for line in lines:
-            await self.send_response(line.text)
-            if line.delay > 0:
+    async def process_results(self, lines, state_changes):
+        for line in lines or []:
+            if line.text:
+                await self.send_response(line.text)
+            if line.delay > 0.0:
                 await asyncio.sleep(line.delay)
 
-        if state_changes:
-            for change in state_changes:
+        for change in state_changes or []:
+            if change.name and change.value:
                 type = "int" if change.name == "demo_flow_state" else "string"
                 await self.send_state_update(type, change.name, change.value)
+
+
+    async def on_user_transcript(self, message):
+
+        # Handle luna messages (http://forge.internal.iconicgames.ai/editor/11/). This won't match everything.
+        if re.match(r'^\s*(computer|luna)\s+(scan|scam|skin|scot)\s*(room|vicinity|area|pod|cryopod|hsp|door|wall|server)?\s*$', message, re.IGNORECASE):
+            await self.send_event("eyeOS_VC_ScanRoom")
+            return
+        if re.match(r'^\s*(computer|luna).*(gravity|zero\s*g).*\s*$', message, re.IGNORECASE):
+            await self.send_event("eyeOS_VC_ToggleGravity")
+            return
+
+        result = handle_player_reponse(message)
+        if result:
+            await self.process_results(result[0], result[1])
+
 
     async def on_event_triggered(self, event_name): 
         """
         Events triggered inside the game get proxied through here.
         Optionally, you can filter events here (and replace them with your own logic).
         """   
+        if event_name == "kato_chamber_outside_pod": # This gets sent twice by the game - start_scene ensures it only loads once.
+            result = start_scene("describe_the_room")
+            if result:
+                await self.process_results(result[0], result[1])
+
         await self.send_event(event_name)

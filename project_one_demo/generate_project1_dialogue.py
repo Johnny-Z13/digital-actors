@@ -1,6 +1,7 @@
 import os
 import sys
 import re
+import math
 from iconic_tools.langchain import InstructSonnet, InstructOpus3, InstructGPT4, InstructO1, InstructGeminiPro, InstructGPT35, InstructGeminiFlash
 from langchain_core.prompts import ChatPromptTemplate
 from concurrent.futures import ThreadPoolExecutor
@@ -11,6 +12,7 @@ from dataclasses import dataclass, field
 DIALOGUE_MODEL = InstructGeminiFlash(temperature=1.0, max_tokens=3000)
 QUERY_MODEL = InstructGeminiFlash(temperature=1.0, max_tokens=3000)
 
+
 GAME = "act_1"
 ACTORS = ["Eliza", "Player"]
 
@@ -19,6 +21,11 @@ GREEN = "\033[92m"
 BLUE = "\033[94m"
 YELLOW = "\033[93m"
 WHITE = "\033[0m"
+CYAN = "\033[96m"
+MAGENTA = "\033[95m"
+BRIGHT_WHITE = "\033[97m"
+BLACK = "\033[90m"
+ORANGE = "\033[33m"
 
 # UTILITIES
 def list_to_conjunction(L):
@@ -86,7 +93,7 @@ def prompt_llm(prompt, model):
 @dataclass
 class Line:
     text: str
-    delay: int
+    delay: float
 
 @dataclass
 class StateChange:
@@ -132,6 +139,9 @@ class SceneData:
         return dialogue
     
     def run_queries(self, dialogue:str) -> List[StateChange]:
+
+        state_changes = []
+
         for query in self.queries:
             if query.handled == False:
                 instruction = query_instruction_suffix_template.format(statement=query.text)
@@ -141,9 +151,11 @@ class SceneData:
                 if response[0:4].lower() == "true":
                     query.handled = True
                     print(YELLOW + f"Query passed for \"{query.text}\" - returning state_id \"{query.state_changes}\"")
-                    return query.state_changes
+                    state_changes.extend(query.state_changes)
+                else:
+                    break
                     
-        return None
+        return state_changes
 
     def all_queries_handled(self) -> bool:
         return all(query.handled for query in self.queries)
@@ -226,10 +238,10 @@ def load_opening_speech(scene_name:str) -> List[Line]:
             continue  # Skip empty lines
         
         # Match optional scene ID at the start of the line
-        match = re.match(r'^\[(\d+)\]\s+(.+)$', line)
+        match = re.match(r'^\[(\d+(\.\d+)?)\]\s+(.+)$', line)
         if match:
-            delay = match.group(1)
-            text = match.group(2)
+            delay = float(match.group(1))
+            text = match.group(3)
         else:
             delay = 0  # Empty if no scene ID is present
             text = line
@@ -249,35 +261,58 @@ def load_scene_data(scene_name:str) -> SceneData:
 
 
 
+gSceneData = None
+gSceneDialogue = ""
+gScenes = []
 
+def load_next_scene():
+    global gSceneDialogue, gSceneData, gScenes
 
-gSceneData = load_scene_data("meet_the_caretaker")
-gDialogue = gSceneData.get_initial_dialog()
-print(gSceneData)
-print(gDialogue)
+    if (gScenes):
+        print(CYAN + f"Loading scene \"{gScenes[0]}\"")
+        gSceneData = load_scene_data(gScenes.pop(0))
+        gSceneDialogue = gSceneData.get_initial_dialog()
+        print(gSceneData)
+        print(gSceneDialogue)
 
+def start_scene(scene: str):
+    global gSceneDialogue, gSceneData, gScenes
 
+    if (gScenes and gScenes[0] == scene): # Hacky guard due to events getting sent twice from game
+        load_next_scene()
+        return gSceneData.opening_speech, []
+    
+    return [], []
 
+def reset_reponse_handler():
+    global gSceneDialogue, gSceneData, gScenes
 
+    gScenes = ["meet_the_caretaker", "describe_the_room", "exit_the_room"]
+    print(CYAN + f"Starting response handler for scenes: \"{gScenes}\"")
+    load_next_scene()
 
 def handle_player_reponse(message:str) -> Tuple[List[Line], List[StateChange]]:
 
-    global gDialogue, gSceneData
+    global gSceneDialogue, gSceneData, gScenes
+    #if gSceneData is None or gSceneData.all_queries_handled():
+    #    load_next_scene()
 
-    print(f"Handling player repsonse: \"{message}\"")
+    if message:
+        print(CYAN + f"Handling player repsonse: \"{message}\"")
 
-    player_dialogue = speech_template.format(actor=ACTORS[1], speech=message)
-    gDialogue += player_dialogue + "\n"
+        player_dialogue = speech_template.format(actor=ACTORS[1], speech=message)
+        gSceneDialogue += player_dialogue + "\n"
 
-    prompt = instruction_template.format(preamble=gSceneData.dialogue_preamble, dialogue=gDialogue, instruction_suffix=dialogue_instruction_suffix)
-    chain = prompt_llm(prompt, DIALOGUE_MODEL)
-    eliza_response = chain.invoke({})
- 
-    gDialogue += eliza_response + "\n"
-    state_changes = gSceneData.run_queries(gDialogue)
+        prompt = instruction_template.format(preamble=gSceneData.dialogue_preamble, dialogue=gSceneDialogue, instruction_suffix=dialogue_instruction_suffix)
+        chain = prompt_llm(prompt, DIALOGUE_MODEL)
+        eliza_response = chain.invoke({})
+    
+        gSceneDialogue += eliza_response + "\n"
+        state_changes = gSceneData.run_queries(gSceneDialogue)
 
-    eliza_text = str(eliza_response).strip().removeprefix(f"[{ACTORS[0]}]: ")
+        eliza_text = str(eliza_response).strip().removeprefix(f"[{ACTORS[0]}]: ")
+        eliza_text = eliza_text.replace('"', '')
 
-    print(f"Results: text=\"{eliza_text}\" state_changes=\"{state_changes}\"")
- 
-    return [Line(text=eliza_text, delay=0)], state_changes
+        print(CYAN + f"Results: text=\"{eliza_text}\" state_changes=\"{state_changes}\"")
+    
+        return [Line(text=eliza_text, delay=0)], state_changes
