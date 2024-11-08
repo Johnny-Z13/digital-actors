@@ -9,8 +9,20 @@ from typing import NamedTuple, List, Tuple
 from dataclasses import dataclass, field
 
 # CONSTANTS AND INITIALISATION
+# DIALOGUE_MODEL = InstructGeminiPro(temperature=1.0, max_tokens=3000)
+# QUERY_MODEL = InstructGeminiPro(temperature=1.0, max_tokens=3000)
+
+# DIALOGUE_MODEL = InstructGPT4(temperature=1.0, max_tokens=3000)
+# QUERY_MODEL = InstructGPT4(temperature=1.0, max_tokens=3000)
+
 DIALOGUE_MODEL = InstructGeminiFlash(temperature=1.0, max_tokens=3000)
 QUERY_MODEL = InstructGeminiFlash(temperature=1.0, max_tokens=3000)
+
+# DIALOGUE_MODEL = InstructO1()
+# QUERY_MODEL = InstructO1()
+
+# DIALOGUE_MODEL = InstructSonnet(temperature=1.0, max_tokens=3000)
+# QUERY_MODEL = InstructSonnet(temperature=1.0, max_tokens=3000)
 
 
 GAME = "act_1"
