@@ -265,7 +265,7 @@ gSceneData = None
 gSceneDialogue = ""
 gScenes = []
 
-def load_next_scene():
+def load_next_scene() -> bool:
     global gSceneDialogue, gSceneData, gScenes
 
     if (gScenes):
@@ -274,6 +274,9 @@ def load_next_scene():
         gSceneDialogue = gSceneData.get_initial_dialog()
         print(gSceneData)
         print(gSceneDialogue)
+        return True
+
+    return False
 
 def start_scene(scene: str):
     global gSceneDialogue, gSceneData, gScenes
@@ -287,21 +290,21 @@ def start_scene(scene: str):
 def reset_reponse_handler():
     global gSceneDialogue, gSceneData, gScenes
 
-    gScenes = ["meet_the_caretaker", "describe_the_room", "exit_the_room"]
+    gScenes = ["meet_the_caretaker", "locate_an_engineer", "describe_the_failures", "exit_the_room"]
     print(CYAN + f"Starting response handler for scenes: \"{gScenes}\"")
     load_next_scene()
 
-def handle_player_reponse(message:str) -> Tuple[List[Line], List[StateChange]]:
+def handle_player_reponse(message:str, automated:bool) -> Tuple[List[Line], List[StateChange]]:
 
     global gSceneDialogue, gSceneData, gScenes
-    #if gSceneData is None or gSceneData.all_queries_handled():
-    #    load_next_scene()
-
     if message:
         print(CYAN + f"Handling player repsonse: \"{message}\"")
 
-        player_dialogue = speech_template.format(actor=ACTORS[1], speech=message)
-        gSceneDialogue += player_dialogue + "\n"
+        if automated:
+            gSceneDialogue += "Eliza to comment on " + message + "\n"
+        else:
+            player_dialogue = speech_template.format(actor=ACTORS[1], speech=message)
+            gSceneDialogue += player_dialogue + "\n"
 
         prompt = instruction_template.format(preamble=gSceneData.dialogue_preamble, dialogue=gSceneDialogue, instruction_suffix=dialogue_instruction_suffix)
         chain = prompt_llm(prompt, DIALOGUE_MODEL)
@@ -311,8 +314,16 @@ def handle_player_reponse(message:str) -> Tuple[List[Line], List[StateChange]]:
         state_changes = gSceneData.run_queries(gSceneDialogue)
 
         eliza_text = str(eliza_response).strip().removeprefix(f"[{ACTORS[0]}]: ")
-        eliza_text = eliza_text.replace('"', '')
+        eliza_text = eliza_text.replace('"', '') # remove quotes (causes disconnect when sending back via websocket)
+        eliza_text = eliza_text.replace('*', '') # remove * used for emphasis on words (eleven laps speaks it)
 
         print(CYAN + f"Results: text=\"{eliza_text}\" state_changes=\"{state_changes}\"")
+
+        result_lines = [Line(text=eliza_text, delay=0)]
+
+        if gSceneData.all_queries_handled():
+            print(ORANGE + f"All queries for {gSceneData.scene_name} complete, autoloading next scene")
+            if load_next_scene():
+                result_lines.extend(gSceneData.opening_speech)        
     
-        return [Line(text=eliza_text, delay=0)], state_changes
+        return result_lines, state_changes

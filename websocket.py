@@ -3,8 +3,8 @@ import asyncio
 import secrets
 from rich.console import Console
 from protocol import Protocol
-import abc
-import re
+import traceback
+import logging
 from project_one_demo.generate_project1_dialogue import SceneData, Query, Line, load_scene_data
 
 from cachedvoiceclient import CachedVoiceClient
@@ -40,15 +40,21 @@ async def client_handler(websocket, path):
                     print("Unknown message")
                     print(message)
 
-    except websockets.ConnectionClosed:
-        console.print(f"Client {client_id} disconnected")
+    except websockets.ConnectionClosed as e:
+        console.print(f"Client {client_id} disconnected unexpectedly: {e}")
+        logging.error(f"Connection closed by client {client_id}: {e}")
+
+    except Exception as e:
+        console.print("[red]An error occurred during message handling[/red]")
+        error_details = ''.join(traceback.format_exception(None, e, e.__traceback__))
+        console.print(error_details)
+        logging.error(f"Unexpected error for client {client_id}: {error_details}")
+
     finally:
-        pass
-        # Put any client cleanup here
+        # Optional: Add any cleanup code here, if needed
+        console.print("Ending connection handling")
 
-
-scene_data = load_scene_data("meet_the_caretaker")
-print(scene_data)
+#print(load_scene_data("describe_the_room"))
 
 print("Server ready!")
 new_loop = asyncio.new_event_loop()

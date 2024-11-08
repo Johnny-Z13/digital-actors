@@ -1,10 +1,6 @@
 The player has been chatting with Eliza.
 [demo_script_state = 1.2]
 
-Eliza has asked the player if she can do an emergency override.
-
-The player has agreed to the emergency override.
-
 Eliza has said she has started the emergency override.
 [demo_script_state = 1.4]
 
@@ -14,3 +10,4 @@ The player has acknowledged the emergency override is working and Eliza has aske
 The player has said the phrase "Bravo Tango Delta".
 [demo_script_state = 2.1, demo_flow_state= 1, demo_flow_message = Pod_PassphraseCorrect]
 
+False.

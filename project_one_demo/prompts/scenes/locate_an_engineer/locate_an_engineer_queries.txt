@@ -1,0 +1,7 @@
+Eliza has said she started the wake-up cycle.
+[demo_script_state = 2.5, demo_flow_message = Chamber_OtherPodFail]
+
+The player has reported that the stasis pod is failing or on fire.
+[demo_script_state = 2.8, demo_flow_message = Chamber_EverythingFail]
+
+False.

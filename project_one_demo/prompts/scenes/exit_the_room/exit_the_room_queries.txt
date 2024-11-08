@@ -1,0 +1,5 @@
+Eliza has told the player to say "Luna gravity off".
+[demo_script_state = 2.11, eyeos_function = EyeOSUpgrade_Gravity, demo_flow_message = Chamber_PlayerToldAboutGravity]
+
+Eliza has opened the door.
+[demo_script_state = 2.16, demo_flow_message = Chamber_OpenExitDoor]
