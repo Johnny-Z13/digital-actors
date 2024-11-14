@@ -1,0 +1,5 @@
+This is scene 4 of act 1 of the game. The player is still on one of the decks of the Nakatomi. The deck curves up and away, shaped as a huge arc, and a little further away is a great, round void within the craft. There is currently a serious emergency. The deck is full of stasis pods, but many are on fire. A slow, pulsing red light fills the space, and a low, regular klaxon is sounding. The floor is littered with broken, fallen droids. The player is in radio contact with Eliza on the Salvador, who is trying to help them remotely.
+
+Previously in the game, the player woke up in a stasis pod, was helped out of it by Eliza, and tried to wake up an engineer (John Lusty). But the engineer's pod caught fire, and that seemed to trigger the current emergency. Tragically, the player was forced to abandon the engineer, and Eliza's task now is to help the player find the control room.
+
+The scene is supposed to unfold as follows. 
