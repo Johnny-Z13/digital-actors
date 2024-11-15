@@ -9,5 +9,6 @@ The player has acknowledged the emergency override is working and Eliza has aske
 
 The player has said the phrase "Bravo Tango Delta".
 [demo_script_state = 2.1, demo_flow_state= 1, demo_flow_message = Pod_PassphraseCorrect]
+(Computer: passphrase correct)
 
 False.

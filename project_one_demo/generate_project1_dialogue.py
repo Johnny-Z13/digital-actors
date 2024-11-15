@@ -116,7 +116,9 @@ class StateChange:
 class Query:
     text: str
     state_changes: List[StateChange]
-    handled: bool = False  
+    handled: bool = False
+    query_printed: bool = False  # When this query becomes True a message is printed to the NPC dialogue
+    query_printed_text: str = ""
 
 @dataclass
 class SceneData:
@@ -150,9 +152,10 @@ class SceneData:
 
         return dialogue
     
-    def run_queries(self, dialogue:str) -> List[StateChange]:
+    def run_queries(self, dialogue:str) -> (List[StateChange], str):
 
         state_changes = []
+        to_print = []
 
         for query in self.queries:
             if query.handled == False:
@@ -164,10 +167,12 @@ class SceneData:
                     query.handled = True
                     print(YELLOW + f"Query passed for \"{query.text}\" - returning state_id \"{query.state_changes}\"")
                     state_changes.extend(query.state_changes)
+                    if query.query_printed:
+                        to_print.append(query.query_printed_text)
                 else:
                     break
                     
-        return state_changes
+        return state_changes, to_print
 
     def all_queries_handled(self) -> bool:
         return all(query.handled for query in self.queries)
@@ -206,6 +211,8 @@ def load_queries(scene_name:str) -> List[Query]:
     queries = []
     query_text = None
     state_changes = []
+    query_printed = False
+    query_printed_text = ""
 
     file = load_scene_file(scene_name, "queries")
     for line in file.splitlines():
@@ -224,7 +231,11 @@ def load_queries(scene_name:str) -> List[Query]:
             for part in state_parts:
                 name, value = map(str.strip, part.split('='))
                 state_changes.append(StateChange(name=name.strip(), value=value.strip()))
-                
+
+        elif line.startswith('(') and line.endswith(')'):
+            query_printed = True
+            query_printed_text = line[1:-1] # Remove ( and )
+
         else:
             # If there was previous query text, create a Query object and reset
             if query_text is not None:
@@ -236,9 +247,11 @@ def load_queries(scene_name:str) -> List[Query]:
 
     # Add the last query if there is one
     if query_text is not None:
-        queries.append(Query(text=query_text, state_changes=state_changes))
+        queries.append(Query(text=query_text, state_changes=state_changes, query_printed=query_printed,
+                             query_printed_text=query_printed_text))
     
     return queries
+
 
 def load_opening_speech(scene_name:str) -> List[Line]:
     lines = []
@@ -262,6 +275,7 @@ def load_opening_speech(scene_name:str) -> List[Line]:
         lines.append(Line(text=text, delay=delay))  
 
     return lines
+
 
 def load_scene_data(scene_name:str) -> SceneData:
     scene_description = load_scene_file(scene_name, "scene_description")
@@ -307,7 +321,6 @@ def reset_reponse_handler():
     load_next_scene()
 
 def handle_player_reponse(message:str, automated:bool) -> Tuple[List[Line], List[StateChange]]:
-
     global gSceneDialogue, gSceneData, gScenes
     if message:
         print(CYAN + f"Handling player repsonse: \"{message}\"")
@@ -318,12 +331,26 @@ def handle_player_reponse(message:str, automated:bool) -> Tuple[List[Line], List
             player_dialogue = speech_template.format(actor=ACTORS[1], speech=message)
             gSceneDialogue += player_dialogue + "\n"
 
-        prompt = instruction_template.format(preamble=gSceneData.dialogue_preamble, dialogue=gSceneDialogue, instruction_suffix=dialogue_instruction_suffix)
+        state_changes, to_print = gSceneData.run_queries(gSceneDialogue)
+        print(CYAN + f"Initial state changes: {state_changes}")
+
+        if to_print:
+            gSceneDialogue += to_print + "\n"
+
+        prompt = instruction_template.format(preamble=gSceneData.dialogue_preamble, dialogue=gSceneDialogue,
+                                             instruction_suffix=dialogue_instruction_suffix)
         chain = prompt_llm(prompt, DIALOGUE_MODEL)
         eliza_response = chain.invoke({})
     
         gSceneDialogue += eliza_response + "\n"
-        state_changes = gSceneData.run_queries(gSceneDialogue)
+        state_changes2, to_print = gSceneData.run_queries(gSceneDialogue)
+        print(CYAN + f"Additional state changes: {state_changes2}")
+
+        if to_print:
+            gSceneDialogue += to_print + "\n"
+
+        state_changes.extend(state_changes2)
+        print(CYAN + f"Combined state changes: {state_changes}")
 
         eliza_text = str(eliza_response).strip().removeprefix(f"[{ACTORS[0]}]: ")
         eliza_text = eliza_text.replace('"', '') # remove quotes (causes disconnect when sending back via websocket)
