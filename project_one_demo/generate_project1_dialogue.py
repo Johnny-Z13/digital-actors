@@ -163,6 +163,7 @@ class SceneData:
                 prompt = instruction_template.format(preamble=self.query_preamble, dialogue=dialogue, instruction_suffix=instruction)
                 chain = prompt_llm(prompt, DIALOGUE_MODEL)
                 response = chain.invoke({})
+                print(ORANGE + f"Query for \"{query.text}\" - response: \"{response}\"")
                 if response[0:4].lower() == "true":
                     query.handled = True
                     print(YELLOW + f"Query passed for \"{query.text}\" - returning state_id \"{query.state_changes}\"")
@@ -348,6 +349,8 @@ def handle_player_reponse(message:str, automated:bool) -> Tuple[List[Line], List
 
         if to_print:
             gSceneDialogue += to_print + "\n"
+
+        print(CYAN + f"Scene dialogue: {gSceneDialogue}")
 
         state_changes.extend(state_changes2)
         print(CYAN + f"Combined state changes: {state_changes}")
