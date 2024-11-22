@@ -1,3 +1,7 @@
+The player has said the id "3122" or "ED3122".
+[demo_script_state = 2.4]
+(Computer: ENGINEER ID, Computer: NOT ENGINEER ID)
+
 Eliza has said she started the wake-up cycle.
 [demo_script_state = 2.5, demo_flow_message = Chamber_OtherPodFail]
 

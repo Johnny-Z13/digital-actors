@@ -117,8 +117,9 @@ class Query:
     text: str
     state_changes: List[StateChange]
     handled: bool = False
-    query_printed: bool = False  # When this query becomes True a message is printed to the NPC dialogue
-    query_printed_text: str = ""
+    query_printed: bool = False  # When this query is evaluated a message is printed to the NPC dialogue
+    query_printed_text_true: str = ""
+    query_printed_text_false: str = ""
 
 @dataclass
 class SceneData:
@@ -152,10 +153,10 @@ class SceneData:
 
         return dialogue
     
-    def run_queries(self, dialogue:str) -> (List[StateChange], str):
+    def run_queries(self, dialogue: str) -> Tuple[List[StateChange], str]:
 
         state_changes = []
-        to_print = []
+        to_print = ""
 
         for query in self.queries:
             if query.handled == False:
@@ -169,8 +170,10 @@ class SceneData:
                     print(YELLOW + f"Query passed for \"{query.text}\" - returning state_id \"{query.state_changes}\"")
                     state_changes.extend(query.state_changes)
                     if query.query_printed:
-                        to_print.append(query.query_printed_text)
+                        to_print = query.query_printed_text_true
                 else:
+                    if query.query_printed:
+                        to_print = query.query_printed_text_false
                     break
                     
         return state_changes, to_print
@@ -213,7 +216,8 @@ def load_queries(scene_name:str) -> List[Query]:
     query_text = None
     state_changes = []
     query_printed = False
-    query_printed_text = ""
+    query_printed_text_true = ""
+    query_printed_text_false = ""
 
     file = load_scene_file(scene_name, "queries")
     for line in file.splitlines():
@@ -235,12 +239,20 @@ def load_queries(scene_name:str) -> List[Query]:
 
         elif line.startswith('(') and line.endswith(')'):
             query_printed = True
-            query_printed_text = line[1:-1] # Remove ( and )
+            query_printed_text = line[1:-1]  # Remove ( and )
+            parts = query_printed_text.split(", ", 1)
+            if len(parts) == 2:
+                query_printed_text_true = str(parts[0])
+                query_printed_text_false = str(parts[1])
+            else:
+                query_printed_text_true = query_printed_text
+                query_printed_text_false = ""
 
         else:
             # If there was previous query text, create a Query object and reset
             if query_text is not None:
-                queries.append(Query(text=query_text, state_changes=state_changes))
+                queries.append(Query(text=query_text, state_changes=state_changes, query_printed=query_printed,
+                             query_printed_text_true=query_printed_text_true, query_printed_text_false=query_printed_text_false))
                 state_changes = []
                 
             # Update query_text to the current line
@@ -249,8 +261,8 @@ def load_queries(scene_name:str) -> List[Query]:
     # Add the last query if there is one
     if query_text is not None:
         queries.append(Query(text=query_text, state_changes=state_changes, query_printed=query_printed,
-                             query_printed_text=query_printed_text))
-    
+                             query_printed_text_true=query_printed_text_true, query_printed_text_false=query_printed_text_false))
+
     return queries
 
 
@@ -334,8 +346,9 @@ def handle_player_reponse(message:str, automated:bool) -> Tuple[List[Line], List
 
         state_changes, to_print = gSceneData.run_queries(gSceneDialogue)
         print(CYAN + f"Initial state changes: {state_changes}")
-
+        print(CYAN + f"Additional print: {to_print}" + "print_type: " + str(type(to_print)))
         if to_print:
+            print(RED + f"Additional print: {to_print}")
             gSceneDialogue += to_print + "\n"
 
         prompt = instruction_template.format(preamble=gSceneData.dialogue_preamble, dialogue=gSceneDialogue,

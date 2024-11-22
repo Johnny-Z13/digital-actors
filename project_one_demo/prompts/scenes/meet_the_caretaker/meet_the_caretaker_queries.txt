@@ -1,17 +1,14 @@
 The player has been chatting with Eliza.
 [demo_script_state = 1.2]
 
-Eliza has said she has started the emergency override.
+Eliza has said she has started the emergency override, the statement can be implicit.
 [demo_script_state = 1.4]
-
-The player has acknowledged the emergency override is working and Eliza has asked for the player to repeat the pass phrase.
-[demo_script_state = 1.6]
 
 Eliza has asked for the player to repeat the pass phrase.
 [demo_script_state = 1.6]
 
 The player has said the phrase "Bravo Tango Delta".
 [demo_script_state = 2.1, demo_flow_state= 1, demo_flow_message = Pod_PassphraseCorrect]
-(Computer: passphrase correct)
+(Computer: CORRECT PASSPHRASE, Computer: WRONG PASSPHRASE)
 
 False.
