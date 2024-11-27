@@ -1,4 +1,7 @@
-The player has said the id "3122" or "ED3122".
+The player has confirmed that they located an engineer
+[demo_script_state = 2.2]
+
+The player has said "3122" or "ED3122".
 [demo_script_state = 2.4]
 (Computer: ENGINEER ID, Computer: NOT ENGINEER ID)
 

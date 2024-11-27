@@ -168,9 +168,10 @@ class SceneData:
                 if response[0:4].lower() == "true":
                     query.handled = True
                     print(YELLOW + f"Query passed for \"{query.text}\" - returning state_id \"{query.state_changes}\"")
-                    state_changes.extend(query.state_changes)
                     if query.query_printed:
                         to_print = query.query_printed_text_true
+                    state_changes.extend(query.state_changes)
+                    break
                 else:
                     if query.query_printed:
                         to_print = query.query_printed_text_false
