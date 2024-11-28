@@ -1,7 +1,7 @@
 The player has been chatting with Eliza.
 [demo_script_state = 1.2]
 
-Eliza has said she has started the emergency override, the statement can be implicit.
+Eliza has said she has started the emergency override, or that an "emergency override" message should appear. The statement can be implicit.
 [demo_script_state = 1.4]
 
 Eliza has talked about a passphrase.

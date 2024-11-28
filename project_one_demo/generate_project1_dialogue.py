@@ -168,12 +168,13 @@ class SceneData:
                 if response[0:4].lower() == "true":
                     query.handled = True
                     print(YELLOW + f"Query passed for \"{query.text}\" - returning state_id \"{query.state_changes}\"")
-                    if query.query_printed:
+                    if query.query_printed_text_true:
+                        query.query_printed = True
                         to_print = query.query_printed_text_true
                     state_changes.extend(query.state_changes)
                     break
                 else:
-                    if query.query_printed:
+                    if query.query_printed_text_true and not query.query_printed:
                         to_print = query.query_printed_text_false
                     break
                     
@@ -239,7 +240,6 @@ def load_queries(scene_name:str) -> List[Query]:
                 state_changes.append(StateChange(name=name.strip(), value=value.strip()))
 
         elif line.startswith('(') and line.endswith(')'):
-            query_printed = True
             query_printed_text = line[1:-1]  # Remove ( and )
             parts = query_printed_text.split(", ", 1)
             if len(parts) == 2:
