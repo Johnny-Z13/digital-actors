@@ -1,5 +1,12 @@
 Eliza has told the player to say "Luna gravity off".
 [demo_script_state = 2.11, eyeos_function = EyeOSUpgrade_Gravity, demo_flow_message = Chamber_PlayerToldAboutGravity]
 
+The player has mentioned they cannot open the door or that they got access denied.
+[demo_script_state = 2.12]
+
+The player has said the door id "LM-023", "LM 023", "023" or "O Two Three" or "Zero Two Three" or the same in capital letters.
+[demo_script_state = 2.14]
+(Computer: CORRECT DOOR ID, Computer: THIS IS NOT A DOOR ID)
+
 Eliza has opened the door.
 [demo_script_state = 2.16, demo_flow_message = Chamber_OpenExitDoor]
