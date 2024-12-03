@@ -1,0 +1,4 @@
+Eliza has told the player to say "Luna, gravity off" or "Luna, disable gravity".
+[demo_script_state = 2.11, eyeos_function = EyeOSUpgrade_Gravity, demo_flow_message = Chamber_PlayerToldAboutGravity]
+
+The player stated they see or reached the door or the exit

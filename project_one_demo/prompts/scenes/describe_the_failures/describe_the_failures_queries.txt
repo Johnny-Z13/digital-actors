@@ -1,2 +1,2 @@
 Eliza has told the player to abandon the engineer and find the control room.
-(False, )
+[demo_script_state = 2.9, demo_flow_message = Chamber_EverythingFailClue, investigation_mentioned_bridge = true, investigation_mentioned_fires = true, investigation_mentioned_lights = true]

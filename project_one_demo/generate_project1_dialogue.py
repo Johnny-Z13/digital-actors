@@ -165,6 +165,7 @@ class SceneData:
                 chain = prompt_llm(prompt, DIALOGUE_MODEL)
                 response = chain.invoke({})
                 print(ORANGE + f"Query for \"{query.text}\" - response: \"{response}\"")
+                print(YELLOW + f"To print: {to_print}")
                 if response[0:4].lower() == "true":
                     query.handled = True
                     print(YELLOW + f"Query passed for \"{query.text}\" - returning state_id \"{query.state_changes}\"")
@@ -177,7 +178,7 @@ class SceneData:
                     if query.query_printed_text_true and not query.query_printed:
                         to_print = query.query_printed_text_false
                     break
-                    
+        print(RED + f"To print: {to_print}")
         return state_changes, to_print
 
     def all_queries_handled(self) -> bool:
@@ -255,6 +256,9 @@ def load_queries(scene_name:str) -> List[Query]:
                 queries.append(Query(text=query_text, state_changes=state_changes, query_printed=query_printed,
                              query_printed_text_true=query_printed_text_true, query_printed_text_false=query_printed_text_false))
                 state_changes = []
+                query_printed = False
+                query_printed_text_true = ""
+                query_printed_text_false = ""
                 
             # Update query_text to the current line
             query_text = line
@@ -330,7 +334,7 @@ def start_scene(scene: str):
 def reset_reponse_handler():
     global gSceneDialogue, gSceneData, gScenes
 
-    gScenes = ["meet_the_caretaker", "locate_an_engineer", "describe_the_failures", "exit_the_room"]
+    gScenes = ["meet_the_caretaker", "locate_an_engineer", "describe_the_failures", "find_exit", "exit_the_room"]
     print(CYAN + f"Starting response handler for scenes: \"{gScenes}\"")
     load_next_scene()
 
@@ -351,35 +355,42 @@ def handle_player_reponse(message:str, automated:bool) -> Tuple[List[Line], List
         if to_print:
             print(RED + f"Additional print: {to_print}")
             gSceneDialogue += to_print + "\n"
-
-        prompt = instruction_template.format(preamble=gSceneData.dialogue_preamble, dialogue=gSceneDialogue,
-                                             instruction_suffix=dialogue_instruction_suffix)
-        chain = prompt_llm(prompt, DIALOGUE_MODEL)
-        eliza_response = chain.invoke({})
-    
-        gSceneDialogue += eliza_response + "\n"
-        state_changes2, to_print = gSceneData.run_queries(gSceneDialogue)
-        print(CYAN + f"Additional state changes: {state_changes2}")
-
-        if to_print:
-            gSceneDialogue += to_print + "\n"
-
-        print(CYAN + f"Scene dialogue: {gSceneDialogue}")
-
-        state_changes.extend(state_changes2)
-        print(CYAN + f"Combined state changes: {state_changes}")
-
-        eliza_text = str(eliza_response).strip().removeprefix(f"[{ACTORS[0]}]: ")
-        eliza_text = eliza_text.replace('"', '') # remove quotes (causes disconnect when sending back via websocket)
-        eliza_text = eliza_text.replace('*', '') # remove * used for emphasis on words (eleven laps speaks it)
-
-        print(CYAN + f"Results: text=\"{eliza_text}\" state_changes=\"{state_changes}\"")
-
-        result_lines = [Line(text=eliza_text, delay=0)]
-
+        result_lines = []
         if gSceneData.all_queries_handled():
             print(ORANGE + f"All queries for {gSceneData.scene_name} complete, autoloading next scene")
             if load_next_scene():
-                result_lines.extend(gSceneData.opening_speech)        
+                result_lines = gSceneData.opening_speech
+
+        if not result_lines:
+
+            prompt = instruction_template.format(preamble=gSceneData.dialogue_preamble, dialogue=gSceneDialogue,
+                                                 instruction_suffix=dialogue_instruction_suffix)
+            chain = prompt_llm(prompt, DIALOGUE_MODEL)
+            eliza_response = chain.invoke({})
+
+            gSceneDialogue += eliza_response + "\n"
+            state_changes2, to_print = gSceneData.run_queries(gSceneDialogue)
+            print(CYAN + f"Additional state changes: {state_changes2}")
+
+            if to_print:
+                gSceneDialogue += to_print + "\n"
+
+            print(CYAN + f"Scene dialogue: {gSceneDialogue}")
+
+            state_changes.extend(state_changes2)
+            print(CYAN + f"Combined state changes: {state_changes}")
+
+            eliza_text = str(eliza_response).strip().removeprefix(f"[{ACTORS[0]}]: ")
+            eliza_text = eliza_text.replace('"', '') # remove quotes (causes disconnect when sending back via websocket)
+            eliza_text = eliza_text.replace('*', '') # remove * used for emphasis on words (eleven laps speaks it)
+
+            print(CYAN + f"Results: text=\"{eliza_text}\" state_changes=\"{state_changes}\"")
+
+            result_lines = [Line(text=eliza_text, delay=0)]
+
+            if gSceneData.all_queries_handled():
+                print(ORANGE + f"All queries for {gSceneData.scene_name} complete, autoloading next scene")
+                if load_next_scene():
+                    result_lines.extend(gSceneData.opening_speech)
     
         return result_lines, state_changes
