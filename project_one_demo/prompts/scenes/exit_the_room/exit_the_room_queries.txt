@@ -1,9 +1,9 @@
-The player stated they cannot open the door or that access denied or that Luna didn't let them.
+The player stated they cannot open the door, or that access denied, or that Luna didn't let them.
 [demo_script_state = 2.12]
 
 The player has said LM-023, LM 023 or 023, they might have said it as letters, e.g., OH TWO THREE or ZERO TWO THREE.
 [demo_script_state = 2.14]
 (Computer: CORRECT DOOR ID, Computer: THIS IS NOT A DOOR ID)
 
-Eliza has opened the door.
+Eliza has opened the door or said that the door should be opening or that they can progress now.
 [demo_script_state = 2.16, demo_flow_message = Chamber_OpenExitDoor]

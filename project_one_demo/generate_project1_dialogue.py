@@ -173,7 +173,6 @@ class SceneData:
                         query.query_printed = True
                         to_print = query.query_printed_text_true
                     state_changes.extend(query.state_changes)
-                    break
                 else:
                     if query.query_printed_text_true and not query.query_printed:
                         to_print = query.query_printed_text_false
@@ -343,7 +342,7 @@ def handle_player_reponse(message:str, automated:bool) -> Tuple[List[Line], List
     if message:
         print(CYAN + f"Handling player repsonse: \"{message}\"")
 
-        if automated:
+        if False:
             gSceneDialogue += "Eliza to comment on " + message + "\n"
         else:
             player_dialogue = speech_template.format(actor=ACTORS[1], speech=message)
@@ -356,6 +355,7 @@ def handle_player_reponse(message:str, automated:bool) -> Tuple[List[Line], List
             print(RED + f"Additional print: {to_print}")
             gSceneDialogue += to_print + "\n"
         result_lines = []
+        print(GREEN + f"Scene dialogue: {gSceneData}")
         if gSceneData.all_queries_handled():
             print(ORANGE + f"All queries for {gSceneData.scene_name} complete, autoloading next scene")
             if load_next_scene():
