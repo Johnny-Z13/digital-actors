@@ -2,7 +2,7 @@ import os
 import sys
 import re
 import math
-from iconic_tools.langchain import InstructSonnet, InstructOpus3, InstructGPT4, InstructO1, InstructGeminiPro, InstructGPT35, InstructGeminiFlash
+from iconic_tools.langchain import InstructSonnet, InstructOpus3, InstructGPT4, InstructO1, InstructGeminiPro, InstructGPT35, InstructGeminiFlash, InstructGeminiFlash2
 from langchain_core.prompts import ChatPromptTemplate
 from concurrent.futures import ThreadPoolExecutor
 from typing import NamedTuple, List, Tuple
@@ -15,8 +15,8 @@ from dataclasses import dataclass, field
 # DIALOGUE_MODEL = InstructGPT4(temperature=1.0, max_tokens=3000)
 # QUERY_MODEL = InstructGPT4(temperature=1.0, max_tokens=3000)
 
-DIALOGUE_MODEL = InstructGeminiFlash(temperature=1.0, max_tokens=3000)
-QUERY_MODEL = InstructGeminiFlash(temperature=1.0, max_tokens=3000)
+DIALOGUE_MODEL = InstructGeminiFlash2(temperature=1.0, max_tokens=3000)
+QUERY_MODEL = InstructGeminiFlash2(temperature=0.0, max_tokens=300)
 
 #DIALOGUE_MODEL = InstructO1()
 #QUERY_MODEL = InstructO1()
