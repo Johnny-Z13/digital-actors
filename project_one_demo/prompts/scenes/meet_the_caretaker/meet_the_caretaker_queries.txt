@@ -1,4 +1,4 @@
-The player has been chatting with Eliza.
+The player said something.
 [demo_script_state = 1.2]
 
 Eliza has said she has started the emergency override, or that an "emergency override" message should appear. The statement can be implicit.
