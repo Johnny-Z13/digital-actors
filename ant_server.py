@@ -76,10 +76,10 @@ class AntServer(AntServerBase):
 
     async def process_results(self, lines, state_changes):
         for line in lines or []:
-            if line.text:
-                await self.send_response(line.text)
             if line.delay > 0.0:
                 time.sleep(line.delay)
+            if line.text:
+                await self.send_response(line.text)
 
         for change in state_changes or []:
             if change.name and change.value:
@@ -137,11 +137,11 @@ class AntServer(AntServerBase):
         #    if result:
         #        await self.process_results(result[0], result[1])
                 
-        if event_name == "kato_chamber_door_code":
-            result = handle_player_reponse("player tried to open door but access was denied", True)
-            if result:
-                await self.process_results(result[0], result[1])
-                
+        # if event_name == "kato_chamber_door_code":
+        #     result = handle_player_reponse("player tried to open door but access was denied", True)
+        #     if result:
+        #         await self.process_results(result[0], result[1])
+        #
         if event_name == "kato_chamber_door_open":
             result = handle_player_reponse("the door has opened, tell the player to get going to the control room", True)
             if result:

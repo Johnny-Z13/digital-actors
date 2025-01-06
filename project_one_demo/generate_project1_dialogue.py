@@ -204,7 +204,8 @@ def load_root_file(file) -> str:
             return f.read()
     except FileNotFoundError:
         return ""  # Return an empty string if the file doesn't exist
-    
+
+
 def load_scene_file(scene_name:str, suffix:str) -> str:
     file_path = resource_path() + f"/scenes/{scene_name}/{scene_name}_{suffix}.txt"
     try:
@@ -212,6 +213,7 @@ def load_scene_file(scene_name:str, suffix:str) -> str:
             return f.read()
     except FileNotFoundError:
         return ""  # Return an empty string if the file doesn't exist
+
 
 def load_queries(scene_name:str) -> List[Query]:
     queries = []
@@ -289,7 +291,7 @@ def load_opening_speech(scene_name:str) -> List[Line]:
             text = line
         
         # Add to list with handled defaulting to False
-        lines.append(Line(text=text, delay=delay))  
+        lines.append(Line(text=text, delay=delay))
 
     return lines
 
