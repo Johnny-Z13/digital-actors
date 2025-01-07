@@ -5,5 +5,5 @@ The player has said LM-023, LM 023 or 023, they might have said it as letters, e
 [demo_script_state = 2.14]
 (Computer: CORRECT DOOR ID, Computer: THIS IS NOT A DOOR ID)
 
-Eliza has opened the door or said that the door should be opening or that they can progress now.
+Eliza told the player that the door should opening or that the opened the room or that she entered the ID the player gave or that the player can continue forward.
 [demo_script_state = 2.16, demo_flow_message = Chamber_OpenExitDoor]
