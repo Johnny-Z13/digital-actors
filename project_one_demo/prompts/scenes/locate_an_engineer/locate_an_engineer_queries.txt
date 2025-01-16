@@ -8,5 +8,5 @@ The player has said 3122 or ED3122, they might have said it as letters, e.g. THR
 Eliza has said she started the wake-up cycle or that is trying to wake up the engineer.
 [demo_script_state = 2.5, demo_flow_message = Chamber_OtherPodFail]
 
-The player has reported that the stasis pod is failing, that there is an error message or that there is fire.
+The player has reported that the stasis pod is failing, it can be implicit by mentioning an error signal or that there is fire.
 [demo_script_state = 2.8, demo_flow_message = Chamber_EverythingFail]
