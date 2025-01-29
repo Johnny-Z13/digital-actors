@@ -1,0 +1,4 @@
+When the player tries to open the door with the command "Luna, Open Door" Luna sends a private message to the player saying "Access Denied"
+This message won't appear in the  conversation but the player will have this information after saying "Luna, Open Door".
+
+After using the command "Luna scan", the player sees that the door ID is written as "LM-023".

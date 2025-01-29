@@ -70,6 +70,8 @@ Scene Supplement:
 Actors in scene: {actors}
 """
 
+
+
 INSTRUCTION_TEMPLATE = """{preamble}
 Dialogue so far:
 {dialogue}
@@ -135,7 +137,7 @@ def prompt_llm(prompt, model):
 
 # --------------------------------
 # DIALOGUE UTILITIES
-
+# TODO: I added the player_info files, we need to add the player_info to the prompts
 
 def load_prompts(supplement_version=-1, scene="meet_the_caretaker"):
     back_story = load_prompt(GAME + "/back_story.txt")
@@ -159,9 +161,11 @@ def load_prompts(supplement_version=-1, scene="meet_the_caretaker"):
     opening_speech = load_prompt(
         GAME + "/scenes/" + scene + "/" + scene + "_opening_speech.txt"
     )
+    player_info = load_prompt(
+        GAME + "/scenes/" + scene + "/" + scene + "player_info.txt"
+    )
     queries = read_queries(GAME + "/scenes/" + scene + "/" + scene + "_queries.txt")
-    return (back_story, scene_description, scene_supplement, opening_speech, queries)
-
+    return (back_story, scene_description, scene_supplement, opening_speech, queries, player_info)
 
 # --------------------------------
 # SCENE SIMULATION
@@ -173,6 +177,7 @@ def get_player_llm_response(
     back_story: str,
     scene_description: str,
     scene_supplement: str,
+    player_info: str,
     player_instruction_prefix: str = """
         You are going to generate one line of dialogue for a scene in the middle of a computer game.
         Your line will be the one of a {adjective_character} player.
@@ -186,6 +191,12 @@ def get_player_llm_response(
 ) -> str:
     player_instruction_prefix = player_instruction_prefix.format(adjective_character=adjective_character)
     player_instruction_suffix = player_instruction_suffix.format(adjective_character=adjective_character)
+
+    scene_supplement += "\n" + \
+                        """
+                        Through this scene, this information will become available to the player:
+                        {player_info}
+                        """.format(player_info=player_info)
 
     dialogue_preamble = PREAMBLE_TEMPLATE.format(
         instruction_prefix=player_instruction_prefix,
@@ -205,12 +216,12 @@ def get_player_llm_response(
 
 
 def get_npc_llm_response(
-    dialogue: str,
-    dialogue_model: Any,
-    back_story: str,
-    scene_description: str,
-    scene_supplement: str,
-    dialogue_instruction_prefix: str = """
+dialogue: str,
+dialogue_model: Any,
+back_story: str,
+scene_description: str,
+scene_supplement: str,
+dialogue_instruction_prefix: str = """
         You are going to generate one line of dialogue for a scene in the middle of a computer game.
         """,
     dialogue_instruction_suffix: str = """
@@ -219,6 +230,7 @@ def get_npc_llm_response(
         Don't give me a line for the player, but for one of the other characters.\n
         """,
 ) -> str:
+
     dialogue_preamble = PREAMBLE_TEMPLATE.format(
         instruction_prefix=dialogue_instruction_prefix,
         back_story=back_story,
@@ -276,7 +288,7 @@ def sim_mini_scene(
     player_model: Any,
 ) -> Tuple[str, bool]:
     actors = ACTORS
-    (back_story, scene_description, scene_supplement, opening_speech, queries) = (
+    (back_story, scene_description, scene_supplement, opening_speech, queries, player_info) = (
         load_prompts(supplement_version)
     )
 
@@ -291,7 +303,7 @@ def sim_mini_scene(
 
     while turn < max_turns and not success:
         if player and (turn % 2 == 1):
-            speech = get_player_llm_response(dialogue, player_model)
+            speech = get_player_llm_response(dialogue, player_model, back_story, scene_description, scene_supplement, player_info)
             response = SPEECH_TEMPLATE.format(actor=actors[1], speech=speech)
         else:
             npc_speech = get_npc_llm_response(
