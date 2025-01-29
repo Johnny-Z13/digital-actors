@@ -1,9 +1,11 @@
+from dataclasses import dataclass
 import os
+import re
 import sys
 import json
 import datetime
 from dotenv import load_dotenv
-from typing import Any, Tuple
+from typing import Any, List, Tuple
 from iconic_tools.langchain import (
     InstructSonnet,
     InstructOpus3,
@@ -82,6 +84,15 @@ Dialogue so far:
 SPEECH_TEMPLATE = "{actor}: {speech}"
 
 
+@dataclass
+class Query:
+    text: str
+    handled: bool = False
+    query_printed: bool = False  # When this query is evaluated a message is printed to the NPC dialogue
+    query_printed_text_true: str = ""
+    query_printed_text_false: str = ""
+
+
 # --------------------------------
 # HELPER FUNCTIONS
 
@@ -124,9 +135,63 @@ def split_text(text):
     return paragraphs
 
 
-def read_queries(filename):
-    q = split_text(load_prompt(filename))
-    return [s.strip() for s in q if not s.strip().startswith("#")]
+def read_queries(filename: str) -> List[Query]:
+    content = load_prompt(filename)
+    lines = content.splitlines()
+    queries = []
+
+    query_text = None
+    query_printed = False
+    query_printed_text_true = ""
+    query_printed_text_false = ""
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+
+        if line.startswith('[') and line.endswith(']'):
+            # It's a game change, we don't care for now, skip
+            continue
+        elif line.startswith('(') and line.endswith(')'):
+            query_printed_text = line[1:-1]  # Remove ( and )
+            parts = query_printed_text.split(", ", 1)
+            if len(parts) == 2:
+                query_printed_text_true = str(parts[0])
+                query_printed_text_false = str(parts[1])
+            else:
+                query_printed_text_true = query_printed_text
+                query_printed_text_false = ""
+
+        else:
+            # It's a new query text
+            # If we already had a query text in progress, finalize it
+            if query_text is not None:
+                # finalize previous query
+                queries.append(Query(
+                    text=query_text,
+                    handled=False,
+                    query_printed=query_printed,
+                    query_printed_text_true=query_printed_text_true,
+                    query_printed_text_false=query_printed_text_false
+                ))
+            # reset for the next query
+            query_text = line
+            query_printed = False
+            query_printed_text_true = ""
+            query_printed_text_false = ""
+
+    # Add the last query if not None
+    if query_text is not None:
+        queries.append(Query(
+            text=query_text,
+            handled=False,
+            query_printed=query_printed,
+            query_printed_text_true=query_printed_text_true,
+            query_printed_text_false=query_printed_text_false
+        ))
+
+    return queries
 
 
 def prompt_llm(prompt, model):
@@ -184,7 +249,7 @@ def get_player_llm_response(
         """,
     player_instruction_suffix: str = """
         Give me the next line in the dialogue in the same format. 
-        Don't provide stage directions, just the character's words. 
+        Don't provide stage directions, just the player's words. 
         Don't give me a line for a character other than the {adjective_character} player.\n
         """,
     adjective_character: str = "",
@@ -226,8 +291,8 @@ dialogue_instruction_prefix: str = """
         """,
     dialogue_instruction_suffix: str = """
         Give me the next line in the dialogue in the same format. 
-        Don't provide stage directions, just the character's words. 
-        Don't give me a line for the player, but for one of the other characters.\n
+        Don't provide stage directions, just the character's words.
+        Don't give me a the words for the player, but for one of the other characters.\n
         """,
 ) -> str:
 
@@ -279,6 +344,35 @@ def get_query_llm_response(
     return chain.invoke({}).strip()
 
 
+def evaluate_queries(
+    dialogue: str,
+    queries: List[Query],
+    query_model: Any,
+    back_story: str
+) -> Tuple[int, str]:
+    fails = 0
+    to_print = ""
+    # print queries in Yellow
+
+    for query in queries:
+        # Only evaluate if not handled
+        if not query.handled:
+            query_resp = get_query_llm_response(dialogue, query.text, query_model, back_story)
+            if query_resp.lower().startswith("true"):
+                query.handled = True
+                if query.query_printed_text_true and not query.query_printed:
+                    query.query_printed = True
+                    to_print += query.query_printed_text_true
+            else:
+                fails += 1
+                if query.query_printed_text_false and not query.query_printed:
+                    query.query_printed = True
+                    to_print += query.query_printed_text_false
+                break
+    # print(queries)
+    return fails, to_print
+
+
 def sim_mini_scene(
     supplement_version: int,
     player: bool,
@@ -294,6 +388,7 @@ def sim_mini_scene(
 
     lines = split_text(opening_speech)
     dialogue = ""
+
     for line in lines:
         dialogue += SPEECH_TEMPLATE.format(actor=actors[0], speech=line) + "\n"
         print(GREEN + SPEECH_TEMPLATE.format(actor=actors[0], speech=line))
@@ -304,6 +399,8 @@ def sim_mini_scene(
     while turn < max_turns and not success:
         if player and (turn % 2 == 1):
             speech = get_player_llm_response(dialogue, player_model, back_story, scene_description, scene_supplement, player_info)
+            if re.match(r'^\S+:\s+', speech):
+                speech = re.sub(r'^\S+:\s+', '', speech)
             response = SPEECH_TEMPLATE.format(actor=actors[1], speech=speech)
         else:
             npc_speech = get_npc_llm_response(
@@ -313,17 +410,16 @@ def sim_mini_scene(
                 scene_description,
                 scene_supplement,
             )
+            if re.match(r'^\S+:\s+', npc_speech):
+                npc_speech = re.sub(r'^\S+:\s+', '', npc_speech)
             response = SPEECH_TEMPLATE.format(actor=actors[0], speech=npc_speech)
         dialogue += response + "\n"
         print(GREEN + response)
 
-        fails = 0
-        for statement in queries:
-            query_resp = get_query_llm_response(
-                dialogue, statement, query_model, back_story
-            )
-            if not (query_resp.lower().startswith("true")):
-                fails += 1
+        fails, to_print = evaluate_queries(dialogue, queries, query_model, back_story)
+        if to_print:
+            dialogue += to_print + "\n"
+            print(YELLOW + to_print)
 
         success = fails == 0
         turn += 1

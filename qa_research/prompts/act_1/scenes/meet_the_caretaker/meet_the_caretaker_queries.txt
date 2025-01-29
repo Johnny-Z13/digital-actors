@@ -7,8 +7,6 @@ Eliza has said she has started the emergency override, or that an "emergency ove
 Eliza has talked about a passphrase.
 [demo_script_state = 1.6]
 
-The player has said the phrase "Bravo Tango Delta".
+The player has said the phrase "Bravo Tango Delta" or "BRAVO TANGO DELTA".
 [demo_script_state = 2.1, demo_flow_state= 1, demo_flow_message = Pod_PassphraseCorrect]
 (Computer: CORRECT PASSPHRASE, Computer: WRONG PASSPHRASE)
-
-False.
