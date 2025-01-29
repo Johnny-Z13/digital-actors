@@ -135,7 +135,7 @@ def prompt_llm(prompt, model):
 
 # --------------------------------
 # DIALOGUE UTILITIES
-
+# TODO: I added the player_info files, we need to add the player_info to the prompts
 
 def load_prompts(supplement_version=-1, scene="meet_the_caretaker"):
     back_story = load_prompt(GAME + "/back_story.txt")
@@ -161,7 +161,6 @@ def load_prompts(supplement_version=-1, scene="meet_the_caretaker"):
     )
     queries = read_queries(GAME + "/scenes/" + scene + "/" + scene + "_queries.txt")
     return (back_story, scene_description, scene_supplement, opening_speech, queries)
-
 
 # --------------------------------
 # SCENE SIMULATION
@@ -291,7 +290,7 @@ def sim_mini_scene(
 
     while turn < max_turns and not success:
         if player and (turn % 2 == 1):
-            speech = get_player_llm_response(dialogue, player_model)
+            speech = get_player_llm_response(dialogue, player_model, back_story, scene_description, scene_supplement)
             response = SPEECH_TEMPLATE.format(actor=actors[1], speech=speech)
         else:
             npc_speech = get_npc_llm_response(
