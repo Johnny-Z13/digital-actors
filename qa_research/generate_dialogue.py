@@ -162,7 +162,7 @@ def load_prompts(supplement_version=-1, scene="meet_the_caretaker"):
         GAME + "/scenes/" + scene + "/" + scene + "_opening_speech.txt"
     )
     player_info = load_prompt(
-        GAME + "/scenes/" + scene + "/" + scene + "player_info.txt"
+        GAME + "/scenes/" + scene + "/" + scene + "_player_info.txt"
     )
     queries = read_queries(GAME + "/scenes/" + scene + "/" + scene + "_queries.txt")
     return (back_story, scene_description, scene_supplement, opening_speech, queries, player_info)
