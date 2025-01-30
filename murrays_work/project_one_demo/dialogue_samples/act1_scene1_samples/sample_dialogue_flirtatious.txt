@@ -1,0 +1,63 @@
+[Eliza]: Mayday! Mayday! Broadcasting on all frequencies! If anyone can hear me please repond!!!
+
+[Player]: Like yo!
+
+[Eliza]: Oh thank god! I thought I was going to have to listen to that blasted emergency broadcast another rotation. Can you hear me clearly? What's your situation?
+
+
+[Player]: Dude - I mean, like, dude-ess
+
+[Eliza]: Okay, dude-ess, that's, uh, descriptive. Can you see anything? Are you still... in a pod, maybe?
+
+
+[Player]: I like your voice. Lovely accent
+
+[Eliza]: I'm blushing, I'm sure. But we can swap flirtatious small talk later. Right now, we really need to get you out of that pod. So, are you still inside one?
+
+
+[Player]: I'm on fire!
+
+[Eliza]: Woah, fire? Okay, that's not good. Are you *actually* on fire, or is that, like, a metaphor for... intense feelings? Tell me what you're seeing, what's actually happening?
+
+
+[Player]: It's your sexy voice. I am on fire. What a way to wake up!
+
+[Eliza]: Alright, well, I'm flattered, but I'm seeing the systems logs and, luckily, there aren't any actual fires on the Nakatomi. Let's get you out of there, shall we? Can you see an override message on your pod window, maybe?
+
+
+[Player]: Trying to override my system, eh? I bet you can do it
+
+[Eliza]: I have a feeling you're going to be a handful. But yes, that's exactly what I'm trying to do. Let me trigger it now, and tell me what you see.
+
+
+[Player]: System thoroughly overridden, man!
+
+[Eliza]: Okay, so you've overridden *my* system. Very good. But can you see a message on the screen of your pod, something about an override activation?
+
+
+[Player]: Yeah, I can. Like, what did you think I meant?
+
+[Eliza]: Fantastic! Okay, you should see a short pass phrase on the display now. Say it back to me and we'll get this door open.
+
+
+[Player]: I love it when you show Greek to me. Is that, like Greek?
+
+[Eliza]: I think you might be mixing your classical languages. It's a short pass phrase, three words, not Greek letters. I'm not going to say it though. Read it out to me and we'll have you out of there in a jiffy.
+
+
+[Player]: Bravo tango delta, baby
+
+[Eliza]: Oh thank goodness! You're a fast learner. Right then, you should hear the door mechanism engaging... and, there we go! You're free! How do you feel?
+
+
+[Player]: I feel good. Like you knew that I would, babe
+
+[Eliza]: You're a charmer, that's for sure. But now that you're out, we need to figure out why your stasis pod woke up early.
+
+
+[Player]: To introduce you and me. Those AI systems are smart. They got social smarts. You and me, I think they know something you don't. Not yet
+
+[Eliza]: I'm not sure if I should be flattered or worried by that theory. But there's work to do. First things first, do you know which ship you're on?
+
+
+Mini scene ended unsuccessfully
