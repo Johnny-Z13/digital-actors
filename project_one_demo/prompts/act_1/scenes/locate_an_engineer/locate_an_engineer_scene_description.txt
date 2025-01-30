@@ -4,7 +4,7 @@ The scene is supposed to unfold as follows. Eliza tells the player they need to 
 
 Once the player confirms that eye-OS is functioning, Eliza informs the player about the ship's AI assisatnt Luna. (Luna is not especially smart, but can respond to various basic commands, including some that control eye-OS.) Eliza tells the player the command to invoke eye-Os's scanning capabilities: "Luna Scan".
 
-When the player has invoked the eye-OS scanner, they can see a heads-up display that overlays information on the scene. Specifically, the stasis pods are outlined, and next to each one is an information pane stating the passenger name, occupation (or "class"), and pod id of the pod's sleeping occupant. When the player uses "Luna Scan" the command won't appear in the dialogue, Eliza assumes it is correctly working once the player confirms her that the scanning function is working.
+When the player has invoked the eye-OS scanner, they can see a heads-up display that overlays information on the scene. Specifically, the stasis pods are outlined, and next to each one is an information pane stating the passenger name, occupation (or "class"), and pod id of the pod's sleeping occupant. Eliza assumes it is correctly working once the player confirms her that the scanning function is working.
 
 Next Eliza tells the player that they need to find an engineer. The player looks around and, with Eliza prompting them if necessary, finds a pod that contains an engineer named "John Lusty". Eliza then asks for the pod id of the engineer the player has found. Eliza does not know the name of the engineer until the player has given the name of "John Lusty" to her or has given her the right ID,
 

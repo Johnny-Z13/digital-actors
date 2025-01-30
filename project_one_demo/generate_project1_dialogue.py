@@ -186,7 +186,7 @@ class SceneData:
 
 def resource_path():
     cwd = os.path.abspath(os.getcwd())
-    relative_path = "/project_one_demo/prompts"
+    relative_path = "/project_one_demo/prompts/act_1"
     return cwd + relative_path
     # Get the absolute path to the resource in both development and PyInstaller environments
     if hasattr(sys, '_MEIPASS'):
@@ -338,6 +338,12 @@ def reset_reponse_handler():
     gScenes = ["meet_the_caretaker", "locate_an_engineer", "describe_the_failures", "find_exit", "exit_the_room"]
     print(CYAN + f"Starting response handler for scenes: \"{gScenes}\"")
     load_next_scene()
+
+
+def add_luna_commands(message:str):
+    global gSceneDialogue
+    gSceneDialogue += "[Player]: " + message + "\n\n"
+
 
 def handle_player_reponse(message:str, automated:bool) -> Tuple[List[Line], List[StateChange]]:
     global gSceneDialogue, gSceneData, gScenes

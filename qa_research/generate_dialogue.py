@@ -73,7 +73,6 @@ Actors in scene: {actors}
 """
 
 
-
 INSTRUCTION_TEMPLATE = """{preamble}
 Dialogue so far:
 {dialogue}
@@ -88,7 +87,9 @@ SPEECH_TEMPLATE = "{actor}: {speech}"
 class Query:
     text: str
     handled: bool = False
-    query_printed: bool = False  # When this query is evaluated a message is printed to the NPC dialogue
+    query_printed: bool = (
+        False  # When this query is evaluated a message is printed to the NPC dialogue
+    )
     query_printed_text_true: str = ""
     query_printed_text_false: str = ""
 
@@ -105,12 +106,14 @@ def print_header(model_name, scene):
 
 
 def load_prompt(filename):
-    with open(os.path.join(PATH, "qa_research/prompts", filename)) as f:
+    with open(os.path.join(PATH, "project_one_demo/prompts", filename)) as f:
         return f.read()
 
 
 def write_transcript(dialogue, filename):
-    with open(os.path.join(PATH, "qa_research/transcripts", filename), "w", encoding="utf-8") as f:
+    with open(
+        os.path.join(PATH, "qa_research/transcripts", filename), "w", encoding="utf-8"
+    ) as f:
         f.write(dialogue)
 
 
@@ -150,10 +153,10 @@ def read_queries(filename: str) -> list[Query]:
         if not line:
             continue
 
-        if line.startswith('[') and line.endswith(']'):
+        if line.startswith("[") and line.endswith("]"):
             # It's a game change, we don't care for now, skip
             continue
-        elif line.startswith('(') and line.endswith(')'):
+        elif line.startswith("(") and line.endswith(")"):
             query_printed_text = line[1:-1]  # Remove ( and )
             parts = query_printed_text.split(", ", 1)
             if len(parts) == 2:
@@ -168,13 +171,15 @@ def read_queries(filename: str) -> list[Query]:
             # If we already had a query text in progress, finalize it
             if query_text is not None:
                 # finalize previous query
-                queries.append(Query(
-                    text=query_text,
-                    handled=False,
-                    query_printed=query_printed,
-                    query_printed_text_true=query_printed_text_true,
-                    query_printed_text_false=query_printed_text_false
-                ))
+                queries.append(
+                    Query(
+                        text=query_text,
+                        handled=False,
+                        query_printed=query_printed,
+                        query_printed_text_true=query_printed_text_true,
+                        query_printed_text_false=query_printed_text_false,
+                    )
+                )
             # reset for the next query
             query_text = line
             query_printed = False
@@ -183,13 +188,15 @@ def read_queries(filename: str) -> list[Query]:
 
     # Add the last query if not None
     if query_text is not None:
-        queries.append(Query(
-            text=query_text,
-            handled=False,
-            query_printed=query_printed,
-            query_printed_text_true=query_printed_text_true,
-            query_printed_text_false=query_printed_text_false
-        ))
+        queries.append(
+            Query(
+                text=query_text,
+                handled=False,
+                query_printed=query_printed,
+                query_printed_text_true=query_printed_text_true,
+                query_printed_text_false=query_printed_text_false,
+            )
+        )
 
     return queries
 
@@ -204,8 +211,9 @@ def prompt_llm(prompt, model):
 # DIALOGUE UTILITIES
 # TODO: I added the player_info files, we need to add the player_info to the prompts
 
+
 def collect_game_scenes() -> list[dict[str, list[str]]]:
-    prompts_path = os.path.join(PATH, "qa_research/prompts")
+    prompts_path = os.path.join(PATH, "project_one_demo/prompts")
     scenes = []
 
     # Get all game folders
@@ -216,12 +224,16 @@ def collect_game_scenes() -> list[dict[str, list[str]]]:
 
             if os.path.exists(scenes_path):
                 # Get all scene folders
-                act_scenes = [scene for scene in os.listdir(scenes_path)
-                          if os.path.isdir(os.path.join(scenes_path, scene))]
+                act_scenes = [
+                    scene
+                    for scene in os.listdir(scenes_path)
+                    if os.path.isdir(os.path.join(scenes_path, scene))
+                ]
 
                 scenes.append({act: act_scenes})
 
     return scenes
+
 
 def load_prompts(scene, supplement_version=-1):
     back_story = load_prompt(GAME + "/back_story.txt")
@@ -249,7 +261,15 @@ def load_prompts(scene, supplement_version=-1):
         GAME + "/scenes/" + scene + "/" + scene + "_player_info.txt"
     )
     queries = read_queries(GAME + "/scenes/" + scene + "/" + scene + "_queries.txt")
-    return (back_story, scene_description, scene_supplement, opening_speech, queries, player_info)
+    return (
+        back_story,
+        scene_description,
+        scene_supplement,
+        opening_speech,
+        queries,
+        player_info,
+    )
+
 
 # --------------------------------
 # SCENE SIMULATION
@@ -273,14 +293,20 @@ def get_player_llm_response(
         """,
     adjective_character: str = "",
 ) -> str:
-    player_instruction_prefix = player_instruction_prefix.format(adjective_character=adjective_character)
-    player_instruction_suffix = player_instruction_suffix.format(adjective_character=adjective_character)
+    player_instruction_prefix = player_instruction_prefix.format(
+        adjective_character=adjective_character
+    )
+    player_instruction_suffix = player_instruction_suffix.format(
+        adjective_character=adjective_character
+    )
 
-    scene_supplement += "\n" + \
-                        """
+    scene_supplement += (
+        "\n"
+        + """
                         Through this scene, this information will become available to the player:
                         {player_info}
                         """.format(player_info=player_info)
+    )
 
     dialogue_preamble = PREAMBLE_TEMPLATE.format(
         instruction_prefix=player_instruction_prefix,
@@ -300,12 +326,12 @@ def get_player_llm_response(
 
 
 def get_npc_llm_response(
-dialogue: str,
-dialogue_model: LLM,
-back_story: str,
-scene_description: str,
-scene_supplement: str,
-dialogue_instruction_prefix: str = """
+    dialogue: str,
+    dialogue_model: LLM,
+    back_story: str,
+    scene_description: str,
+    scene_supplement: str,
+    dialogue_instruction_prefix: str = """
         You are going to generate one line of dialogue for a scene in the middle of a computer game.
         """,
     dialogue_instruction_suffix: str = """
@@ -314,7 +340,6 @@ dialogue_instruction_prefix: str = """
         Don't give me a the words for the player, but for one of the other characters.\n
         """,
 ) -> str:
-
     dialogue_preamble = PREAMBLE_TEMPLATE.format(
         instruction_prefix=dialogue_instruction_prefix,
         back_story=back_story,
@@ -364,31 +389,31 @@ def get_query_llm_response(
 
 
 def evaluate_queries(
-    dialogue: str,
-    queries: list[Query],
-    query_model: LLM,
-    back_story: str
+    dialogue: str, queries: list[Query], query_model: LLM, back_story: str
 ) -> tuple[int, str]:
     fails = 0
     to_print = ""
-    # print queries in Yellow
+    print()
 
     for query in queries:
         # Only evaluate if not handled
         if not query.handled:
-            query_resp = get_query_llm_response(dialogue, query.text, query_model, back_story)
+            # print("\n" + YELLOW + query.text)
+            query_resp = get_query_llm_response(
+                dialogue, query.text, query_model, back_story
+            )
             if query_resp.lower().startswith("true"):
                 query.handled = True
-                if query.query_printed_text_true and not query.query_printed:
+                if query.query_printed_text_true:
                     query.query_printed = True
                     to_print += query.query_printed_text_true
             else:
                 fails += 1
-                if query.query_printed_text_false and not query.query_printed:
+                if query.query_printed_text_false:
                     query.query_printed = True
                     to_print += query.query_printed_text_false
                 break
-    # print(queries)
+    # print(WHITE + "to_print: ", to_print)
     return fails, to_print
 
 
@@ -402,9 +427,14 @@ def sim_mini_scene(
     scene: str,
 ) -> tuple[str, bool]:
     actors = ACTORS
-    (back_story, scene_description, scene_supplement, opening_speech, queries, player_info) = (
-        load_prompts(scene, supplement_version)
-    )
+    (
+        back_story,
+        scene_description,
+        scene_supplement,
+        opening_speech,
+        queries,
+        player_info,
+    ) = load_prompts(scene, supplement_version)
 
     lines = split_text(opening_speech)
     dialogue = ""
@@ -418,9 +448,16 @@ def sim_mini_scene(
 
     while turn < max_turns and not success:
         if player and (turn % 2 == 1):
-            speech = get_player_llm_response(dialogue, player_model, back_story, scene_description, scene_supplement, player_info)
-            if re.match(r'^\S+:\s+', speech):
-                speech = re.sub(r'^\S+:\s+', '', speech)
+            speech = get_player_llm_response(
+                dialogue,
+                player_model,
+                back_story,
+                scene_description,
+                scene_supplement,
+                player_info,
+            )
+            if re.match(r"^\S+:\s+", speech):
+                speech = re.sub(r"^\S+:\s+", "", speech)
             response = SPEECH_TEMPLATE.format(actor=actors[1], speech=speech)
         else:
             npc_speech = get_npc_llm_response(
@@ -430,8 +467,8 @@ def sim_mini_scene(
                 scene_description,
                 scene_supplement,
             )
-            if re.match(r'^\S+:\s+', npc_speech):
-                npc_speech = re.sub(r'^\S+:\s+', '', npc_speech)
+            if re.match(r"^\S+:\s+", npc_speech):
+                npc_speech = re.sub(r"^\S+:\s+", "", npc_speech)
             response = SPEECH_TEMPLATE.format(actor=actors[0], speech=npc_speech)
         dialogue += response + "\n"
         print(GREEN + response)
@@ -452,16 +489,17 @@ def sim_mini_scene(
     return (dialogue, success)
 
 
-def save_dialogue_with_timestamp(dialogue: str, scene: str, npc_model_name: str, query_model_name: str,
-                                 player_model_name: str) -> None:
+def save_dialogue_with_timestamp(
+    dialogue: str, scene: str, npc_model_name: str
+) -> None:
     stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # Create directory path
-    directory = os.path.join("qa_research/dialogues", GAME, scene)
+    directory = os.path.join("qa_research/dialogues", GAME, scene, npc_model_name)
     os.makedirs(directory, exist_ok=True)
 
     # Create filename with model names
-    filename = f"output_dialogue_npc_{npc_model_name}_query_{query_model_name}_player_{player_model_name}_{stamp}.txt"
+    filename = f"dialogue_{stamp}.txt"
 
     # Full path
     filepath = os.path.join(directory, filename)
@@ -475,13 +513,19 @@ def save_dialogue_with_timestamp(dialogue: str, scene: str, npc_model_name: str,
 # GENERATE ONE DIALOGUE
 
 
-def generate_dialogue(dialogue_model: LLM, query_model: LLM, player_model: LLM, scene: str) -> None:
+def generate_dialogue(
+    dialogue_model: LLM,
+    query_model: LLM,
+    player_model: LLM,
+    scene: str,
+    max_turns: int = 50,
+) -> None:
     player = True
     supplement_version = -1
     dialogue, _ = sim_mini_scene(
         supplement_version,
         player=player,
-        max_turns=25,
+        max_turns=max_turns,
         dialogue_model=dialogue_model,
         query_model=query_model,
         player_model=player_model,
@@ -491,8 +535,6 @@ def generate_dialogue(dialogue_model: LLM, query_model: LLM, player_model: LLM, 
         dialogue,
         scene,
         dialogue_model.__class__.__name__,
-        query_model.__class__.__name__,
-        player_model.__class__.__name__
     )
 
 
@@ -504,11 +546,11 @@ if __name__ == "__main__":
     global GAME
     GAME = list(selected_act.keys())[0]
     # selected_scene = random.choice(selected_act[GAME])
-    selected_scene = "meet_the_caretaker"
+    selected_scene = "find_exit"
 
     generate_dialogue(
         InstructGeminiFlash2(temperature=1.0, max_tokens=3000),
         InstructGeminiFlash2(temperature=0.0, max_tokens=1000),
         InstructGeminiFlash2(temperature=1.0, max_tokens=3000),
-        selected_scene
+        selected_scene,
     )

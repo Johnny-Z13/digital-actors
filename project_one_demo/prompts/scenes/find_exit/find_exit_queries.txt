@@ -1,4 +1,0 @@
-Eliza has told the player she is sending or has sent an upgrade to disable gravity
-[demo_script_state = 2.11, eyeos_function = EyeOSUpgrade_Gravity, demo_flow_message = Chamber_PlayerToldAboutGravity]
-
-The player stated they are close or reached the door or the exit

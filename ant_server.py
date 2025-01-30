@@ -2,7 +2,7 @@ from ant_server_base import AntServerBase
 import re
 import asyncio
 import time
-from project_one_demo.generate_project1_dialogue import reset_reponse_handler, handle_player_reponse, start_scene, Line
+from project_one_demo.generate_project1_dialogue import reset_reponse_handler, handle_player_reponse, start_scene, Line, add_luna_commands
 
 class AntServer(AntServerBase):
     def __init__(self, *args, **kwargs):
@@ -106,6 +106,7 @@ class AntServer(AntServerBase):
             if re.match(r'^\s*(computer|luna|lunar).*(open).*(door)\s*$', message, re.IGNORECASE):
                 await self.send_event("eyeOS_VC_OpenDoor")
                 return
+            add_luna_commands(message)
         else:
             result = handle_player_reponse(message, False)
             if result:
