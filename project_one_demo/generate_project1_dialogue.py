@@ -53,10 +53,6 @@ def list_to_conjunction(L):
 
 
 # PROMPT TEMPLATES AND INSTRUCTION PROMPTS
-dialogue_instruction_prefix = """
-You are going to generate one line of dialogue for a scene in the middle of a computer game.
-"""
-
 preamble_template = """
 {instruction_prefix}
 This is the game back story. {back_story}\n
@@ -127,6 +123,7 @@ class SceneData:
     scene_description: str
     scene_supplement: str
     back_story: str
+    dialogue_instruction_prefix: str
     opening_speech: List[Line]
     queries: List[Query]
 
@@ -135,14 +132,14 @@ class SceneData:
 
 
     def __post_init__(self):
-        self.dialogue_preamble = preamble_template.format(instruction_prefix=dialogue_instruction_prefix, back_story=self.back_story, scene_description=self.scene_description, scene_supplement=self.scene_supplement, actors=list_to_conjunction(ACTORS))
+        self.dialogue_preamble = preamble_template.format(instruction_prefix=self.dialogue_instruction_prefix, back_story=self.back_story, scene_description=self.scene_description, scene_supplement=self.scene_supplement, actors=list_to_conjunction(ACTORS))
         self.query_preamble = preamble_template.format(instruction_prefix=query_instruction_prefix, back_story=self.back_story, scene_description="", scene_supplement="", actors=list_to_conjunction(ACTORS))
 
     def __str__(self):
         field = "\033[97m" 
         text = "\033[90m"
         reset = "\033[0m"
-        return f"{field}SceneData\n{{\n   scene_name:{text} {self.scene_name}\n{field}   scene_description:{text}  {self.scene_description}\n{field}   scene_supplement:{text} {self.scene_supplement}\n{field}   back_story:{text} {self.back_story}\n{field}   opening_speech:{reset}\n{self.opening_speech}\n{field}   queries:{reset}\n{self.queries}\n{field}}}{reset}"   
+        return f"{field}SceneData\n{{\n   scene_name:{text} {self.scene_name}\n{field}   scene_description:{text}  {self.scene_description}\n{field}   scene_supplement:{text} {self.scene_supplement}\n{field}   dialogue_instruction_prefix:{text} {self.dialogue_instruction_prefix}\n{field}   back_story:{text} {self.back_story}\n{field}   opening_speech:{reset}\n{self.opening_speech}\n{field}   queries:{reset}\n{self.queries}\n{field}}}{reset}"
 
     def get_initial_dialog(self) -> str:
         dialogue = ""
@@ -299,10 +296,13 @@ def load_opening_speech(scene_name:str) -> List[Line]:
 def load_scene_data(scene_name:str) -> SceneData:
     scene_description = load_scene_file(scene_name, "scene_description")
     scene_supplement = load_scene_file(scene_name, "scene_supplement")
+    dialogue_instruction_prefix = load_root_file("dialogue_instruction_prefix")
     back_story = load_root_file("back_story")
     opening_speech = load_opening_speech(scene_name)
     queries = load_queries(scene_name)
-    return SceneData(scene_name=scene_name, scene_description=scene_description, scene_supplement=scene_supplement, back_story=back_story, opening_speech=opening_speech, queries=queries)
+    return SceneData(scene_name=scene_name, scene_description=scene_description, scene_supplement=scene_supplement,
+                     dialogue_instruction_prefix=dialogue_instruction_prefix, back_story=back_story,
+                     opening_speech=opening_speech, queries=queries)
 
 
 
