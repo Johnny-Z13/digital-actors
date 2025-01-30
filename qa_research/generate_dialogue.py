@@ -5,7 +5,8 @@ import sys
 import json
 import datetime
 from dotenv import load_dotenv
-from typing import Any, List, Tuple
+import random
+from langchain_core.language_models.llms import LLM
 from iconic_tools.langchain import (
     InstructSonnet,
     InstructOpus3,
@@ -42,7 +43,6 @@ PATH = os.path.abspath(os.getcwd())
 # QUERY_MODEL = InstructSonnet(temperature=0.0, max_tokens=1000)
 # PLAYER_MODEL = InstructGPT35(temperature=1.0, max_tokens=3000)
 
-GAME = "act_1"
 ACTORS = ["Eliza", "Player"]
 
 gScenes = [
@@ -105,12 +105,12 @@ def print_header(model_name, scene):
 
 
 def load_prompt(filename):
-    with open(os.path.join(PATH, "prompts", filename)) as f:
+    with open(os.path.join(PATH, "qa_research/prompts", filename)) as f:
         return f.read()
 
 
 def write_transcript(dialogue, filename):
-    with open(os.path.join(PATH, "transcripts", filename), "w", encoding="utf-8") as f:
+    with open(os.path.join(PATH, "qa_research/transcripts", filename), "w", encoding="utf-8") as f:
         f.write(dialogue)
 
 
@@ -135,7 +135,7 @@ def split_text(text):
     return paragraphs
 
 
-def read_queries(filename: str) -> List[Query]:
+def read_queries(filename: str) -> list[Query]:
     content = load_prompt(filename)
     lines = content.splitlines()
     queries = []
@@ -204,7 +204,26 @@ def prompt_llm(prompt, model):
 # DIALOGUE UTILITIES
 # TODO: I added the player_info files, we need to add the player_info to the prompts
 
-def load_prompts(supplement_version=-1, scene="meet_the_caretaker"):
+def collect_game_scenes() -> list[dict[str, list[str]]]:
+    prompts_path = os.path.join(PATH, "qa_research/prompts")
+    scenes = []
+
+    # Get all game folders
+    for act in os.listdir(prompts_path):
+        game_path = os.path.join(prompts_path, act)
+        if os.path.isdir(game_path):
+            scenes_path = os.path.join(game_path, "scenes")
+
+            if os.path.exists(scenes_path):
+                # Get all scene folders
+                act_scenes = [scene for scene in os.listdir(scenes_path)
+                          if os.path.isdir(os.path.join(scenes_path, scene))]
+
+                scenes.append({act: act_scenes})
+
+    return scenes
+
+def load_prompts(scene, supplement_version=-1):
     back_story = load_prompt(GAME + "/back_story.txt")
     scene_description = load_prompt(
         GAME + "/scenes/" + scene + "/" + scene + "_scene_description.txt"
@@ -238,7 +257,7 @@ def load_prompts(supplement_version=-1, scene="meet_the_caretaker"):
 
 def get_player_llm_response(
     dialogue: str,
-    player_model: Any,
+    player_model: LLM,
     back_story: str,
     scene_description: str,
     scene_supplement: str,
@@ -282,7 +301,7 @@ def get_player_llm_response(
 
 def get_npc_llm_response(
 dialogue: str,
-dialogue_model: Any,
+dialogue_model: LLM,
 back_story: str,
 scene_description: str,
 scene_supplement: str,
@@ -316,7 +335,7 @@ dialogue_instruction_prefix: str = """
 def get_query_llm_response(
     dialogue: str,
     statement: str,
-    query_model: Any,
+    query_model: LLM,
     back_story: str,
     query_instruction_prefix: str = """
         You are going to answer a single question about the current state of the dialogue in a scene in the middle of a computer game.
@@ -346,10 +365,10 @@ def get_query_llm_response(
 
 def evaluate_queries(
     dialogue: str,
-    queries: List[Query],
-    query_model: Any,
+    queries: list[Query],
+    query_model: LLM,
     back_story: str
-) -> Tuple[int, str]:
+) -> tuple[int, str]:
     fails = 0
     to_print = ""
     # print queries in Yellow
@@ -377,13 +396,14 @@ def sim_mini_scene(
     supplement_version: int,
     player: bool,
     max_turns: int,
-    dialogue_model: Any,
-    query_model: Any,
-    player_model: Any,
-) -> Tuple[str, bool]:
+    dialogue_model: LLM,
+    query_model: LLM,
+    player_model: LLM,
+    scene: str,
+) -> tuple[str, bool]:
     actors = ACTORS
     (back_story, scene_description, scene_supplement, opening_speech, queries, player_info) = (
-        load_prompts(supplement_version)
+        load_prompts(scene, supplement_version)
     )
 
     lines = split_text(opening_speech)
@@ -432,35 +452,63 @@ def sim_mini_scene(
     return (dialogue, success)
 
 
-def save_dialogue_with_timestamp(dialogue: str) -> None:
+def save_dialogue_with_timestamp(dialogue: str, scene: str, npc_model_name: str, query_model_name: str,
+                                 player_model_name: str) -> None:
     stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"output_dialogue_{stamp}.txt"
-    with open(filename, "w", encoding="utf-8") as f:
+
+    # Create directory path
+    directory = os.path.join("qa_research/dialogues", GAME, scene)
+    os.makedirs(directory, exist_ok=True)
+
+    # Create filename with model names
+    filename = f"output_dialogue_npc_{npc_model_name}_query_{query_model_name}_player_{player_model_name}_{stamp}.txt"
+
+    # Full path
+    filepath = os.path.join(directory, filename)
+
+    with open(filepath, "w", encoding="utf-8") as f:
         f.write(dialogue)
-    print(f"Dialogue saved to {filename}")
+    print(f"Dialogue saved to {filepath}")
 
 
 # --------------------------------
 # GENERATE ONE DIALOGUE
 
 
-def main(dialogue_model: Any, query_model: Any, player_model: Any) -> None:
+def generate_dialogue(dialogue_model: LLM, query_model: LLM, player_model: LLM, scene: str) -> None:
     player = True
     supplement_version = -1
-    dialogue, success = sim_mini_scene(
+    dialogue, _ = sim_mini_scene(
         supplement_version,
         player=player,
         max_turns=25,
         dialogue_model=dialogue_model,
         query_model=query_model,
         player_model=player_model,
+        scene=scene,
     )
-    save_dialogue_with_timestamp(dialogue)
+    save_dialogue_with_timestamp(
+        dialogue,
+        scene,
+        dialogue_model.__class__.__name__,
+        query_model.__class__.__name__,
+        player_model.__class__.__name__
+    )
 
 
 if __name__ == "__main__":
-    main(
+    # randomly select a scene
+    scenes = collect_game_scenes()
+    selected_act = random.choice(scenes)
+    # Set GAME to selected act
+    global GAME
+    GAME = list(selected_act.keys())[0]
+    # selected_scene = random.choice(selected_act[GAME])
+    selected_scene = "meet_the_caretaker"
+
+    generate_dialogue(
         InstructGeminiFlash2(temperature=1.0, max_tokens=3000),
         InstructGeminiFlash2(temperature=0.0, max_tokens=1000),
         InstructGeminiFlash2(temperature=1.0, max_tokens=3000),
+        selected_scene
     )
