@@ -1,0 +1,12 @@
+Eliza: Great. Once you're close, ask Luna to open the door. Make sure you switched gravity back on before that, though.
+Player: Luna, gravity on.
+Eliza: Excellent. Now that gravity's on, you should be able to stand. Can you see the door clearly? Go ahead and ask Luna to open it.
+Player: Luna, open door.
+Eliza: Did the door open? If not, we might need to try a different approach. Can you confirm if Luna denied the request?
+Player: Yes, Luna denied the request. She sent a message saying "Access Denied" when I tried to open the door.
+Computer: THIS IS NOT A DOOR ID
+Eliza: I see. Well, we're not out of options yet. I know a secret hacking technique that should bypass Luna's security protocols. I'm not supposed to use it, but given the emergency... Can you scan the door and tell me its ID? It should be a sequence of two letters followed by three digits.
+Computer: THIS IS NOT A DOOR ID
+Player: Okay, I've scanned the door. The ID is LM-023.
+Computer: CORRECT DOOR ID
+Eliza: Excellent! I've got it. I'm initiating the override sequence now. The door should be opening for you in just a moment. Once it's open, proceed through carefully. We're making progress, but stay alert. Are you ready to move forward?

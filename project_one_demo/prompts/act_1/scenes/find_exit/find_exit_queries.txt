@@ -1,4 +1,4 @@
 Eliza has told the player she is sending or has sent an upgrade to disable gravity
 [demo_script_state = 2.11, eyeos_function = EyeOSUpgrade_Gravity, demo_flow_message = Chamber_PlayerToldAboutGravity]
 
-The player stated they reached the door or the exit. The statement can be implicit. This is a large open chamber with the door at the end, so if the player is just mentioning that they see the door/exit is not enough to trigger this, they should state they are close or they reached it.
+The player stated they are close to the door or the exit. The statement can be implicit. This is a large open chamber with the door at the end, so if the player is just mentioning that they can see the door/exit, it is not enough to to say that this is satisfied. 

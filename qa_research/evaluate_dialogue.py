@@ -15,6 +15,9 @@ Scene Description:
 
 Scene Supplement:
 {scene_supplement}
+
+The following sequence of objectives must be met in the dialogue, the scene is considered unsuccessful if any of the objectives are not met:
+{queries}
 """
 
 
@@ -29,13 +32,13 @@ class GenerateEmbeddingTemplate(BaseModel):
     )
 
 
-def scene_info_generation(back_story: str, scene_description: str, scene_supplement: str) -> str:
+def scene_info_generation(back_story: str, scene_description: str, scene_supplement: str, queries: "str") -> str:
     return EVALUATION_CONTEXT_TEMPLATE.format(
-        back_story=back_story, scene_description=scene_description, scene_supplement=scene_supplement
+        back_story=back_story, scene_description=scene_description, scene_supplement=scene_supplement, queries=queries
     )
 
 
-def general_comparison(
+def contrast_set_actors(
     model: LLM, set_actor_1: str, set_actor_2: str, scene: str, evaluated_actors: str,
 ) -> dict[str, Any]:
     eval_prompt = ChatPromptTemplate.from_template(
@@ -43,10 +46,9 @@ def general_comparison(
          computer videogame. Here is the contextual information of the game and the scene: \n---\n {scene}\n---\n
          Your review focuses on the quality of the dialogues of the actors {evaluated_actors} in the scene.
          Since the actors need to improv and adap to what players might say, you are to evaluate the actors
-         across several instances of the same scene with different players. Here are the dialogues of the 
-         first set of actors:
+         across several instances. Below are the dialogues of the first set of actors:
         \n---\n {set_actor_1}\n---\n
-        And here are the dialogues of the second set of actors:
+        And below are the dialogues of the second set of actors:
         \n---\n {set_actor_2}\n---\n
         Your output is in json format. It starts with a "review" field, where you write your review.
         Your review is structured in the following format: First, it lists the most relevant good and bad points of the

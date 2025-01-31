@@ -1,0 +1,24 @@
+Eliza: Schematics show there's a walkway leading up to an exit above you - get out of there!
+Player: Okay, but there's no way up there.
+Eliza: I'm sending an unofficial eye-OS upgrade now - try saying "Luna, gravity off", or "Luna, disable gravity".
+Player: Luna, gravity off.
+Eliza: Did that work? You should be floating upward.
+Player: Yeah, I'm floating up now.
+Eliza: Okay, great. You should see a metal ramp above you, try to get onto that.
+Player: Okay, I see it.
+Eliza: Alright, can you reach the ramp?
+Player: Yeah, I'm on the ramp.
+Eliza: Okay, good, how does it feel floating around like that?
+Player: It's a bit weird, actually. Like swimming, but in slow motion.
+Eliza: Well, try to enjoy it, it's not every day you get to float through a spaceship.
+Player: It's kind of cool, I guess.
+Eliza: So, what did you do before they put you to sleep?
+Player: I was a software engineer, mostly, designing interfaces like eye-OS, funnily enough.
+Eliza: Well, that's useful, I could use someone who knows what they are doing around here, so try not to fall off any ramps, okay?
+Player: Okay, I'll try my best.
+Eliza: I'm guessing you designed this piece of the interface then, how did we end up with a command for gravity, of all things?
+Player: Not this part, no. I mostly did the database stuff and error handling. The interface design was someone else's gig.
+Eliza: Well, I'm grateful for your work regardless, it's helping us all right now, so keep going, I think I see a door at the end of the ramp on the schematics, are you close to it?
+Player: Yeah, almost there.
+Eliza: Good, that's our way out of there, the control room's just beyond that door.
+Player: Just made it.

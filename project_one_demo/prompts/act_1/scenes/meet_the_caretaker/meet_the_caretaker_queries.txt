@@ -11,4 +11,4 @@ The player has said the phrase "Bravo Tango Delta" or "BRAVO TANGO DELTA".
 [demo_script_state = 2.1, demo_flow_state= 1, demo_flow_message = Pod_PassphraseCorrect]
 (Computer: CORRECT PASSPHRASE, Computer: WRONG PASSPHRASE)
 
-False.
+Eliza or the player stated that the pasphrase worked or that the pod should be opening now, or that they can exit now.

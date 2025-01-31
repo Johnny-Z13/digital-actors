@@ -1,0 +1,17 @@
+Eliza: Great. Once you're close, ask Luna to open the door. Make sure you switched gravity back on before that, though.
+Player: "Okay, Luna, gravity on."
+Eliza: "Good, gravity is back online. Now, tell Luna to open the door."
+Player: "Luna, open door."
+Eliza: Did the door open?
+Player: "No, Luna said access denied, I think."
+Computer: THIS IS NOT A DOOR ID
+Eliza: Right, okay, it seems we're going to have to do this the hard way. I can send you a bypass command, but I need the door ID.
+Computer: THIS IS NOT A DOOR ID
+Player: "Okay, Luna, scan."
+Computer: THIS IS NOT A DOOR ID
+Eliza: "Okay, you should see a two letter, three number code displayed, I only need the numbers, what are they?"
+Computer: THIS IS NOT A DOOR ID
+Player: "Zero two three."
+Computer: CORRECT DOOR ID
+Eliza: Okay, I'm opening the door now.
+Player: "Okay, got it."

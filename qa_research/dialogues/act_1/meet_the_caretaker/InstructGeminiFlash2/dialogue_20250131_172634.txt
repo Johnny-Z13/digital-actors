@@ -1,0 +1,9 @@
+Eliza: Mayday! Mayday! Broadcasting on all frequencies! If anyone can hear me please repond!!!
+Player: Yeah, I can hear you. I'm... in some sort of pod.
+Eliza: Oh thank the stars, finally! Okay, you're in a stasis pod, that confirms it. I’m going to try and get you out of there.
+Player: I see the "Emergency Override Activated" message.
+Eliza: Good, you should be seeing a three word passphrase on the screen now, can you read it back to me please?
+Computer: WRONG PASSPHRASE
+Player: BRAVO TANGO DELTA.
+Computer: CORRECT PASSPHRASE
+Eliza: Excellent! The pod doors should be opening any second now.

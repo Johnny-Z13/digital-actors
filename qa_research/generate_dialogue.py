@@ -25,7 +25,7 @@ load_dotenv()
 # --------------------------------
 # GLOBALS AND CONSTANTS
 
-PATH = os.path.abspath(os.getcwd())
+PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # DIALOGUE_MODEL = InstructGeminiPro(temperature=1.0, max_tokens=3000)
 # QUERY_MODEL = InstructGeminiPro(temperature=1.0, max_tokens=3000)
@@ -106,14 +106,15 @@ def print_header(model_name, scene):
 
 
 def load_prompt(filename):
-    with open(os.path.join(PATH, "project_one_demo/prompts", filename)) as f:
+    prompt_path = os.path.join(PATH, "project_one_demo", "prompts", filename)
+    with open(prompt_path) as f:
         return f.read()
 
 
 def write_transcript(dialogue, filename):
-    with open(
-        os.path.join(PATH, "qa_research/transcripts", filename), "w", encoding="utf-8"
-    ) as f:
+    transcript_path = os.path.join(PATH, "qa_research", "transcripts", filename)
+    os.makedirs(os.path.dirname(transcript_path), exist_ok=True)
+    with open(transcript_path, "w", encoding="utf-8") as f:
         f.write(dialogue)
 
 
@@ -213,7 +214,9 @@ def prompt_llm(prompt, model):
 
 
 def collect_game_scenes() -> list[dict[str, list[str]]]:
-    prompts_path = os.path.join(PATH, "project_one_demo/prompts")
+    # Get the root directory (one level up from qa_research)
+    root_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    prompts_path = os.path.join(root_path, "project_one_demo", "prompts")
     scenes = []
 
     # Get all game folders
@@ -235,17 +238,17 @@ def collect_game_scenes() -> list[dict[str, list[str]]]:
     return scenes
 
 
-def load_prompts(scene, supplement_version=-1):
-    back_story = load_prompt(GAME + "/back_story.txt")
+def load_prompts(scene, game, supplement_version=-1):
+    back_story = load_prompt(game + "/back_story.txt")
     scene_description = load_prompt(
-        GAME + "/scenes/" + scene + "/" + scene + "_scene_description.txt"
+        game + "/scenes/" + scene + "/" + scene + "_scene_description.txt"
     )
     if supplement_version == -1:
         scene_supplement = ""
     else:
         # Load an alternate supplemental prompt if needed
         scene_supplement = load_prompt(
-            GAME
+            game
             + "/scenes/"
             + scene
             + "_scene/"
@@ -255,12 +258,12 @@ def load_prompts(scene, supplement_version=-1):
             + ".txt"
         )
     opening_speech = load_prompt(
-        GAME + "/scenes/" + scene + "/" + scene + "_opening_speech.txt"
+        game + "/scenes/" + scene + "/" + scene + "_opening_speech.txt"
     )
     player_info = load_prompt(
-        GAME + "/scenes/" + scene + "/" + scene + "_player_info.txt"
+        game + "/scenes/" + scene + "/" + scene + "_player_info.txt"
     )
-    queries = read_queries(GAME + "/scenes/" + scene + "/" + scene + "_queries.txt")
+    queries = read_queries(game + "/scenes/" + scene + "/" + scene + "_queries.txt")
     return (
         back_story,
         scene_description,
@@ -425,6 +428,7 @@ def sim_mini_scene(
     query_model: LLM,
     player_model: LLM,
     scene: str,
+    game: str,
 ) -> tuple[str, bool]:
     actors = ACTORS
     (
@@ -434,7 +438,7 @@ def sim_mini_scene(
         opening_speech,
         queries,
         player_info,
-    ) = load_prompts(scene, supplement_version)
+    ) = load_prompts(scene, game, supplement_version)
 
     lines = split_text(opening_speech)
     dialogue = ""
@@ -490,12 +494,12 @@ def sim_mini_scene(
 
 
 def save_dialogue_with_timestamp(
-    dialogue: str, scene: str, npc_model_name: str
+    dialogue: str, scene: str, npc_model_name: str, game: str
 ) -> None:
     stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # Create directory path
-    directory = os.path.join("qa_research/dialogues", GAME, scene, npc_model_name)
+    directory = os.path.join(PATH, "qa_research", "dialogues", game, scene, npc_model_name)
     os.makedirs(directory, exist_ok=True)
 
     # Create filename with model names
@@ -518,6 +522,7 @@ def generate_dialogue(
     query_model: LLM,
     player_model: LLM,
     scene: str,
+    game: str,
     max_turns: int = 50,
 ) -> None:
     player = True
@@ -530,11 +535,13 @@ def generate_dialogue(
         query_model=query_model,
         player_model=player_model,
         scene=scene,
+        game=game,
     )
     save_dialogue_with_timestamp(
         dialogue,
         scene,
         dialogue_model.__class__.__name__,
+        game,
     )
 
 
@@ -553,4 +560,5 @@ if __name__ == "__main__":
         InstructGeminiFlash2(temperature=0.0, max_tokens=1000),
         InstructGeminiFlash2(temperature=1.0, max_tokens=3000),
         selected_scene,
+        GAME,
     )

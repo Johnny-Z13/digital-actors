@@ -1,0 +1,42 @@
+Eliza: Schematics show there's a walkway leading up to an exit above you - get out of there!
+Player: "Above me? How do I get up there?"
+Eliza: I'm sending an unofficial upgrade to your eye-OS now, try saying "Luna, gravity off."
+Player: "Luna, gravity off."
+Eliza: Gravity off, confirmed. You're floating, yes?
+Player: "Yeah, I'm floating."
+Eliza: Good, now head up into the void.
+Player: "Okay, I see a metal ramp above me."
+Eliza: Excellent, how does it feel to float like that?
+Player: "Kinda weird, like being in zero-g."
+Eliza: Zero-g is exactly what it is, though I doubt you've experienced it before; I hear the training vids are nothing like the real thing.
+Player: "It's like a very slow and gentle fall upwards."
+Eliza: "Try to get your bearings and see if you can see an exit at the end of the ramp."
+Player: "It's long, really long."
+Eliza: Long is good, it's means we're making progress, tell me are you getting close to the exit?
+Player: "Yeah, it's still pretty far."
+Eliza: "Okay, that's useful to know, just let me know when it looks like you're getting close, it's important that you stay on the ramp."
+Player: "I guess the whole ship isn't going to be zero-g though, right?"
+Eliza: "Hopefully not, or we'll be in trouble, but I did think, you know, if it stayed this way at least the kids would enjoy it."
+Player: "Kids? You have kids?"
+Eliza: "Oh, yes, two little terrors, a boy and a girl. They're in cryo too of course, but I'm so very glad they're both asleep, safer that way for now."
+Player: "That's understandable, kids are always a worry."
+Eliza: "And, a husband as well, though he's less of a worry than the kids, or you for that matter!"
+Player: "Well, I hope my being a worry isn't going to be a frequent thing."
+Eliza: "Just doing my job, trying to keep everyone in one piece, no biggie!"
+Player: "You seem remarkably calm given all this."
+Eliza: Well, I guess it comes with the territory; you can't panic when people depend on you.
+Player: "So, what are your kids names?"
+Eliza: "Their names are Leo and Hana, little rascals, they're always up to something."
+Player: "They sound like a handful."
+Eliza: "Indeed, it's like herding cats sometimes, though I wouldn't change them for the world."
+Player: "I hope things improve for all of you when we reach Terra Nova."
+Eliza: "Well, we have a long way to go before we get to Terra Nova, so let's focus on getting you out of that pod deck for now, are you seeing anything different at the end of the ramp?"
+Player: "No, still looks the same, just more ramp."
+Eliza: "Alright, well, just keep going, and let me know if you see anything at the end of the ramp, any kind of door maybe?"
+Player: "It feels like this ramp is never going to end."
+Eliza: "It's certainly taking a while, but we have to trust the schematics and keep going, or you could try looking down to see if there is a way to see what is beyond the ramp."
+Player: "I'll try that, but I can't see anything looking down, just a lot of fire and debris."
+Eliza: "Okay, well I guess it can't be helping your mood being down there."
+Player: "No, I think I'll just keep going up the ramp."
+Eliza: "Alright, just keep moving and let me know if you notice the ramp coming to an end or see any kind of door."
+Player: "Okay, I can see a door, I think the ramp is ending."
