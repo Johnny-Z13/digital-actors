@@ -73,8 +73,23 @@ class AntServer(AntServerBase):
                 await self.send_state_update("string", "demo_script_state", "2.8")
                 await self.send_state_update("string", "demo_flow_message", "Chamber_EverythingFail")
 
-
     async def process_results(self, lines, state_changes):
+        print("Processing results", lines)
+        # checking if line.text we are int he openning scene 2
+        for l in lines or []:
+            if l.text and "Ok so your pod id tells me you're a zoologist" in l.text:
+                for change in state_changes or []:
+                    if change.name and change.value:
+                        type = "int" if change.name == "demo_flow_state" else "string"
+                        await self.send_state_update(type, change.name, change.value)
+
+                for line in lines or []:
+                    if line.delay > 0.0:
+                        time.sleep(line.delay)
+                    if line.text:
+                        await self.send_response(line.text)
+                return
+
         for line in lines or []:
             if line.delay > 0.0:
                 time.sleep(line.delay)
@@ -85,7 +100,6 @@ class AntServer(AntServerBase):
             if change.name and change.value:
                 type = "int" if change.name == "demo_flow_state" else "string"
                 await self.send_state_update(type, change.name, change.value)
-
 
     async def on_user_transcript(self, message):
 

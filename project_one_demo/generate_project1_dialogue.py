@@ -2,6 +2,7 @@ import os
 import sys
 import re
 import math
+import time
 from iconic_tools.langchain import InstructSonnet, InstructOpus3, InstructGPT4, InstructO1, InstructGeminiPro, InstructGPT35, InstructGeminiFlash, InstructGeminiFlash2
 from langchain_core.prompts import ChatPromptTemplate
 from concurrent.futures import ThreadPoolExecutor
@@ -381,7 +382,7 @@ def handle_player_reponse(message:str, automated:bool) -> Tuple[List[Line], List
             print(CYAN + f"Additional state changes: {state_changes2}")
 
             if to_print:
-                gSceneDialogue += to_print + "\n"
+                gSceneDialogue += to_print + "\n\n"
 
             print(CYAN + f"Scene dialogue: {gSceneDialogue}")
 
