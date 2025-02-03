@@ -4,6 +4,7 @@ import os
 import time
 import asyncio
 import websockets
+import json
 from rich.console import Console
 
 class CachedVoiceClient:
@@ -58,7 +59,7 @@ class CachedVoiceClient:
             await websocket.send(
                 '{"text": " ", "voice_settings": {"stability": 0.8, "similarity_boost": 0.8}, "xi_api_key": "03fb4a0acae30e29a92545df22b62f87"}'
             )
-            await websocket.send(f'{{"text": "{user_input}"}}')
+            await websocket.send(json.dumps({"text": user_input}))
             await websocket.send('{"text": ""}')  # EOS
             t0 = time.time()
             async for resp in websocket:
