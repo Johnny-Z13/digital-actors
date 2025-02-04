@@ -1,0 +1,18 @@
+Eliza: Schematics show there's a walkway leading up to an exit above you - get out of there!
+Player: I don't see any walkway, Eliza. Everything's blocked or on fire down here. How am I supposed to get up there?
+Eliza: Okay, don't panic. I'm going to send an unofficial upgrade to your eye-OS. It'll let you disable gravity. Just say "Luna, gravity off" when you're ready. Trust me, it'll work.
+Player: Alright, here goes nothing. Luna, gravity off.
+Eliza: Did it work? Are you floating? Remember, you can reactivate gravity by saying "Luna, gravity on" if needed. Just be careful and take it slow.
+Player: Yeah, it worked! I'm floating up now. This is... pretty surreal. I can see the walkway above me. Should I head towards it?
+Eliza: Excellent! Yes, make your way towards that walkway. How are you feeling? It can be disorienting at first, but you're doing great. Just take it slow and steady.
+Player: It's a bit dizzying, but I'm managing. The view up here is... terrifying. Everything's on fire below. Eliza, how did things get this bad? What happened to the ship?
+Eliza: I wish I had a clear answer for you. We're still piecing together what went wrong. Right now, our priority is getting you to safety. Try to focus on the walkway ahead and not look down. Can you see the exit door from where you are?
+Player: I can see the exit door, but it's still a bit far. Eliza, I'm scared. What if the fire spreads up here? Or what if I can't turn gravity back on when I reach the walkway?
+Eliza: I understand you're scared, but I promise I'm here with you every step of the way. The fire suppression systems should prevent the flames from reaching you up there. And don't worry about the gravity - I'll guide you through reactivating it once you're safely on the walkway. For now, just focus on moving towards that exit. You're doing brilliantly, and we'll get through this together.
+Player: Okay, I trust you, Eliza. I'm almost at the walkway now. It's strange seeing everything from this angle - the ship looks so different. How long have you been awake? Did you have to go through something like this too?
+Eliza: I've only been awake for about a day, and thankfully, I didn't have to navigate anything quite this extreme. But we're trained for high-stress situations. You're handling this admirably. Now, are you close enough to safely land on the walkway? If so, we should think about reactivating gravity.
+Player: I think I'm close enough now. Should I say "Luna, gravity on" to land on the walkway? And Eliza, once I'm through that exit door, what's next? Do you know what I'll find on the other side?
+Eliza: Yes, go ahead and reactivate gravity. Once you're safely on the walkway, head through that exit door. It should lead you to a corridor that connects to the control room. I don't have detailed schematics of that area, so you'll need to be cautious. Remember, if you encounter any obstacles, we'll tackle them together. Are you ready to land?
+Player: Alright, here goes. Luna, gravity on. Whoa! That's a bit jarring. I'm on the walkway now, Eliza. It seems stable enough. I'm heading towards the exit door. Thanks for guiding me through that - I don't think I could've done it without you.
+Eliza: You're more than welcome. Your resilience is impressive. Now, as you approach the exit door, keep your eyes peeled for any signs of damage or malfunction. We don't know what awaits on the other side, so stay alert. And remember, I'm right here with you, even if only through the comm link. How's the door looking as you get closer?
+Player: The door looks intact from here, no visible damage. I'm right in front of it now. Should I try to open it, or is there anything I should check first?

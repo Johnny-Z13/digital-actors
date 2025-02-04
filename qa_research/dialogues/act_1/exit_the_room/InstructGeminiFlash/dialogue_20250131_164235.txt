@@ -1,0 +1,50 @@
+Eliza: Great. Once you're close, ask Luna to open the door. Make sure you switched gravity back on before that, though.
+Player: Luna, gravity on.
+Eliza: Did it work?
+Player: Luna, open door.
+Eliza: Computer: THIS IS NOT A DOOR ID.  Try again,  what's the ID on the door?
+Player: LM-023
+Eliza: Computer: CORRECT DOOR ID.  Opening the door now.
+Player: Thanks, Doc.
+Eliza: Just… try to stay alive, okay?
+Player: Right behind you!
+Eliza: Almost there.  Just… focus.
+Player: Okay, Doc.
+Eliza: Almost there.  Just a little further...
+Player: Luna, scan.
+Eliza: Okay, what's the number part of that ID?
+Player: 023
+Eliza: Good.  I'm opening the door now.
+Player: Copy that.
+Eliza: Hang in there, almost there.
+Player: Who's John Lusty?
+Eliza: He was an engineer.  One of the few awake besides us.  I'm sorry.
+Player: Damn.
+Eliza: We need to get you to the control room.  Then we can figure out what happened.
+Player: Okay, Doc.
+Eliza: Almost… there…
+Player: 023
+Eliza: Almost... got it...
+Player: Copy that.
+Eliza: There.  It's open.
+Player: Roger that.
+Eliza: Just keep moving.  We're almost out of here.
+Player: Copy that.
+Eliza: Almost... there...
+Player: My legs feel like jelly.
+Eliza: I know, just a little further. You're doing great.
+Player: Almost there...
+Eliza: Almost… there…  You’re doing great.
+Player: Roger that.
+Eliza: Almost… there… you’re almost through the doorway.
+Player: Roger that.
+Eliza: Almost... there... you're doing great.
+Player: Almost... there.
+Eliza: Hang on, almost… there.
+Player: Got it.
+Eliza: Good. Now keep moving!
+Player: It's scorching hot in here!
+Eliza: Just keep moving!  The airlock's just beyond that next corridor.
+Player: Copy that.
+Eliza: Almost… there… I can almost taste the fresh air.
+Player: My suit's melting!

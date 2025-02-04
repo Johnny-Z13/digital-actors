@@ -1,0 +1,50 @@
+Eliza: Schematics show there's a walkway leading up to an exit above you - get out of there!
+Player: Luna, gravity off.
+Eliza: Did it work?  Can you feel yourself floating?
+Player: Yeah, I'm floating!
+Eliza: Good.  Now, head towards that ramp. I think there's an exit at the top.  But be careful, those flames... they look pretty intense.
+Player: Whoa, this is…  surprisingly peaceful up here.
+Eliza: It's a bit like being in a snow globe, isn't it?  Except instead of snow, it's fire.
+Player: This is weirdly beautiful.
+Eliza: Almost there?  Can you see the exit?
+Player: Almost.  I can see the door now.
+Eliza: Just a little further... almost got you out of the inferno.
+Player: Okay, I'm at the door.
+Eliza: Almost there!  Just a little push… and you're safe.
+Player: This is trippy.
+Eliza: Well done! You made it! Now, let's get you patched up and figure out what caused this… inferno.
+Player: I feel like I'm in a really bad sci-fi movie.
+Eliza: Seriously though, that was a close one.  We need to get to the bottom of this.
+Player: It's like zero-gravity yoga, but with a fiery backdrop.
+Eliza: You've got a good head on your shoulders, even if your sense of humour is a little...off-kilter.
+Player: It's like a really bad fever dream.
+Eliza: At least you’ve got a sense of humor about it.  That's more than I can say for myself right now.
+Player: It's kinda awesome, though.
+Eliza: Glad you’re okay.  Now, let's talk about getting you to the control room.  That door should lead directly to it.
+Player: I think I need a moment.
+Eliza: Just breathe, okay? We’ll sort this out.
+Player: This is like something out of a really bad 80s movie.
+Eliza: Okay, take your time.  Just let me know when you're ready to proceed.
+Player: Okay, I'm ready.
+Eliza: Good.  Let's just hope the control room isn't also on fire.
+Player: I think I'm going to be sick.
+Eliza: Well, that was...unexpected.  Let's hope the rest of the ship isn't quite so...festive.
+Player: It's beautiful, in a terrifying sort of way.
+Eliza: So,  tell me… what exactly *is* a "really bad 80s movie"?
+Player: Think "Alien" meets "Flashdance", but with way more fire.
+Eliza: Sounds… exhilarating.  Let's just hope the control room's air filtration system is up to snuff.
+Player: Okay, I'm at the door.
+Eliza: Just open it and get inside.  I'll be monitoring the situation from here.
+Player: Opening the door feels like entering a different dimension.
+Eliza: And try not to burn down the control room, okay?
+Player: It smells like burnt toast and ozone.
+Eliza: Well, that’s one way to make an entrance.
+Player: It's like... a fiery, floating ballet.
+Eliza: So, about that date…  after we save the day, of course.
+Player: This is actually kind of exhilarating.
+Eliza: Just keep moving, and try not to get singed.
+Player: I'm in.
+Eliza: So,  a "really bad 80s movie" involves fire,  dancing, and… aliens?  I need to add that to my list of things to research once we're out of this mess.
+Player: It smells like…  victory.
+Eliza: And just breathe. We're almost through this.
+Player: It's surprisingly quiet in here.

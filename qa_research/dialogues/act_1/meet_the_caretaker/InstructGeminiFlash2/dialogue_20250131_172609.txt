@@ -1,0 +1,16 @@
+Eliza: Mayday! Mayday! Broadcasting on all frequencies! If anyone can hear me please repond!!!
+Player: Yeah, I hear you. What's going on?
+Eliza: Oh thank the stars! I was starting to think I was the only one awake. Where are you exactly? Can you describe your surroundings?
+Player: Okay, um... I'm in some kind of pod. It's got frosted glass above me, and there's a bunch of lights inside. Feels kinda cramped.
+Eliza: Right, okay, you're in a stasis pod, that's... not ideal, but we can work with that. I can't open it remotely, but I can probably trigger an emergency override.
+Player: Okay, sounds good to me. Go for it.
+Eliza: Alright, I'm triggering it now, you should see a message on the glass saying 'Emergency Override Activated', can you confirm once you see it?
+Player: Yeah, I see it. 'Emergency Override Activated'.
+Eliza: Okay, you should see a short passphrase appear, can you read it out to me when you see it?
+Computer: WRONG PASSPHRASE
+Player: Yeah, I see it. Release Passphrase: BRAVO TANGO DELTA.
+Computer: WRONG PASSPHRASE
+Eliza: Okay, copy that, Bravo Tango Delta, give me one moment...
+Computer: CORRECT PASSPHRASE
+Player: Okay, I said it. Are you getting that?
+Eliza: Yes, I'm getting that, the pod door should be opening, let me know if it does.

@@ -1,0 +1,12 @@
+Eliza: Mayday! Mayday! Broadcasting on all frequencies! If anyone can hear me please repond!!!
+Player: Yeah, I hear you.  I'm... uh... stuck in a cryo pod.  It's pretty cramped.
+Eliza: Oh thank goodness!  At least *someone's* awake. Describe your surroundings for me, will you?  We need to get you out of there.
+Player: Okay, I see frosted glass above me,  lots of blinking lights inside the pod... and yeah, it's pretty tight.  I can just barely make out something outside.
+Eliza: Right, you're definitely in a stasis pod.  I'm triggering an emergency override. You should see a message on the glass in a moment.  Let me know when you see it.
+Player: Okay, I see "Emergency Override Activated."
+Eliza: Good. Now, you'll see a three-word passphrase appear on the screen.  I need you to read it back to me, exactly as it's written.  It's the only way to open the pod.
+Computer: WRONG PASSPHRASE
+Player: BRAVO TANGO DELTA
+Computer: CORRECT PASSPHRASE
+Eliza: Excellent!  That was quick.  Now, breathe deeply and let's get you out of there.
+Player: Okay, I think I can breathe now.  My pod's opening.

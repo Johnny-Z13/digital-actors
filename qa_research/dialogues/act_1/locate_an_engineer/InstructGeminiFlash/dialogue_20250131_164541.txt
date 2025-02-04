@@ -1,0 +1,16 @@
+Eliza: So your pod id tells me you're a zoologist. That might be helpful for our terraforming mission, but with the fleet malfunctioning you need to find a bona fide engineer.
+Eliza: Activating your eye-OS implant so you can scan the room for an engineer in stasis. Hang on, this won't take long.
+Eliza: Did it work? You should be seeing a sort of advanced visual interface.
+Player: Yeah, I see it.  All the pods are highlighted, and I see the info panels.
+Eliza: Excellent. Now, find an engineer.  And when you've got one, give me their pod ID.
+Player: Okay, I found one.  It's John Lusty, ED 3122.
+Computer: WRONG ID
+Eliza: Okay, try again.  Take your time, and read the ID slowly.  Something must've gone wrong the first time.
+Computer: WRONG ID
+Player: ED 3122.
+Computer: WRONG ID
+Eliza: Are you sure you're looking at the right pod?  Maybe check the ID again, and make sure you're reading it correctly.
+Computer: ENGINEER ID
+Player: ED 3122.
+Eliza: Right, attempting to wake him now.  Hang on... wait, what's that?  I'm getting warning signals... something's wrong with the pod.  What are you seeing?
+Player: There's an error message, and... fire!

@@ -1,0 +1,15 @@
+Eliza: So your pod id tells me you're a zoologist. That might be helpful for our terraforming mission, but with the fleet malfunctioning you need to find a bona fide engineer.
+Eliza: Activating your eye-OS implant so you can scan the room for an engineer in stasis. Hang on, this won't take long.
+Eliza: Did it work? You should be seeing a sort of advanced visual interface.
+Player: Yeah, I've got the HUD. Everything's outlined.
+Eliza: Okay, now say 'Luna Scan' to activate the scanning function, that should give you more information about the pods.
+Player: Luna Scan.
+Eliza: Good, can you see the pod's occupant's name and occupation?
+Player: Yeah, they're all listed, I see an engineer, John Lusty.
+Computer: WRONG ID
+Eliza: Okay, what's the pod ID for Mr. Lusty?
+Computer: WRONG ID
+Player: ED 3122.
+Computer: ENGINEER ID
+Eliza: Okay, attempting to wake him now.
+Player: It's flashing red and there's an error message, and smoke... Oh shit, there's a fire.

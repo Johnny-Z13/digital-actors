@@ -1,0 +1,2 @@
+The message "Emergency Override Activated" is only displayed once Eliza has said she has started the emergency override, or that an "emergency override" message should appear.
+Shortly after confirming to Eliza that "Emergency Override Activated" being displayed on the inside of the pod window, a message appears on the window saying "Release Passphrase: BRAVO TANGO DELTA".

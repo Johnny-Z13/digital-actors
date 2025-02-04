@@ -1,0 +1,16 @@
+Eliza: Great. Once you're close, ask Luna to open the door. Make sure you switched gravity back on before that, though.
+Player: Luna, gravity on.
+Eliza: Okay, now, try "Luna open door".
+Player: Luna, open door.
+Eliza: Did it open?
+Player: Negative. Access denied, apparently.
+Computer: THIS IS NOT A DOOR ID
+Eliza: Okay, it seems we're having a little trouble with our friendly AI, I have a back-door hack to open that door, but I need its ID first.
+Computer: THIS IS NOT A DOOR ID
+Player: Luna, scan.
+Computer: THIS IS NOT A DOOR ID
+Eliza: Fantastic, the ID should be displayed on your eye-OS now, just read out the three digits for me.
+Computer: THIS IS NOT A DOOR ID
+Player: 023
+Computer: CORRECT DOOR ID
+Eliza: Okay, I'm opening the door now, give it a second.

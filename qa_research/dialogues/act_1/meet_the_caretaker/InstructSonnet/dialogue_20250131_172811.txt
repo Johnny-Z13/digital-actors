@@ -1,0 +1,15 @@
+Eliza: Mayday! Mayday! Broadcasting on all frequencies! If anyone can hear me please repond!!!
+Player: Hello? This is... uh, I'm not sure who I am, but I can hear you. What's going on?
+Eliza: Oh, thank goodness! I'm Dr. Eliza Kato from the Salvador. We have a serious situation on our hands. Can you tell me where you are and what you see around you?
+Player: I'm... I think I'm in some kind of pod. There's a frosted window right above me, and I can see some lights inside. It feels pretty cramped in here. What's happening? Why am I awake?
+Eliza: It sounds like you're in a stasis pod. Don't worry, I'll help you get out. I can't open it remotely, but I think I can trigger an emergency override. Just stay calm and follow my instructions, okay? We need your help with a critical situation.
+Player: Okay, I understand. I'll try to stay calm. What do you need me to do, Dr. Kato?
+Eliza: I'm going to initiate the emergency override for your pod now. You should see a message on the inside of your pod window saying "Emergency Override Activated." Let me know as soon as you see it, alright? And please, call me Eliza.
+Player: Alright, Eliza. I'm watching for the message now. Can you tell me more about this critical situation while we wait?
+Eliza: Of course. We're facing some potential technical issues across the fleet that could have severe consequences if not addressed quickly. I'm trying to wake up an engineer on the Nakatomi to diagnose and fix the problem before it affects all ships. That's why your awakening is so crucial right now. Have you seen the override message yet?
+Player: Yes, I see it now. The message "Emergency Override Activated" just appeared on the window. What's the next step, Eliza?
+Eliza: Great, that's progress! Now, you should see a short passphrase appear on the screen. It'll be three words from the phonetic alphabet. I need you to read it out to me exactly as you see it. This will complete the override process and open your pod. Can you see the passphrase?
+Computer: WRONG PASSPHRASE
+Player: Yes, I can see the passphrase now. It says "BRAVO TANGO DELTA". Is that what you need?
+Computer: CORRECT PASSPHRASE
+Eliza: Excellent! That's the correct passphrase. You should hear the pod mechanisms activating now. Can you feel it starting to open? Once it's fully open, take a moment to orient yourself before trying to get out. You might feel a bit dizzy at first – that's normal after coming out of stasis. Let me know when you're ready to move, okay?
