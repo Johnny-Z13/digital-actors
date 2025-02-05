@@ -260,6 +260,8 @@ def load_prompts(scene, game, supplement_version=-1):
     opening_speech = load_prompt(
         game + "/scenes/" + scene + "/" + scene + "_opening_speech.txt"
     )
+    # opening speech could have delays in squared brakets, lets remove them
+    opening_speech = re.sub(r"\[.*?\]", "", opening_speech)
     player_info = load_prompt(
         game + "/scenes/" + scene + "/" + scene + "_player_info.txt"
     )
@@ -444,7 +446,7 @@ def sim_mini_scene(
     dialogue = ""
 
     for line in lines:
-        dialogue += SPEECH_TEMPLATE.format(actor=actors[0], speech=line) + "\n"
+        dialogue += SPEECH_TEMPLATE.format(actor=actors[0], speech=line) + "\n\n"
         print(GREEN + SPEECH_TEMPLATE.format(actor=actors[0], speech=line))
 
     turn = 1

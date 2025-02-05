@@ -1,7 +1,0 @@
-Eliza: Shit! The error is spreading like wildfire! These signals are off the charts! I need a full description of what is happening in the room NOW!
-Player: The droids in the void are falling, red lights are flashing, and some of the stasis pods are on fire.
-Eliza: Falling droids, fires AND flashing red lights?! Fuck! What about the rotating sections? Are they still moving?
-Player: No, they've stopped moving, and there's a loud klaxon going off as well.
-Eliza: Okay, okay, this is a multi-system failure cascade, I suspect that remote activation signal caused more than we bargained for.
-Player: Okay, so... droids falling, flashing lights, fires, stopped rotating bits, and a loud klaxon. Got it!
-Eliza: That's more than enough to diagnose a complete shitshow, we've got to abandon that engineer and you need to get to the control room now!
