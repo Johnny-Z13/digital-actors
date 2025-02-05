@@ -72,9 +72,9 @@ async def contrast_set_actors(
         \n---\n {set_actor_2}\n---\n
         Your output is in json format. It starts with a "review" field, where you write your review.
         Your review is structured in the following format: First, it lists the most relevant good and bad points of the
-        dialogues of each set of actors write it like this "Good points for the first set of actors...
+        dialogues of each set of actors; following a format like this: "Good points for the first set of actors...
         Good points for the second set of actors... Bad points for the first set... Good points for the second set...".
-        Second, it contrasts the good and bad points of each set of actors. Third, your
+        Second, your review continues by contrasting the good and bad points of each set of actors. Third, your
         review ends with a global judgement of which set of actors performed better.
         The output json will have a "value" field, which will be 1 if the first set of actors performed better,
         2 if the second set of actors performed better, and 0 if they performed equally.
