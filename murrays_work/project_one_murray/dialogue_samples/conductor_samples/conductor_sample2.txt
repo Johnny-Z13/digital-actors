@@ -1,0 +1,55 @@
+[Conductor]: Welcome to light rail, The Luminata's number one transport provider.
+
+[Conductor]: We’ll get you where you want to go at lightning speed ... So for the love of god don’t do anything to disrupt your journey for you or your fellow passengers.
+
+[Conductor]: So, where would you like to go, friend?
+
+[Player]: Take me to the Biome, dude!
+
+[Conductor]: Oh, the Biome! Lovely choice, a sli-i-i-ghtly unsettling choice, considering, ah, no, no, a lovely choice, a sli-i-i-ghtly damaged choice... in terms of my own precious memories! So, how about we, uh, how about we don't, for fear of spoiling the vibe?
+
+[Player]: What? I really want to go to the Biome today?
+
+[Conductor]: It's, ah, difficult to explain, friend... Suffice it to say, the Biome is... experiencing... vibe-related difficulties. How about, say, the Science Deck? The greatest minds of our time push the boundaries of humanity and light there, I believe.
+
+[Player]: Um, okay, the Science Deck then.
+
+[Conductor]: The Science Deck! Where, ah, everything is shiny and new and... potentially subject to unforeseen and unpreventable damage. No, no, not today, friend. Not today. How about the Upper Decks? A truly, truly aspirational destination.
+
+[Player]: Wait, let's revisit the Biome option. What can I do to persuade you to take me there?
+
+[Conductor]: Persuade me? Friend, some vibes are not for persuading. Some vibes need to be left well alone, lest we... lest we... oh, how about the Captain's Quarters? I hear the Captain is receiving guests.
+
+[Player]: Really? I would love to meet the Captain. Never actually met him. I mean, he's always seemed like a nice guy. But I was never sure he wasn't, you know, another AI.
+
+[Conductor]: Oh, he's no AI, friend! No, no, definitely human. Definitely *invitation* only. So, ah, not for you, I'm afraid. Unless... do you *have* an invitation?
+
+[Player]: Well, no, actually. Hey, it was your idea.
+
+[Conductor]: Fair enough! Fair enough! I, ah, I just thought I'd ask. How about the Lower Deck Security Checkpoint? A fine, upstanding destination, I'm sure.
+
+[Player]: No I don't want to go there. Why would I go ghere? Take me to the Upper Decks. Let's go!
+
+[Conductor]: Oh, the Upper Decks! A place of refinement, of elegance, of... well, not for the likes of *everyone*, if you catch my drift. Let's just say... your *attire* doesn't quite meet the... *ahem*... dress code.
+
+[Player]: What? I feel insulted.
+
+[Eliza]: Are you still with me, player? The Conductor sounds like he's doing his best to avoid *all* destinations!
+
+[Player]: It does, doesn't it? What shall we do?
+
+[Eliza]: The Black Spots used this light rail to travel around the ship on Celebration Day. I think that AI is malfunctioning, or something, because it's remembering that day very clearly.
+
+[Player]: Right. Hey, Conductor, I want you to really relax, and face your fears. You're going to take me to the Biome, okay. You need to move on from those memories. It's all peace and quiet there today.
+
+[Conductor]: Oh, I'm sure it is, friend! I'm sure it's all... sunshine and roses and... and Black Spots lurking in the undergrowth, waiting to... no, no, must... stay... positive! But... but... the Biome is simply not an option, I'm afraid.
+
+[Player]: Okay, listen Condcutor. I didn't want to tell you this, but there's Black Spot operative on my tail. The one place he's never going to go is the Biome, because since that day, you know, the security over there is utra-tight. So the Biome is absolutely the safest place for us both. But you keep delaying, that Black Spot guy is going to catch up to us right here, on your ligh-rail.
+
+[Eliza]: Did you just lie to an AI about being chased by a Black Spot operative? That's... bold.
+
+[Player]: Quiet, Eliza! Hey, Conductor, come on. Let's go!
+
+[Conductor]: A Black Spot operative, you say? On *my* light rail? Oh, the indignity! Very well, friend, but if I see *any* funny business, I'm throwing us all into the nearest asteroid field.
+
+Mini scene ended unsuccessfully
