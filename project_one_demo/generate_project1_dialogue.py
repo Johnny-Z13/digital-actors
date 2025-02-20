@@ -53,6 +53,13 @@ def list_to_conjunction(L):
         return ", ".join(L[:-1]) + f", and {L[-1]}"
 
 
+def load_prompt(filename):
+    cwd = os.path.abspath(os.getcwd())
+    prompt_path = os.path.join(cwd, "project_one_demo", "prompts", filename)
+    with open(prompt_path) as f:
+        return f.read()
+
+
 # PROMPT TEMPLATES AND INSTRUCTION PROMPTS
 preamble_template = """
 {instruction_prefix}
@@ -96,7 +103,6 @@ def prompt_llm(prompt, model):
     prompt = ChatPromptTemplate.from_template(template=prompt)
     chain = prompt | model
     return chain
-
 
 
 @dataclass
