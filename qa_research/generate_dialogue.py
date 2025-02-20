@@ -260,6 +260,9 @@ def load_prompts(scene, game, supplement_version=-1):
     opening_speech = load_prompt(
         game + "/scenes/" + scene + "/" + scene + "_opening_speech.txt"
     )
+
+    dialogue_instruction_prefix = load_prompt("dialogue_instruction_prefix.txt")
+
     # opening speech could have delays in squared brakets, lets remove them
     opening_speech = re.sub(r"\[.*?\]", "", opening_speech)
     player_info = load_prompt(
@@ -268,6 +271,7 @@ def load_prompts(scene, game, supplement_version=-1):
     queries = read_queries(game + "/scenes/" + scene + "/" + scene + "_queries.txt")
     return (
         back_story,
+        dialogue_instruction_prefix,
         scene_description,
         scene_supplement,
         opening_speech,
@@ -345,6 +349,7 @@ def get_npc_llm_response(
         Don't give me a the words for the player, but for one of the other characters.\n
         """,
 ) -> str:
+
     dialogue_preamble = PREAMBLE_TEMPLATE.format(
         instruction_prefix=dialogue_instruction_prefix,
         back_story=back_story,
@@ -435,6 +440,7 @@ def sim_mini_scene(
     actors = ACTORS
     (
         back_story,
+        dialogue_instruction_prefix,
         scene_description,
         scene_supplement,
         opening_speech,
@@ -467,21 +473,22 @@ def sim_mini_scene(
             response = SPEECH_TEMPLATE.format(actor=actors[1], speech=speech)
         else:
             npc_speech = get_npc_llm_response(
-                dialogue,
-                dialogue_model,
-                back_story,
-                scene_description,
-                scene_supplement,
+                dialogue=dialogue,
+                dialogue_model=dialogue_model,
+                back_story=back_story,
+                scene_description=scene_description,
+                scene_supplement=scene_supplement,
+                dialogue_instruction_prefix=dialogue_instruction_prefix,
             )
             if re.match(r"^\S+:\s+", npc_speech):
                 npc_speech = re.sub(r"^\S+:\s+", "", npc_speech)
             response = SPEECH_TEMPLATE.format(actor=actors[0], speech=npc_speech)
-        dialogue += response + "\n"
+        dialogue += response + "\n\n"
         print(GREEN + response)
 
         fails, to_print = evaluate_queries(dialogue, queries, query_model, back_story)
         if to_print:
-            dialogue += to_print + "\n"
+            dialogue += to_print + "\n\n"
             print(YELLOW + to_print)
 
         success = fails == 0
@@ -496,9 +503,11 @@ def sim_mini_scene(
 
 
 def save_dialogue_with_timestamp(
-    dialogue: str, scene: str, npc_model_name: str, game: str
+    dialogue: str, scene: str, npc_model_name: str, game: str, prompt_version: str = "P2"
 ) -> None:
     stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    npc_model_name += f"_{prompt_version}"
 
     # Create directory path
     directory = os.path.join(PATH, "qa_research", "dialogues", game, scene, npc_model_name)
