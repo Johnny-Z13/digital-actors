@@ -109,9 +109,21 @@ class AntServer(AntServerBase):
                 await self.send_event("eyeOS_VC_ScanRoom")
                 return
             if re.match(r'^\s*(computer|luna|lunar).*(gravity|zero\s*g).*(on)\s*$', message, re.IGNORECASE):
+                print("Turning on gravity 1")
+                await self.send_event("eyeOS_VC_GravityOn")
+                return
+            if re.match(
+                    r'^\s*(computer|luna|lunar).*(enable|return|activate|turn on|switch on\s*g)\s+(gravity)\s*$',
+                    message, re.IGNORECASE):
+                print("Turning on gravity 2")
                 await self.send_event("eyeOS_VC_GravityOn")
                 return
             if re.match(r'^\s*(computer|luna|lunar).*(gravity|zero\s*g).*(off)\s*$', message, re.IGNORECASE):
+                print("Turning off gravity 1")
+                await self.send_event("eyeOS_VC_GravityOff")
+                return
+            if re.match(r'^\s*(computer|luna|lunar).*(disable|remove|deactivate|turn off|switch off\s*g).*(gravity)\s*$', message, re.IGNORECASE):
+                print("Turning off gravity 2")
                 await self.send_event("eyeOS_VC_GravityOff")
                 return
             if re.match(r'^\s*(computer|luna|lunar)\s+gravity\b.*$', message, re.IGNORECASE):

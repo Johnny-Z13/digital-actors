@@ -78,7 +78,7 @@ Here is the dialogue so far\n\n
 speech_template = '[{actor}]: {speech}\n'
 
 dialogue_instruction_suffix = """
-Give me the next line in the dialogue in the same format. Don't provide stage directions, just the character's words. Don't give me a line for the player, but for one of the other characters.\n
+Give me the next line in the dialogue in the same format. Don't provide stage directions, just the character's words. Don't give me a line for the player or Computer but for one of the other characters.\n
 """
 
 query_preamble_template = """
@@ -181,7 +181,6 @@ class SceneData:
                     if query.query_printed_text_true and not query.query_printed:
                         to_print = query.query_printed_text_false
                     break
-        print(RED + f"To print: {to_print}")
         return state_changes, to_print
 
     def all_queries_handled(self) -> bool:
@@ -324,8 +323,6 @@ def load_next_scene() -> bool:
         print(CYAN + f"Loading scene \"{gScenes[0]}\"")
         gSceneData = load_scene_data(gScenes.pop(0))
         gSceneDialogue = gSceneData.get_initial_dialog()
-        print(gSceneData)
-        print(gSceneDialogue)
         return True
 
     return False
@@ -364,13 +361,9 @@ def handle_player_reponse(message:str, automated:bool) -> Tuple[List[Line], List
             gSceneDialogue += player_dialogue + "\n"
 
         state_changes, to_print = gSceneData.run_queries(gSceneDialogue)
-        print(CYAN + f"Initial state changes: {state_changes}")
-        print(CYAN + f"Additional print: {to_print}" + "print_type: " + str(type(to_print)))
         if to_print:
-            print(RED + f"Additional print: {to_print}")
-            gSceneDialogue += to_print + "\n"
+            gSceneDialogue += to_print + "\n\n"
         result_lines = []
-        print(GREEN + f"Scene dialogue: {gSceneData}")
         if gSceneData.all_queries_handled():
             print(ORANGE + f"All queries for {gSceneData.scene_name} complete, autoloading next scene")
             if load_next_scene():
@@ -383,6 +376,12 @@ def handle_player_reponse(message:str, automated:bool) -> Tuple[List[Line], List
             chain = prompt_llm(prompt, DIALOGUE_MODEL)
             eliza_response = chain.invoke({})
 
+            # Sometimes the llm wants to genereate the Computer messages starting with "/n/nComputer:" we need to remove whatever comes after the first newline
+            print(RED + f"Eliza response: {eliza_response}")
+            eliza_response = eliza_response.split("\nComputer", 1)[0]
+
+            print(ORANGE + f"Eliza response post processed: {eliza_response}")
+
             gSceneDialogue += eliza_response + "\n"
             state_changes2, to_print = gSceneData.run_queries(gSceneDialogue)
             print(CYAN + f"Additional state changes: {state_changes2}")
@@ -393,7 +392,6 @@ def handle_player_reponse(message:str, automated:bool) -> Tuple[List[Line], List
             print(CYAN + f"Scene dialogue: {gSceneDialogue}")
 
             state_changes.extend(state_changes2)
-            print(CYAN + f"Combined state changes: {state_changes}")
 
             eliza_text = str(eliza_response).strip().removeprefix(f"[{ACTORS[0]}]: ")
             eliza_text = eliza_text.replace('"', '') # remove quotes (causes disconnect when sending back via websocket)
