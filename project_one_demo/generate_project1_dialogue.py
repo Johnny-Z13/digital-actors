@@ -3,7 +3,16 @@ import sys
 import re
 import math
 import time
-from iconic_tools.langchain import InstructSonnet, InstructOpus3, InstructGPT4, InstructO1, InstructGeminiPro, InstructGPT35, InstructGeminiFlash, InstructGeminiFlash2
+from iconic_tools.langchain import (
+    InstructSonnet,
+    InstructOpus3,
+    InstructGPT4,
+    InstructO1,
+    InstructGeminiPro,
+    InstructGPT35,
+    InstructGeminiFlash,
+    InstructGeminiFlash2,
+)
 from langchain_core.prompts import ChatPromptTemplate
 from concurrent.futures import ThreadPoolExecutor
 from typing import NamedTuple, List, Tuple
@@ -19,8 +28,8 @@ from dataclasses import dataclass, field
 DIALOGUE_MODEL = InstructGeminiFlash2(temperature=1.0, max_tokens=3000)
 QUERY_MODEL = InstructGeminiFlash2(temperature=0.0, max_tokens=300)
 
-#DIALOGUE_MODEL = InstructO1()
-#QUERY_MODEL = InstructO1()
+# DIALOGUE_MODEL = InstructO1()
+# QUERY_MODEL = InstructO1()
 
 # DIALOGUE_MODEL = InstructSonnet(temperature=1.0, max_tokens=3000)
 # QUERY_MODEL = InstructSonnet(temperature=1.0, max_tokens=3000)
@@ -39,6 +48,7 @@ MAGENTA = "\033[95m"
 BRIGHT_WHITE = "\033[97m"
 BLACK = "\033[90m"
 ORANGE = "\033[33m"
+
 
 # UTILITIES
 def list_to_conjunction(L):
@@ -68,6 +78,13 @@ Here is a description of the scene in question. {scene_description}{scene_supple
 The characters in the dialogue are {actors}.
 """
 
+preamble_plus_template = """
+{instruction_prefix}
+This is the game back story. {back_story}\n
+Here's a summary of information acquired from dialogues earlier in the game that you should take account where appropriate. {dialogue_summary}\n
+Here is a description of the scene in question. {scene_description}
+"""
+
 instruction_template = """
 {preamble}
 Here is the dialogue so far\n\n
@@ -75,15 +92,10 @@ Here is the dialogue so far\n\n
 {instruction_suffix}
 """
 
-speech_template = '[{actor}]: {speech}\n'
+speech_template = "[{actor}]: {speech}\n"
 
 dialogue_instruction_suffix = """
 Give me the next line in the dialogue in the same format. Don't provide stage directions, just the character's words. Don't give me a line for the player or Computer but for one of the other characters.\n
-"""
-
-query_preamble_template = """
-{instruction_prefix}
-This is the game back story. {back_story}\n
 """
 
 query_instruction_prefix = """
@@ -94,9 +106,6 @@ query_instruction_suffix_template = """
 Now consider the following statement about this dialogue. {statement} Is this statement true or false? Answer with a single word, true or false.
 """
 
-naive_dialogue_prompt = """
-Given the following dialogue, predict the next line in that dialogue. Respond with the next line only. Use the same format as the dialogue so far. Don't provide stage directions, just the actor's words. Here's the dialogue until now, along with the contextual information:
-"""
 
 # BUILDING DIALOGUES
 def prompt_llm(prompt, model):
@@ -110,19 +119,24 @@ class Line:
     text: str
     delay: float
 
+
 @dataclass
 class StateChange:
     name: str
-    value: str  
+    value: str
+
 
 @dataclass
 class Query:
     text: str
     state_changes: List[StateChange]
     handled: bool = False
-    query_printed: bool = False  # When this query is evaluated a message is printed to the NPC dialogue
+    query_printed: bool = (
+        False  # When this query is evaluated a message is printed to the NPC dialogue
+    )
     query_printed_text_true: str = ""
     query_printed_text_false: str = ""
+
 
 @dataclass
 class SceneData:
@@ -136,14 +150,36 @@ class SceneData:
 
     dialogue_preamble: str = ""
     query_preamble: str = ""
-
+    dialogue_summary: str = ""
 
     def __post_init__(self):
-        self.dialogue_preamble = preamble_template.format(instruction_prefix=self.dialogue_instruction_prefix, back_story=self.back_story, scene_description=self.scene_description, scene_supplement=self.scene_supplement, actors=list_to_conjunction(ACTORS))
-        self.query_preamble = preamble_template.format(instruction_prefix=query_instruction_prefix, back_story=self.back_story, scene_description="", scene_supplement="", actors=list_to_conjunction(ACTORS))
+        if self.dialogue_summary:
+            self.dialogue_preamble = preamble_plus_template.format(
+                instruction_prefix=self.dialogue_instruction_prefix,
+                back_story=self.back_story,
+                dialogue_summary=self.dialogue_summary,
+                scene_description=self.scene_description,
+                scene_supplement=self.scene_supplement,
+                actors=list_to_conjunction(ACTORS),
+            )
+        else:
+            self.dialogue_preamble = preamble_template.format(
+                instruction_prefix=self.dialogue_instruction_prefix,
+                back_story=self.back_story,
+                scene_description=self.scene_description,
+                scene_supplement=self.scene_supplement,
+                actors=list_to_conjunction(ACTORS),
+            )
+        self.query_preamble = preamble_template.format(
+            instruction_prefix=query_instruction_prefix,
+            back_story=self.back_story,
+            scene_description="",
+            scene_supplement="",
+            actors=list_to_conjunction(ACTORS),
+        )
 
     def __str__(self):
-        field = "\033[97m" 
+        field = "\033[97m"
         text = "\033[90m"
         reset = "\033[0m"
         return f"{field}SceneData\n{{\n   scene_name:{text} {self.scene_name}\n{field}   scene_description:{text}  {self.scene_description}\n{field}   scene_supplement:{text} {self.scene_supplement}\n{field}   dialogue_instruction_prefix:{text} {self.dialogue_instruction_prefix}\n{field}   back_story:{text} {self.back_story}\n{field}   opening_speech:{reset}\n{self.opening_speech}\n{field}   queries:{reset}\n{self.queries}\n{field}}}{reset}"
@@ -156,23 +192,31 @@ class SceneData:
             print(GREEN + response)
 
         return dialogue
-    
-    def run_queries(self, dialogue: str) -> Tuple[List[StateChange], str]:
 
+    def run_queries(self, dialogue: str) -> Tuple[List[StateChange], str]:
         state_changes = []
         to_print = ""
 
         for query in self.queries:
             if query.handled == False:
-                instruction = query_instruction_suffix_template.format(statement=query.text)
-                prompt = instruction_template.format(preamble=self.query_preamble, dialogue=dialogue, instruction_suffix=instruction)
+                instruction = query_instruction_suffix_template.format(
+                    statement=query.text
+                )
+                prompt = instruction_template.format(
+                    preamble=self.query_preamble,
+                    dialogue=dialogue,
+                    instruction_suffix=instruction,
+                )
                 chain = prompt_llm(prompt, DIALOGUE_MODEL)
                 response = chain.invoke({})
-                print(ORANGE + f"Query for \"{query.text}\" - response: \"{response}\"")
+                print(ORANGE + f'Query for "{query.text}" - response: "{response}"')
                 print(YELLOW + f"To print: {to_print}")
                 if response[0:4].lower() == "true":
                     query.handled = True
-                    print(YELLOW + f"Query passed for \"{query.text}\" - returning state_id \"{query.state_changes}\"")
+                    print(
+                        YELLOW
+                        + f'Query passed for "{query.text}" - returning state_id "{query.state_changes}"'
+                    )
                     if query.query_printed_text_true:
                         query.query_printed = True
                         to_print = query.query_printed_text_true
@@ -185,14 +229,14 @@ class SceneData:
 
     def all_queries_handled(self) -> bool:
         return all(query.handled for query in self.queries)
-    
+
 
 def resource_path():
     cwd = os.path.abspath(os.getcwd())
     relative_path = "/project_one_demo/prompts/act_1"
     return cwd + relative_path
     # Get the absolute path to the resource in both development and PyInstaller environments
-    if hasattr(sys, '_MEIPASS'):
+    if hasattr(sys, "_MEIPASS"):
         # PyInstaller environment
         return os.path.join(sys._MEIPASS, relative_path)
     else:
@@ -209,7 +253,7 @@ def load_root_file(file) -> str:
         return ""  # Return an empty string if the file doesn't exist
 
 
-def load_scene_file(scene_name:str, suffix:str) -> str:
+def load_scene_file(scene_name: str, suffix: str) -> str:
     file_path = resource_path() + f"/scenes/{scene_name}/{scene_name}_{suffix}.txt"
     try:
         with open(file_path) as f:
@@ -218,7 +262,7 @@ def load_scene_file(scene_name:str, suffix:str) -> str:
         return ""  # Return an empty string if the file doesn't exist
 
 
-def load_queries(scene_name:str) -> List[Query]:
+def load_queries(scene_name: str) -> List[Query]:
     queries = []
     query_text = None
     state_changes = []
@@ -228,23 +272,24 @@ def load_queries(scene_name:str) -> List[Query]:
 
     file = load_scene_file(scene_name, "queries")
     for line in file.splitlines():
-   
         line = line.strip()
         if not line:
             continue  # Skip empty lines
-        
+
         # Check if line is a state change line
-        if line.startswith('[') and line.endswith(']'):
+        if line.startswith("[") and line.endswith("]"):
             # Remove brackets and parse state changes
             state_changes = []
             state_changes_text = line[1:-1]  # Remove [ and ]
-            state_parts = state_changes_text.split(',')
-            
-            for part in state_parts:
-                name, value = map(str.strip, part.split('='))
-                state_changes.append(StateChange(name=name.strip(), value=value.strip()))
+            state_parts = state_changes_text.split(",")
 
-        elif line.startswith('(') and line.endswith(')'):
+            for part in state_parts:
+                name, value = map(str.strip, part.split("="))
+                state_changes.append(
+                    StateChange(name=name.strip(), value=value.strip())
+                )
+
+        elif line.startswith("(") and line.endswith(")"):
             query_printed_text = line[1:-1]  # Remove ( and )
             parts = query_printed_text.split(", ", 1)
             if len(parts) == 2:
@@ -257,25 +302,39 @@ def load_queries(scene_name:str) -> List[Query]:
         else:
             # If there was previous query text, create a Query object and reset
             if query_text is not None:
-                queries.append(Query(text=query_text, state_changes=state_changes, query_printed=query_printed,
-                             query_printed_text_true=query_printed_text_true, query_printed_text_false=query_printed_text_false))
+                queries.append(
+                    Query(
+                        text=query_text,
+                        state_changes=state_changes,
+                        query_printed=query_printed,
+                        query_printed_text_true=query_printed_text_true,
+                        query_printed_text_false=query_printed_text_false,
+                    )
+                )
                 state_changes = []
                 query_printed = False
                 query_printed_text_true = ""
                 query_printed_text_false = ""
-                
+
             # Update query_text to the current line
             query_text = line
 
     # Add the last query if there is one
     if query_text is not None:
-        queries.append(Query(text=query_text, state_changes=state_changes, query_printed=query_printed,
-                             query_printed_text_true=query_printed_text_true, query_printed_text_false=query_printed_text_false))
+        queries.append(
+            Query(
+                text=query_text,
+                state_changes=state_changes,
+                query_printed=query_printed,
+                query_printed_text_true=query_printed_text_true,
+                query_printed_text_false=query_printed_text_false,
+            )
+        )
 
     return queries
 
 
-def load_opening_speech(scene_name:str) -> List[Line]:
+def load_opening_speech(scene_name: str) -> List[Line]:
     lines = []
     file = load_scene_file(scene_name, "opening_speech")
     for line in file.splitlines():
@@ -283,70 +342,95 @@ def load_opening_speech(scene_name:str) -> List[Line]:
         line = line.strip()
         if not line:
             continue  # Skip empty lines
-        
+
         # Match optional scene ID at the start of the line
-        match = re.match(r'^\[(\d+(\.\d+)?)\]\s+(.+)$', line)
+        match = re.match(r"^\[(\d+(\.\d+)?)\]\s+(.+)$", line)
         if match:
             delay = float(match.group(1))
             text = match.group(3)
         else:
             delay = 0  # Empty if no scene ID is present
             text = line
-        
+
         # Add to list with handled defaulting to False
         lines.append(Line(text=text, delay=delay))
 
     return lines
 
 
-def load_scene_data(scene_name:str) -> SceneData:
+def load_scene_data(scene_name: str, dialogue_summary: str = "") -> SceneData:
     scene_description = load_scene_file(scene_name, "scene_description")
     scene_supplement = load_scene_file(scene_name, "scene_supplement")
     dialogue_instruction_prefix = load_root_file("dialogue_instruction_prefix")
     back_story = load_root_file("back_story")
     opening_speech = load_opening_speech(scene_name)
     queries = load_queries(scene_name)
-    return SceneData(scene_name=scene_name, scene_description=scene_description, scene_supplement=scene_supplement,
-                     dialogue_instruction_prefix=dialogue_instruction_prefix, back_story=back_story,
-                     opening_speech=opening_speech, queries=queries)
+    return SceneData(
+        scene_name=scene_name,
+        scene_description=scene_description,
+        scene_supplement=scene_supplement,
+        dialogue_instruction_prefix=dialogue_instruction_prefix,
+        back_story=back_story,
+        opening_speech=opening_speech,
+        queries=queries,
+        dialogue_summary=dialogue_summary,
+    )
 
 
 class SceneClient:
     def __init__(self):
         self.scene_data = None
         self.scene_dialogue = ""
-        self.scenes = ["meet_the_caretaker", "locate_an_engineer", "describe_the_failures", "find_exit", "exit_the_room"]
+        self.scenes = [
+            "meet_the_caretaker",
+            "locate_an_engineer",
+            "describe_the_failures",
+            "find_exit",
+            "exit_the_room",
+        ]
 
     def load_next_scene(self) -> bool:
         if self.scenes:
-            print(CYAN + f"Loading scene \"{self.scenes[0]}\"")
-            self.scene_data = load_scene_data(self.scenes.pop(0))
+            print(CYAN + f'Loading scene "{self.scenes[0]}"')
+            self.scene_data = load_scene_data(self.scenes.pop(0), self.dialogue_summary)
             self.scene_dialogue = self.scene_data.get_initial_dialog()
             return True
         return False
 
     def start_scene(self, scene: str):
-        if self.scenes and self.scenes[0] == scene:  # Hacky guard due to events getting sent twice from game
+        if (
+            self.scenes and self.scenes[0] == scene
+        ):  # Hacky guard due to events getting sent twice from game
             self.load_next_scene()
             return self.scene_data.opening_speech, []
         return [], []
 
     def reset_response_handler(self):
-        self.scenes = ["meet_the_caretaker", "locate_an_engineer", "describe_the_failures", "find_exit", "exit_the_room"]
-        print(CYAN + f"Starting response handler for scenes: \"{self.scenes}\"")
+        self.scenes = [
+            "meet_the_caretaker",
+            "locate_an_engineer",
+            "describe_the_failures",
+            "find_exit",
+            "exit_the_room",
+        ]
+        print(CYAN + f'Starting response handler for scenes: "{self.scenes}"')
         self.load_next_scene()
 
     def add_luna_commands(self, message: str):
         self.scene_dialogue += "[Player]: " + message + "\n\n"
 
-    def handle_player_response(self, message: str, automated: bool) -> Tuple[List[Line], List[StateChange]]:
+    def handle_player_response(
+        self, message: str, automated: bool
+    ) -> Tuple[List[Line], List[StateChange]]:
         if message:
-            print(CYAN + f"Handling player response: \"{message}\"")
+            print(CYAN + f'Handling player response: "{message}"')
 
             if False:
                 self.scene_dialogue += "Eliza to comment on " + message + "\n"
             else:
-                player_dialogue = speech_template.format(actor=ACTORS[1], speech=message)
+                player_dialogue = speech_template.format(
+                    actor=ACTORS[1], speech=message
+                )
                 self.scene_dialogue += player_dialogue + "\n"
 
             state_changes, to_print = self.scene_data.run_queries(self.scene_dialogue)
@@ -354,14 +438,19 @@ class SceneClient:
                 self.scene_dialogue += to_print + "\n\n"
             result_lines = []
             if self.scene_data.all_queries_handled():
-                print(ORANGE + f"All queries for {self.scene_data.scene_name} complete, autoloading next scene")
+                print(
+                    ORANGE
+                    + f"All queries for {self.scene_data.scene_name} complete, autoloading next scene"
+                )
                 if self.load_next_scene():
                     result_lines = self.scene_data.opening_speech
 
             if not result_lines:
-                prompt = instruction_template.format(preamble=self.scene_data.dialogue_preamble, 
-                                                  dialogue=self.scene_dialogue,
-                                                  instruction_suffix=dialogue_instruction_suffix)
+                prompt = instruction_template.format(
+                    preamble=self.scene_data.dialogue_preamble,
+                    dialogue=self.scene_dialogue,
+                    instruction_suffix=dialogue_instruction_suffix,
+                )
                 chain = prompt_llm(prompt, DIALOGUE_MODEL)
                 eliza_response = chain.invoke({})
 
@@ -371,7 +460,9 @@ class SceneClient:
                 print(ORANGE + f"Eliza response post processed: {eliza_response}")
 
                 self.scene_dialogue += eliza_response + "\n"
-                state_changes2, to_print = self.scene_data.run_queries(self.scene_dialogue)
+                state_changes2, to_print = self.scene_data.run_queries(
+                    self.scene_dialogue
+                )
                 print(CYAN + f"Additional state changes: {state_changes2}")
 
                 if to_print:
@@ -381,16 +472,24 @@ class SceneClient:
 
                 state_changes.extend(state_changes2)
 
-                eliza_text = str(eliza_response).strip().removeprefix(f"[{ACTORS[0]}]: ")
-                eliza_text = eliza_text.replace('"', '')
-                eliza_text = eliza_text.replace('*', '')
+                eliza_text = (
+                    str(eliza_response).strip().removeprefix(f"[{ACTORS[0]}]: ")
+                )
+                eliza_text = eliza_text.replace('"', "")
+                eliza_text = eliza_text.replace("*", "")
 
-                print(CYAN + f"Results: text=\"{eliza_text}\" state_changes=\"{state_changes}\"")
+                print(
+                    CYAN
+                    + f'Results: text="{eliza_text}" state_changes="{state_changes}"'
+                )
 
                 result_lines = [Line(text=eliza_text, delay=0)]
 
                 if self.scene_data.all_queries_handled():
-                    print(ORANGE + f"All queries for {self.scene_data.scene_name} complete, autoloading next scene")
+                    print(
+                        ORANGE
+                        + f"All queries for {self.scene_data.scene_name} complete, autoloading next scene"
+                    )
                     if self.load_next_scene():
                         result_lines.extend(self.scene_data.opening_speech)
 
