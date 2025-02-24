@@ -311,99 +311,87 @@ def load_scene_data(scene_name:str) -> SceneData:
                      opening_speech=opening_speech, queries=queries)
 
 
+class SceneClient:
+    def __init__(self):
+        self.scene_data = None
+        self.scene_dialogue = ""
+        self.scenes = ["meet_the_caretaker", "locate_an_engineer", "describe_the_failures", "find_exit", "exit_the_room"]
 
-gSceneData = None
-gSceneDialogue = ""
-gScenes = []
+    def load_next_scene(self) -> bool:
+        if self.scenes:
+            print(CYAN + f"Loading scene \"{self.scenes[0]}\"")
+            self.scene_data = load_scene_data(self.scenes.pop(0))
+            self.scene_dialogue = self.scene_data.get_initial_dialog()
+            return True
+        return False
 
-def load_next_scene() -> bool:
-    global gSceneDialogue, gSceneData, gScenes
+    def start_scene(self, scene: str):
+        if self.scenes and self.scenes[0] == scene:  # Hacky guard due to events getting sent twice from game
+            self.load_next_scene()
+            return self.scene_data.opening_speech, []
+        return [], []
 
-    if (gScenes):
-        print(CYAN + f"Loading scene \"{gScenes[0]}\"")
-        gSceneData = load_scene_data(gScenes.pop(0))
-        gSceneDialogue = gSceneData.get_initial_dialog()
-        return True
+    def reset_response_handler(self):
+        self.scenes = ["meet_the_caretaker", "locate_an_engineer", "describe_the_failures", "find_exit", "exit_the_room"]
+        print(CYAN + f"Starting response handler for scenes: \"{self.scenes}\"")
+        self.load_next_scene()
 
-    return False
+    def add_luna_commands(self, message: str):
+        self.scene_dialogue += "[Player]: " + message + "\n\n"
 
-def start_scene(scene: str):
-    global gSceneDialogue, gSceneData, gScenes
+    def handle_player_response(self, message: str, automated: bool) -> Tuple[List[Line], List[StateChange]]:
+        if message:
+            print(CYAN + f"Handling player response: \"{message}\"")
 
-    if (gScenes and gScenes[0] == scene): # Hacky guard due to events getting sent twice from game
-        load_next_scene()
-        return gSceneData.opening_speech, []
-    
-    return [], []
+            if False:
+                self.scene_dialogue += "Eliza to comment on " + message + "\n"
+            else:
+                player_dialogue = speech_template.format(actor=ACTORS[1], speech=message)
+                self.scene_dialogue += player_dialogue + "\n"
 
-def reset_reponse_handler():
-    global gSceneDialogue, gSceneData, gScenes
-
-    gScenes = ["meet_the_caretaker", "locate_an_engineer", "describe_the_failures", "find_exit", "exit_the_room"]
-    print(CYAN + f"Starting response handler for scenes: \"{gScenes}\"")
-    load_next_scene()
-
-
-def add_luna_commands(message:str):
-    global gSceneDialogue
-    gSceneDialogue += "[Player]: " + message + "\n\n"
-
-
-def handle_player_reponse(message:str, automated:bool) -> Tuple[List[Line], List[StateChange]]:
-    global gSceneDialogue, gSceneData, gScenes
-    if message:
-        print(CYAN + f"Handling player repsonse: \"{message}\"")
-
-        if False:
-            gSceneDialogue += "Eliza to comment on " + message + "\n"
-        else:
-            player_dialogue = speech_template.format(actor=ACTORS[1], speech=message)
-            gSceneDialogue += player_dialogue + "\n"
-
-        state_changes, to_print = gSceneData.run_queries(gSceneDialogue)
-        if to_print:
-            gSceneDialogue += to_print + "\n\n"
-        result_lines = []
-        if gSceneData.all_queries_handled():
-            print(ORANGE + f"All queries for {gSceneData.scene_name} complete, autoloading next scene")
-            if load_next_scene():
-                result_lines = gSceneData.opening_speech
-
-        if not result_lines:
-
-            prompt = instruction_template.format(preamble=gSceneData.dialogue_preamble, dialogue=gSceneDialogue,
-                                                 instruction_suffix=dialogue_instruction_suffix)
-            chain = prompt_llm(prompt, DIALOGUE_MODEL)
-            eliza_response = chain.invoke({})
-
-            # Sometimes the llm wants to genereate the Computer messages starting with "/n/nComputer:" we need to remove whatever comes after the first newline
-            print(RED + f"Eliza response: {eliza_response}")
-            eliza_response = eliza_response.split("\nComputer", 1)[0]
-
-            print(ORANGE + f"Eliza response post processed: {eliza_response}")
-
-            gSceneDialogue += eliza_response + "\n"
-            state_changes2, to_print = gSceneData.run_queries(gSceneDialogue)
-            print(CYAN + f"Additional state changes: {state_changes2}")
-
+            state_changes, to_print = self.scene_data.run_queries(self.scene_dialogue)
             if to_print:
-                gSceneDialogue += to_print + "\n\n"
+                self.scene_dialogue += to_print + "\n\n"
+            result_lines = []
+            if self.scene_data.all_queries_handled():
+                print(ORANGE + f"All queries for {self.scene_data.scene_name} complete, autoloading next scene")
+                if self.load_next_scene():
+                    result_lines = self.scene_data.opening_speech
 
-            print(CYAN + f"Scene dialogue: {gSceneDialogue}")
+            if not result_lines:
+                prompt = instruction_template.format(preamble=self.scene_data.dialogue_preamble, 
+                                                  dialogue=self.scene_dialogue,
+                                                  instruction_suffix=dialogue_instruction_suffix)
+                chain = prompt_llm(prompt, DIALOGUE_MODEL)
+                eliza_response = chain.invoke({})
 
-            state_changes.extend(state_changes2)
+                print(RED + f"Eliza response: {eliza_response}")
+                eliza_response = eliza_response.split("\nComputer", 1)[0]
 
-            eliza_text = str(eliza_response).strip().removeprefix(f"[{ACTORS[0]}]: ")
-            eliza_text = eliza_text.replace('"', '') # remove quotes (causes disconnect when sending back via websocket)
-            eliza_text = eliza_text.replace('*', '') # remove * used for emphasis on words (eleven laps speaks it)
+                print(ORANGE + f"Eliza response post processed: {eliza_response}")
 
-            print(CYAN + f"Results: text=\"{eliza_text}\" state_changes=\"{state_changes}\"")
+                self.scene_dialogue += eliza_response + "\n"
+                state_changes2, to_print = self.scene_data.run_queries(self.scene_dialogue)
+                print(CYAN + f"Additional state changes: {state_changes2}")
 
-            result_lines = [Line(text=eliza_text, delay=0)]
+                if to_print:
+                    self.scene_dialogue += to_print + "\n\n"
 
-            if gSceneData.all_queries_handled():
-                print(ORANGE + f"All queries for {gSceneData.scene_name} complete, autoloading next scene")
-                if load_next_scene():
-                    result_lines.extend(gSceneData.opening_speech)
-    
-        return result_lines, state_changes
+                print(CYAN + f"Scene dialogue: {self.scene_dialogue}")
+
+                state_changes.extend(state_changes2)
+
+                eliza_text = str(eliza_response).strip().removeprefix(f"[{ACTORS[0]}]: ")
+                eliza_text = eliza_text.replace('"', '')
+                eliza_text = eliza_text.replace('*', '')
+
+                print(CYAN + f"Results: text=\"{eliza_text}\" state_changes=\"{state_changes}\"")
+
+                result_lines = [Line(text=eliza_text, delay=0)]
+
+                if self.scene_data.all_queries_handled():
+                    print(ORANGE + f"All queries for {self.scene_data.scene_name} complete, autoloading next scene")
+                    if self.load_next_scene():
+                        result_lines.extend(self.scene_data.opening_speech)
+
+            return result_lines, state_changes

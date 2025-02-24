@@ -2,13 +2,14 @@ from ant_server_base import AntServerBase
 import re
 import asyncio
 import time
-from project_one_demo.generate_project1_dialogue import reset_reponse_handler, handle_player_reponse, start_scene, Line, add_luna_commands
+from project_one_demo.generate_project1_dialogue import SceneClient
 
 class AntServer(AntServerBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.state = 0
-        reset_reponse_handler()
+        self.scene_client = SceneClient()
+        self.scene_client.reset_response_handler()
  
  
     async def sample_transcript_handler(self, message):
@@ -128,25 +129,20 @@ class AntServer(AntServerBase):
             if re.match(r'^\s*(computer|luna|lunar).*(open).*(door)\s*$', message, re.IGNORECASE):
                 await self.send_event("eyeOS_VC_OpenDoor")
                 return
-            add_luna_commands(message)
+            self.scene_client.add_luna_commands(message)
         else:
-            result = handle_player_reponse(message, False)
+            result = self.scene_client.handle_player_response(message, False)
             if result:
                 await self.process_results(result[0], result[1])
 
-
-    async def on_event_triggered(self, event_name): 
-        """
-        Events triggered inside the game get proxied through here.
-        Optionally, you can filter events here (and replace them with your own logic).
-        """   
-        if event_name == "kato_chamber_outside_pod": # This gets sent twice by the game - start_scene ensures it only loads once.
-            result = start_scene("locate_an_engineer")
+    async def on_event_triggered(self, event_name):
+        if event_name == "kato_chamber_outside_pod":
+            result = self.scene_client.start_scene("locate_an_engineer")
             if result:
                 await self.process_results(result[0], result[1])
 
         if event_name == "kato_chamber_fail_what_happened" or event_name == "player_chamber_no_way_out":
-            result = start_scene("describe_the_failures")
+            result = self.scene_client.start_scene("describe_the_failures")
             if result:
                 await self.process_results(result[0], result[1])
                 
@@ -166,7 +162,7 @@ class AntServer(AntServerBase):
         #         await self.process_results(result[0], result[1])
         #
         if event_name == "kato_chamber_door_open":
-            result = handle_player_reponse("the door has opened, tell the player to get going to the control room", True)
+            result = self.scene_client.handle_player_response("the door has opened, tell the player to get going to the control room", True)
             if result:
                 await self.process_results(result[0], result[1])
 
