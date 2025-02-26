@@ -106,6 +106,9 @@ query_instruction_suffix_template = """
 Now consider the following statement about this dialogue. {statement} Is this statement true or false? Answer with a single word, true or false.
 """
 
+summary_instruction_suffix = """
+Give me a short paragraph summarising any information revealed by the player or the other characters that might be relevant for later dialogues, for example personal or biographical information, or any events that might have happened in the scene that weren't mentioned in the script. Provide only the summary paragraph, no other text.\n
+"""
 
 # BUILDING DIALOGUES
 def prompt_llm(prompt, model):
@@ -145,6 +148,7 @@ class SceneData:
     scene_supplement: str
     back_story: str
     dialogue_instruction_prefix: str
+    summary_instruction_prefix: str
     opening_speech: List[Line]
     queries: List[Query]
 
@@ -173,6 +177,14 @@ class SceneData:
         self.query_preamble = preamble_template.format(
             instruction_prefix=query_instruction_prefix,
             back_story=self.back_story,
+            scene_description="",
+            scene_supplement="",
+            actors=list_to_conjunction(ACTORS),
+        )
+        self.summary_preamble = preamble_plus_template.format(
+            instruction_prefix=self.summary_instruction_prefix,
+            back_story=self.back_story,
+            dialogue_summary=self.dialogue_summary,
             scene_description="",
             scene_supplement="",
             actors=list_to_conjunction(ACTORS),
@@ -235,13 +247,13 @@ def resource_path():
     cwd = os.path.abspath(os.getcwd())
     relative_path = "/project_one_demo/prompts/act_1"
     return cwd + relative_path
-    # Get the absolute path to the resource in both development and PyInstaller environments
-    if hasattr(sys, "_MEIPASS"):
-        # PyInstaller environment
-        return os.path.join(sys._MEIPASS, relative_path)
-    else:
-        # Development environment
-        return os.path.join(os.path.abspath("."), relative_path)
+    # # Get the absolute path to the resource in both development and PyInstaller environments
+    # if hasattr(sys, "_MEIPASS"):
+    #     # PyInstaller environment
+    #     return os.path.join(sys._MEIPASS, relative_path)
+    # else:
+    #     # Development environment
+    #     return os.path.join(os.path.abspath("."), relative_path)
 
 
 def load_root_file(file) -> str:
@@ -362,6 +374,9 @@ def load_scene_data(scene_name: str, dialogue_summary: str = "") -> SceneData:
     scene_description = load_scene_file(scene_name, "scene_description")
     scene_supplement = load_scene_file(scene_name, "scene_supplement")
     dialogue_instruction_prefix = load_root_file("dialogue_instruction_prefix")
+    summary_instruction_prefix = load_root_file(
+        "summary_instruction_prefix"
+    )
     back_story = load_root_file("back_story")
     opening_speech = load_opening_speech(scene_name)
     queries = load_queries(scene_name)
@@ -374,6 +389,7 @@ def load_scene_data(scene_name: str, dialogue_summary: str = "") -> SceneData:
         opening_speech=opening_speech,
         queries=queries,
         dialogue_summary=dialogue_summary,
+        summary_instruction_prefix=summary_instruction_prefix,
     )
 
 
@@ -381,6 +397,7 @@ class SceneClient:
     def __init__(self):
         self.scene_data = None
         self.scene_dialogue = ""
+        self.dialogue_summary = ""
         self.scenes = [
             "meet_the_caretaker",
             "locate_an_engineer",
@@ -388,9 +405,25 @@ class SceneClient:
             "find_exit",
             "exit_the_room",
         ]
+        self.is_first_scene = True
+
+    def generate_dialogue_summary(self) -> str:
+        prompt = instruction_template.format(
+            preamble=self.scene_data.summary_preamble,
+            dialogue=self.scene_dialogue,
+            instruction_suffix=summary_instruction_suffix,
+        )
+        chain = prompt_llm(prompt, DIALOGUE_MODEL)
+        response = chain.invoke({})
+        return response
 
     def load_next_scene(self) -> bool:
         if self.scenes:
+            if self.is_first_scene:
+                self.is_first_scene = False
+            else:
+                self.dialogue_summary += "\n\n" + self.generate_dialogue_summary()
+                print(CYAN + f'Dialogue summary: {self.dialogue_summary}')
             print(CYAN + f'Loading scene "{self.scenes[0]}"')
             self.scene_data = load_scene_data(self.scenes.pop(0), self.dialogue_summary)
             self.scene_dialogue = self.scene_data.get_initial_dialog()
@@ -451,19 +484,19 @@ class SceneClient:
                     dialogue=self.scene_dialogue,
                     instruction_suffix=dialogue_instruction_suffix,
                 )
+                print(ORANGE + f'Prompt: {prompt}')
                 chain = prompt_llm(prompt, DIALOGUE_MODEL)
                 eliza_response = chain.invoke({})
 
-                print(RED + f"Eliza response: {eliza_response}")
+                # print(RED + f"Eliza response: {eliza_response}")
                 eliza_response = eliza_response.split("\nComputer", 1)[0]
 
-                print(ORANGE + f"Eliza response post processed: {eliza_response}")
+                # print(ORANGE + f"Eliza response post processed: {eliza_response}")
 
                 self.scene_dialogue += eliza_response + "\n"
                 state_changes2, to_print = self.scene_data.run_queries(
                     self.scene_dialogue
                 )
-                print(CYAN + f"Additional state changes: {state_changes2}")
 
                 if to_print:
                     self.scene_dialogue += to_print + "\n\n"
