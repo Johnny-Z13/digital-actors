@@ -484,7 +484,6 @@ class SceneClient:
                     dialogue=self.scene_dialogue,
                     instruction_suffix=dialogue_instruction_suffix,
                 )
-                print(ORANGE + f'Prompt: {prompt}')
                 chain = prompt_llm(prompt, DIALOGUE_MODEL)
                 eliza_response = chain.invoke({})
 
