@@ -34,6 +34,21 @@ class TTSProvider:
             print("Loading Kokoro model...")
             self.pipeline = KPipeline(lang_code=lang_code)
             print("Kokoro model loaded and ready.")
+            try:
+                import imageio_ffmpeg
+            except ImportError:
+                raise ImportError("imageio_ffmpeg module is not installed or failed to import.")
+            # Get the ffmpeg binary path
+            ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
+
+            # Set pydub to use this ffmpeg
+            AudioSegment.converter = ffmpeg_path
+
+            # Ensure it works
+            if not ffmpeg_path:
+                raise FileNotFoundError("FFmpeg could not be found or installed.")
+
+            print("Using ffmpeg:", ffmpeg_path)
 
     async def generate_tts(self, text, voice="af_heart"):
         """Generates speech using the selected TTS provider."""

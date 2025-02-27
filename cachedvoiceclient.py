@@ -64,19 +64,10 @@ async def main():
     from pydub.playback import play  
 
     # Ensure CachedVoiceClient is initialized with the correct provider
-    voice_client = CachedVoiceClient(None, None, 3, tts_provider="kokoro")
+    voice_client = CachedVoiceClient(None, None, None, tts_provider="kokoro")
     print("Model loaded")
 
-    test_text = """ To be, or not to be, that is the question:
-                    Whether 'tis nobler in the mind to suffer
-                    The slings and arrows of outrageous fortune,
-                    Or to take arms against a sea of troubles
-                    And by opposing end them. """
-
-    print("Generating speech with Kokoro...")
-
-    start_time = time.time()  # Start timer
-    first_chunk_played = False  # Track first chunk playback
+    test_text = """ To be, or not to be, that is the question: whether 'tis nobler in the mind to suffer the slings and arrows of outrageous fortune, or to take arms against a sea of troubles and by opposing end them. """
 
     async for audio_chunk in voice_client.get_voice_line(test_text):
         # Parse JSON response to extract the audio
@@ -89,12 +80,6 @@ async def main():
         # Decode base64-encoded MP3 chunk
         mp3_bytes = base64.b64decode(audio_data["audio"])
         mp3_segment = AudioSegment.from_mp3(io.BytesIO(mp3_bytes))
-
-        # Measure time to first speech
-        if not first_chunk_played:
-            first_speech_time = time.time() - start_time
-            print(f"🕒 Time to first speech: {first_speech_time:.2f} seconds")
-            first_chunk_played = True  # Mark first chunk as played
 
         # Play the chunk immediately without restarting previous audio
         play(mp3_segment)

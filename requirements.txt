@@ -4,3 +4,5 @@ kokoro
 numpy
 pydub
 torch
+imageio
+imageio-ffmpeg
