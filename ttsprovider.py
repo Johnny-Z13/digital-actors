@@ -12,7 +12,7 @@ import base64
 
 
 class TTSProvider:
-    def __init__(self, provider="kokoro", voice_id=None, model_id=None, lang_code='a', optimize_streaming_latency=False):
+    def __init__(self, provider="elevenlabs", voice_id=None, model_id=None, lang_code='a', optimize_streaming_latency=3):
         """
         Initializes the TTS provider.
         Supported providers: "kokoro", "elevenlabs"
@@ -49,49 +49,59 @@ class TTSProvider:
         generator = self.pipeline(text, voice=voice, speed=1, split_pattern=r'\n+')
 
         for i, (gs, ps, audio) in enumerate(generator):
-            print(f"\nKokoro generated part {i}")
-            print(f"Type of audio: {type(audio)}")
-
             if isinstance(audio, torch.Tensor):
-                print(f"Converting Tensor (shape={audio.shape}, dtype={audio.dtype}) to bytes...")
-
                 audio = audio.detach().cpu().numpy()  # Convert Tensor to NumPy array
                 audio = (audio * 32767).astype("int16")  # Scale float32 → int16 PCM
 
             byte_audio = audio.tobytes()  # Convert NumPy array to raw PCM bytes
 
-            print(f"Yielding {len(byte_audio)} bytes of audio data")
-
             # Convert PCM to MP3 using pydub
             pcm_audio = AudioSegment(
                 data=byte_audio,
-                sample_width=2,  
-                frame_rate=24000,  
-                channels=1  
+                sample_width=2,  # 16-bit PCM = 2 bytes
+                frame_rate=24000,  # Kokoro's native sample rate
+                channels=1  # Mono
             )
 
+             # 🔹 Resample to 44.1kHz, Stereo for compatibility
+            pcm_audio = pcm_audio.set_frame_rate(44100).set_channels(1)
+
             mp3_buffer = io.BytesIO()
-            pcm_audio.export(mp3_buffer, format="mp3", bitrate="64k")
+            pcm_audio.export(mp3_buffer, format="mp3")
             mp3_bytes = mp3_buffer.getvalue()
 
             # Convert MP3 bytes to a string (Base64 encoding, like Eleven Labs)
             mp3_string = base64.b64encode(mp3_bytes).decode("utf-8")
 
-            yield mp3_string  # Now returns a string, matching Eleven Labs
+            yield json.dumps({
+                "audio": mp3_string,
+                "isFinal": False,
+                "normalizedAlignment": None,
+                "alignment": None
+            })
+        
+        # Send a final chunk with **silent MP3 frame** instead of empty string
+        silent_mp3 = io.BytesIO()
+        AudioSegment.silent(duration=100, frame_rate=44100).export(silent_mp3, format="mp3")
+        silent_mp3_bytes = base64.b64encode(silent_mp3.getvalue()).decode("utf-8")
 
-    async def _generate_elevenlabs(self, text):
-        """
-        Generates speech using Eleven Labs WebSockets API.
-        """
+        yield json.dumps({
+            "audio": silent_mp3_bytes,  # Ensure last chunk is valid MP3
+            "isFinal": True,
+            "normalizedAlignment": None,
+            "alignment": None
+        })
+
+    async def _generate_elevenlabs(self, user_input):
         url = f"wss://api.elevenlabs.io/v1/text-to-speech/{self.voice_id}/stream-input?model_id={self.model_id}&optimize_streaming_latency={self.optimize_streaming_latency}"
 
         async with websockets.connect(url) as websocket:
+            # await websocket.send(user_input)
             await websocket.send(
                 '{"text": " ", "voice_settings": {"stability": 0.8, "similarity_boost": 0.8}, "xi_api_key": "03fb4a0acae30e29a92545df22b62f87"}'
             )
-            await websocket.send(json.dumps({"text": text}))
+            await websocket.send(json.dumps({"text": user_input}))
             await websocket.send('{"text": ""}')  # EOS
-
             t0 = time.time()
             async for resp in websocket:
                 yield resp

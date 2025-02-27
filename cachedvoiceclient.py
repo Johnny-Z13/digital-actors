@@ -13,7 +13,7 @@ class CachedVoiceClient:
         self.voice_id = voice_id
         self.model_id = model_id
         self.optimize_streaming_latency = optimize_streaming_latency
-        self.tts_provider = TTSProvider(provider=tts_provider, voice_id=voice_id, model_id=model_id)
+        self.tts_provider = TTSProvider(provider=tts_provider, voice_id=voice_id, model_id=model_id, optimize_streaming_latency=optimize_streaming_latency)
 
     def is_cached(self, tts_text):
         entry_hash = self._generate_hash(tts_text)
