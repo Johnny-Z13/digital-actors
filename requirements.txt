@@ -6,3 +6,4 @@ torch
 imageio
 imageio-ffmpeg
 kokoro
+six>=1.16.0  # Ensures compatibility with TOML dependencies
