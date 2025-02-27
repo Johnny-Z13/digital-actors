@@ -399,11 +399,11 @@ class SceneClient:
         self.scene_dialogue = ""
         self.dialogue_summary = ""
         self.scenes = [
-            "meet_the_caretaker",
-            "locate_an_engineer",
-            "describe_the_failures",
-            "find_exit",
-            "exit_the_room",
+            "1_meet_the_caretaker",
+            "2_locate_an_engineer",
+            "3_describe_the_failures",
+            "4_find_exit",
+            "5_exit_the_room",
         ]
         self.is_first_scene = True
 
@@ -440,11 +440,11 @@ class SceneClient:
 
     def reset_response_handler(self):
         self.scenes = [
-            "meet_the_caretaker",
-            "locate_an_engineer",
-            "describe_the_failures",
-            "find_exit",
-            "exit_the_room",
+            "1_meet_the_caretaker",
+            "2_locate_an_engineer",
+            "3_describe_the_failures",
+            "4_find_exit",
+            "5_exit_the_room",
         ]
         print(CYAN + f'Starting response handler for scenes: "{self.scenes}"')
         self.load_next_scene()
