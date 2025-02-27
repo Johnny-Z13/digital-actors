@@ -65,7 +65,7 @@ async def main():
     voice_client = CachedVoiceClient(None, None, None, tts_provider="kokoro")
     print("Model loaded")
 
-    test_text = """ To be, or not to be, that is the question: whether 'tis nobler in the mind to suffer the slings and arrows of outrageous fortune, or to take arms against a sea of troubles and by opposing end them. """
+    test_text = "It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness, it was the epoch of belief, it was the epoch of incredulity, it was the season of Light, it was the season of Darkness, it was the spring of hope, it was the winter of despair."
 
     # Start ffplay in subprocess to stream audio
     ffplay_process = subprocess.Popen(
