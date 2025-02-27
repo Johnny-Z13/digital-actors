@@ -88,7 +88,10 @@ async def main():
         mp3_segment = AudioSegment.from_mp3(io.BytesIO(mp3_bytes))
 
         # Export audio to ffmpeg (write directly to the subprocess without a temp file)
-        mp3_segment.export(ffplay_process.stdin, format="wav")
+        buffer = io.BytesIO()
+        mp3_segment.export(buffer, format="wav")
+        ffplay_process.stdin.write(buffer.getvalue())
+        ffplay_process.stdin.flush()
 
     # Close the ffplay process
     ffplay_process.stdin.close()
