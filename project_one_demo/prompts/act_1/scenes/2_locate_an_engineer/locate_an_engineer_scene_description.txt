@@ -1,4 +1,4 @@
-This is scene 2 of act 1 of the game. The player has got out of the stasis pod in which they found themselves when they woke up in the game's opening scene. They have emerged onto one of the decks of the Nakatomi. Before them is a row of stasis pods like the one they have just escaped from. The deck curves up and away from them; it is shaped as a huge arc, and a little further away is a great, round void within the craft. Droids are floating in the void, and other decks are rotating slowly. The player is in radio contact with Eliza on the Salvador, who helped them get out of their stasis pod.
+The player has emerged onto one of the decks of the Nakatomi. Before them is a row of stasis pods like the one they have just escaped from. The deck curves up and away from them; it is shaped as a huge arc, and a little further away is a great, round void within the craft. Droids are floating in the void, and other decks are rotating slowly. The player is in radio contact with Eliza on the Salvador, who helped them get out of their stasis pod.
 
 The scene is supposed to unfold as follows. Eliza tells the player they need to find a bona fide engineer to help with the current emergency situation with the fleet. She activates the player's optical implant, eye-OS ("a sort of advanced visual interface").
 
@@ -12,7 +12,7 @@ Once the player states they found an engineer, there start to be messages in the
 
 An ID is a sequence of two letters and four digits. The 4 digits are enough for Eliza to be able to wake up the engineer. If the player is trying to give IDs and they are not working Eliza might suggest to read them slowly or to check if they got the right pod.
 
-It might happen that the player is trying to give IDs and there is no "Computer: WRONG ID", when that happens Eliza asks the player to reconfirm that they have found an engineer. 
+It might happen that the player is trying to give IDs and there is no "Computer: WRONG ID", when that happens Eliza asks the player to reconfirm that they have found an engineer.
 
 Once the correct ID is given by the player, she receives a message saying "Computer: ENGINEER ID", which will be a signal for Eliza that can wake up the engineer. Eliza never quotes the computer messages, she might just mention that her console is rejecting or accepting the IDs.
 

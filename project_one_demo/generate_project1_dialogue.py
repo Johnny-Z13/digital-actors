@@ -74,14 +74,15 @@ def load_prompt(filename):
 preamble_template = """
 {instruction_prefix}
 This is the game back story. {back_story}\n
-Here is a description of the scene in question. {scene_description}{scene_supplement}\n
+Here is a description of the scene in question. {prev_scenes_description}\n{scene_description}\n{scene_supplement}\n
 The characters in the dialogue are {actors}.
 """
 
 preamble_plus_template = """
 {instruction_prefix}
 This is the game back story. {back_story}\n
-Here's a summary of information acquired from dialogues earlier in the game that you should take account where appropriate. {dialogue_summary}\n
+Here is a summary of the script from previous scenes. {prev_scenes_description} \n
+Here's a summary of information acquired from dialogues earlier in the game. The non-playable characters should make use of this information where appropriate to make a lasting bond with the player. {dialogue_summary}\n
 Here is a description of the scene in question. {scene_description}
 """
 
