@@ -10,7 +10,7 @@ uv run websocket.py
 
 Otherwise, you can do:
 ```bash
-pip install -U websockets rich
+pip install -r requirements.txt
 python websocket.py
 ```
 
@@ -18,4 +18,9 @@ python websocket.py
 
 The brains are implemented in `ant_server.py`, which defines how to handle messages from the game. You should implement `on_event_triggered` and `on_user_transcript` here.
 
-Generating audio is handled by `cachedvoiceclient.py`, which interfaces with the ElevenLabs API
+Generating audio is handled by `cachedvoiceclient.py`, which interfaces with the ElevenLabs API or local Kokoro. This file can also be run directly to test Kokoro.
+
+Switch between ElevenLabs and Kokoro at the top of websocket.py
+eg.
+voice_client = CachedVoiceClient(None, None, None, tts_provider="kokoro")
+
