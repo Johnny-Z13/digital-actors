@@ -1,0 +1,7 @@
+websockets
+rich
+kokoro
+numpy
+pydub
+numpy
+pytorch
