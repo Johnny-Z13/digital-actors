@@ -55,19 +55,25 @@ class CachedVoiceClient:
         except Exception as e:
             print(f"Cache save error: {e}")
 
-
 async def main():
     import io
     import json
     import base64
+    import subprocess
     from pydub import AudioSegment
-    from pydub.playback import play  
-
     # Ensure CachedVoiceClient is initialized with the correct provider
     voice_client = CachedVoiceClient(None, None, None, tts_provider="kokoro")
     print("Model loaded")
 
     test_text = """ To be, or not to be, that is the question: whether 'tis nobler in the mind to suffer the slings and arrows of outrageous fortune, or to take arms against a sea of troubles and by opposing end them. """
+
+    # Start ffplay in subprocess to stream audio
+    ffplay_process = subprocess.Popen(
+        ["ffplay", "-nodisp", "-autoexit", "-"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
 
     async for audio_chunk in voice_client.get_voice_line(test_text):
         # Parse JSON response to extract the audio
@@ -81,10 +87,15 @@ async def main():
         mp3_bytes = base64.b64decode(audio_data["audio"])
         mp3_segment = AudioSegment.from_mp3(io.BytesIO(mp3_bytes))
 
-        # Play the chunk immediately without restarting previous audio
-        play(mp3_segment)
+        # Export audio to ffmpeg (write directly to the subprocess without a temp file)
+        mp3_segment.export(ffplay_process.stdin, format="wav")
+
+    # Close the ffplay process
+    ffplay_process.stdin.close()
+    ffplay_process.wait()
 
     print("Streaming complete!")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

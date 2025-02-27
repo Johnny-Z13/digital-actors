@@ -27,6 +27,15 @@ class TTSProvider:
 
         # Preload Kokoro model to avoid delays in first request
         if provider == "kokoro":
+            import spacy
+            # Ensure the Spacy model is installed
+            try:
+                spacy.load("en_core_web_sm")
+            except OSError:
+                print("Downloading 'en_core_web_sm' model...")
+                import subprocess
+                subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"], check=True)
+
             try:
                 from kokoro import KPipeline
             except ImportError:
