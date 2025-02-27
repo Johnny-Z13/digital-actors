@@ -44,50 +44,46 @@ class TTSProvider:
     async def _generate_kokoro(self, text, voice):
         """
         Generates speech using Kokoro TTS and ensures the output format
-        is identical to Eleven Labs (streaming MP3 as a string).
+        is identical to Eleven Labs (streaming MP3 as a string)
         """
         generator = self.pipeline(text, voice=voice, speed=1, split_pattern=r'\n+')
 
-        for i, (gs, ps, audio) in enumerate(generator):
-            if isinstance(audio, torch.Tensor):
-                audio = audio.detach().cpu().numpy()  # Convert Tensor to NumPy array
-                audio = (audio * 32767).astype("int16")  # Scale float32 → int16 PCM
-
-            byte_audio = audio.tobytes()  # Convert NumPy array to raw PCM bytes
-
-            # Convert PCM to MP3 using pydub
-            pcm_audio = AudioSegment(
-                data=byte_audio,
-                sample_width=2,  # 16-bit PCM = 2 bytes
-                frame_rate=24000,  # Kokoro's native sample rate
-                channels=1  # Mono
-            )
-
-             # 🔹 Resample to 44.1kHz, Stereo for compatibility
-            pcm_audio = pcm_audio.set_frame_rate(44100).set_channels(1)
-
-            mp3_buffer = io.BytesIO()
-            pcm_audio.export(mp3_buffer, format="mp3")
-            mp3_bytes = mp3_buffer.getvalue()
-
-            # Convert MP3 bytes to a string (Base64 encoding, like Eleven Labs)
-            mp3_string = base64.b64encode(mp3_bytes).decode("utf-8")
-
-            yield json.dumps({
-                "audio": mp3_string,
-                "isFinal": False,
-                "normalizedAlignment": None,
-                "alignment": None
-            })
+        # Process audio chunks
+        for _, (_, _, audio) in enumerate(generator):
+            # Convert audio to MP3 and yield
+            yield self._process_audio_chunk(audio, is_final=False)
         
-        # Send a final chunk with **silent MP3 frame** instead of empty string
-        silent_mp3 = io.BytesIO()
-        AudioSegment.silent(duration=100, frame_rate=44100).export(silent_mp3, format="mp3")
-        silent_mp3_bytes = base64.b64encode(silent_mp3.getvalue()).decode("utf-8")
+        # Send final silent chunk
+        yield self._process_audio_chunk(None, is_final=True)
 
-        yield json.dumps({
-            "audio": silent_mp3_bytes,  # Ensure last chunk is valid MP3
-            "isFinal": True,
+    def _process_audio_chunk(self, audio, is_final=False):
+        """Helper method to process audio chunks and convert to MP3."""
+        if is_final:
+            # Create silent audio for final chunk
+            audio_segment = AudioSegment.silent(duration=100, frame_rate=44100)
+        else:
+            # Convert tensor or numpy array to AudioSegment
+            if isinstance(audio, torch.Tensor):
+                audio = audio.detach().cpu().numpy()
+                audio = (audio * 32767).astype("int16")
+            
+            # Create AudioSegment from raw PCM
+            audio_segment = AudioSegment(
+                data=audio.tobytes(),
+                sample_width=2,
+                frame_rate=24000,
+                channels=1
+            ).set_frame_rate(44100)
+        
+        # Export to MP3 and encode as base64
+        mp3_buffer = io.BytesIO()
+        audio_segment.export(mp3_buffer, format="mp3")
+        mp3_string = base64.b64encode(mp3_buffer.getvalue()).decode("utf-8")
+        
+        # Return formatted JSON string
+        return json.dumps({
+            "audio": mp3_string,
+            "isFinal": is_final,
             "normalizedAlignment": None,
             "alignment": None
         })
