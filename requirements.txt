@@ -3,5 +3,4 @@ rich
 kokoro
 numpy
 pydub
-numpy
-pytorch
+torch
