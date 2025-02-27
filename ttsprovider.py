@@ -1,21 +1,19 @@
 import os
 import asyncio
 import json
-import hashlib
-import pickle
 import time
-import websockets
-import torch
-from pydub import AudioSegment
-import io
 import base64
-
+import io
+import numpy as np
+import torch
+import websockets
+from pydub import AudioSegment
+from pydub.playback import play
 
 class TTSProvider:
     def __init__(self, provider="elevenlabs", voice_id=None, model_id=None, lang_code='a', optimize_streaming_latency=3):
         """
-        Initializes the TTS provider.
-        Supported providers: "kokoro", "elevenlabs"
+        Initializes the TTS provider and preloads the Kokoro model.
         """
         self.provider = provider
         self.voice_id = voice_id
@@ -23,14 +21,22 @@ class TTSProvider:
         self.optimize_streaming_latency = optimize_streaming_latency
         self.lang_code = lang_code
 
+        # Configure streaming parameters for Kokoro
+        self.frame_size = 24000  # 1000ms at 24kHz
+        self.buffer_frames = 20  # Buffer 20 frames before sending for smoother playback
+
+        # Preload Kokoro model to avoid delays in first request
         if provider == "kokoro":
-            from kokoro import KPipeline
+            try:
+                from kokoro import KPipeline
+            except ImportError:
+                raise ImportError("Kokoro module is not installed or failed to import.")
+            print("Loading Kokoro model...")
             self.pipeline = KPipeline(lang_code=lang_code)
+            print("Kokoro model loaded and ready.")
 
     async def generate_tts(self, text, voice="af_heart"):
-        """
-        Generates speech using the selected TTS provider.
-        """
+        """Generates speech using the selected TTS provider."""
         if self.provider == "kokoro":
             async for audio in self._generate_kokoro(text, voice):
                 yield audio
@@ -40,47 +46,60 @@ class TTSProvider:
         else:
             raise ValueError(f"Unsupported TTS provider: {self.provider}")
 
-
     async def _generate_kokoro(self, text, voice):
-        """
-        Generates speech using Kokoro TTS and ensures the output format
-        is identical to Eleven Labs (streaming MP3 as a string)
-        """
-        generator = self.pipeline(text, voice=voice, speed=1, split_pattern=r'\n+')
+        start_time = time.time()  # Start timer
+        first_chunk_played = False  # Track first chunk playback
 
-        # Process audio chunks
-        for _, (_, _, audio) in enumerate(generator):
-            # Convert audio to MP3 and yield
-            yield self._process_audio_chunk(audio, is_final=False)
-        
-        # Send final silent chunk
+        """Generates speech using Kokoro TTS with streaming optimization."""
+        generator = self.pipeline(text, voice=voice, speed=1, split_pattern=r'\n+') #split_pattern=r'(?<=[.!?])|\n+'
+
+        buffer = []
+        print("Starting to process generator...")
+        for chunk_idx, (gs, ps, audio) in enumerate(generator):
+            print(f"Received chunk {chunk_idx} after {time.time() - start_time:.2f}s")
+
+            if isinstance(audio, torch.Tensor):
+                audio = audio.detach().cpu().numpy()
+            
+            for i in range(0, len(audio), self.frame_size):
+                frame = audio[i:i + self.frame_size]
+                
+                if len(frame) > 0:
+                    buffer.append(frame)
+
+                    if len(buffer) >= self.buffer_frames or i + self.frame_size >= len(audio):
+                        buffered_audio = np.concatenate(buffer)
+                        
+                        if not first_chunk_played:
+                            first_speech_time = time.time() - start_time
+                            print(f"🕒 Time to first speech: {first_speech_time:.2f} seconds")
+                            first_chunk_played = True  # Mark first chunk as played
+
+                        yield self._process_audio_chunk(buffered_audio, is_final=False)
+                        
+                        buffer = [buffer[-1]] if i + self.frame_size < len(audio) else []
+                
+                await asyncio.sleep(0.01)
+
         yield self._process_audio_chunk(None, is_final=True)
 
     def _process_audio_chunk(self, audio, is_final=False):
         """Helper method to process audio chunks and convert to MP3."""
         if is_final:
-            # Create silent audio for final chunk
             audio_segment = AudioSegment.silent(duration=100, frame_rate=44100)
         else:
-            # Convert tensor or numpy array to AudioSegment
-            if isinstance(audio, torch.Tensor):
-                audio = audio.detach().cpu().numpy()
-                audio = (audio * 32767).astype("int16")
-            
-            # Create AudioSegment from raw PCM
+            audio = (audio * 32767).astype("int16")
             audio_segment = AudioSegment(
                 data=audio.tobytes(),
                 sample_width=2,
                 frame_rate=24000,
                 channels=1
             ).set_frame_rate(44100)
-        
-        # Export to MP3 and encode as base64
+
         mp3_buffer = io.BytesIO()
         audio_segment.export(mp3_buffer, format="mp3")
         mp3_string = base64.b64encode(mp3_buffer.getvalue()).decode("utf-8")
-        
-        # Return formatted JSON string
+
         return json.dumps({
             "audio": mp3_string,
             "isFinal": is_final,

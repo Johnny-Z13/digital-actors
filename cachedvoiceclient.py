@@ -6,7 +6,7 @@ import asyncio
 import websockets
 import json
 from rich.console import Console
-from ttsprovider import TTSProvider  # Import TTSProvider
+from ttsprovider import TTSProvider  
 
 class CachedVoiceClient:
     def __init__(self, voice_id, model_id, optimize_streaming_latency, tts_provider="elevenlabs"):
@@ -58,29 +58,48 @@ class CachedVoiceClient:
 
 async def main():
     import io
+    import json
     import base64
     from pydub import AudioSegment
-    from pydub.playback import play  # Use Pydub to play MP3
+    from pydub.playback import play  
 
+    # Ensure CachedVoiceClient is initialized with the correct provider
     voice_client = CachedVoiceClient(None, None, 3, tts_provider="kokoro")
-    test_text = "Hi there friend, this is a test of the Kokoro TTS system."
+    print("Model loaded")
+
+    test_text = """ To be, or not to be, that is the question:
+                    Whether 'tis nobler in the mind to suffer
+                    The slings and arrows of outrageous fortune,
+                    Or to take arms against a sea of troubles
+                    And by opposing end them. """
 
     print("Generating speech with Kokoro...")
-    audio_data = ""  # Store as a string instead of bytes
+
+    start_time = time.time()  # Start timer
+    first_chunk_played = False  # Track first chunk playback
 
     async for audio_chunk in voice_client.get_voice_line(test_text):
-        audio_data += audio_chunk  
+        # Parse JSON response to extract the audio
+        audio_data = json.loads(audio_chunk)
+        
+        # Skip final empty chunk
+        if audio_data.get("isFinal", False):
+            break
+        
+        # Decode base64-encoded MP3 chunk
+        mp3_bytes = base64.b64decode(audio_data["audio"])
+        mp3_segment = AudioSegment.from_mp3(io.BytesIO(mp3_bytes))
 
-    # Decode Base64 string back to MP3 bytes
-    mp3_bytes = base64.b64decode(audio_data)
-    mp3_buffer = io.BytesIO(mp3_bytes)
+        # Measure time to first speech
+        if not first_chunk_played:
+            first_speech_time = time.time() - start_time
+            print(f"🕒 Time to first speech: {first_speech_time:.2f} seconds")
+            first_chunk_played = True  # Mark first chunk as played
 
-    # Load MP3 and play it
-    mp3_audio = AudioSegment.from_mp3(mp3_buffer)
+        # Play the chunk immediately without restarting previous audio
+        play(mp3_segment)
 
-    print("Playing MP3 audio...")
-    play(mp3_audio)  # Directly play the MP3
-
+    print("Streaming complete!")
 
 if __name__ == "__main__":
     asyncio.run(main())
