@@ -45,7 +45,7 @@ class TTSProvider:
             except ImportError:
                 raise ImportError("Kokoro module is not installed or failed to import.")
             print("Loading Kokoro model...")
-            self.pipeline = KPipeline(lang_code=lang_code).to(self.device)  # Move model to GPU if available
+            self.pipeline = KPipeline(lang_code=lang_code)
             print("Kokoro model loaded and ready.")
             try:
                 import imageio_ffmpeg
