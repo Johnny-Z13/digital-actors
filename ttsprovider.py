@@ -15,6 +15,10 @@ class TTSProvider:
         """
         Initializes the TTS provider and preloads the Kokoro model.
         """
+        # Check for CUDA availability and set device
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"Using device: {self.device}")
+
         self.provider = provider
         self.voice_id = voice_id
         self.model_id = model_id
@@ -41,7 +45,7 @@ class TTSProvider:
             except ImportError:
                 raise ImportError("Kokoro module is not installed or failed to import.")
             print("Loading Kokoro model...")
-            self.pipeline = KPipeline(lang_code=lang_code)
+            self.pipeline = KPipeline(lang_code=lang_code).to(self.device)  # Move model to GPU if available
             print("Kokoro model loaded and ready.")
             try:
                 import imageio_ffmpeg
@@ -75,7 +79,7 @@ class TTSProvider:
         first_chunk_played = False  # Track first chunk playback
 
         """Generates speech using Kokoro TTS with streaming optimization."""
-        generator = self.pipeline(text, voice=voice, speed=1, split_pattern=r'\n+') #split_pattern=r'(?<=[.!?])|\n+'
+        generator = self.pipeline(text, voice=voice, speed=1, split_pattern=r'\n+')  # Model is already on the right device
 
         buffer = []
         print("Starting to process generator...")
@@ -83,7 +87,7 @@ class TTSProvider:
             print(f"Received chunk {chunk_idx} after {time.time() - start_time:.2f}s")
 
             if isinstance(audio, torch.Tensor):
-                audio = audio.detach().cpu().numpy()
+                audio = audio.detach().to("cpu").numpy()  # Move to CPU for numpy conversion
             
             for i in range(0, len(audio), self.frame_size):
                 frame = audio[i:i + self.frame_size]
