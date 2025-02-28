@@ -102,7 +102,7 @@ Here is the second summary:\n
 """
 
 merge_instruction_suffix = """
-Give me a short paragraph summarising the information from the two summaries above. Do not ommit any biographical information or events that might have happened in the dialogue that weren't mentioned in the script for this scene. Provide only the summary paragraph, no other text.\n
+Give me a paragraph merging the information from the two summaries above. Your objective is to eliminate duplicities and redundancy. Do not ommit any biographical information, tastes and preferences, or events that might have happened in the dialogue that weren't mentioned in the script for this scene, that includes deals made, promises kept, grudges, etc. Provide only the summary paragraph, no other text.\n
 """
 
 instruction_template = """
@@ -127,7 +127,7 @@ Now consider the following statement about this dialogue. {statement} Is this st
 """
 
 summary_instruction_suffix = """
-Give me a short paragraph summarising any information revealed by the player or the other characters that might be relevant for later dialogues, for example personal or biographical information, or any events that might have happened in the scene that weren't mentioned in the script. Provide only the summary paragraph, no other text.\n
+Give me a short paragraph summarising any information revealed by the player or the other characters that might be relevant for later dialogues. Include all personal or biographical information that helps to build a profile of the characters, including informations about their tastes and preferences. Also include any events that might have happened in the scene that weren't mentioned in the script, for instance deals made, promises kept, grudges, etc. Provide only the summary paragraph, no other text.\n
 """
 
 # BUILDING DIALOGUES
@@ -418,7 +418,6 @@ def load_scene_data(scene_name: str, dialogue_summary: str = "") -> SceneData:
     back_story = load_root_file("back_story")
     opening_speech = load_opening_speech(scene_name)
     queries = load_queries(scene_name)
-    print(RED + f'queries: {queries}')
     return SceneData(
         scene_name=scene_name,
         scene_description=scene_description,
