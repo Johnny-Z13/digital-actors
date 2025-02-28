@@ -1,5 +1,6 @@
 # antdemo-server
-Websocket server for Project Ant Online Demo (with optional local text-to-speech)
+Websocket server for Project Ant Online Demo 
+with optional local text-to-speech model [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M)
 
 ## Running
 
@@ -32,7 +33,7 @@ nvidia-smi  # To check the CUDA version supported by your GPU driver
 
 The brains are implemented in `ant_server.py`, which defines how to handle messages from the game. You should implement `on_event_triggered` and `on_user_transcript` here.
 
-Generating audio is handled by `cachedvoiceclient.py`, which interfaces with the ElevenLabs API or local text-to-speech (Kokoro). This file can also be run directly to test Kokoro (see https://huggingface.co/hexgrad/Kokoro-82M)
+Generating audio is handled by `cachedvoiceclient.py` and `ttsprovider.py`, which interface with the ElevenLabs API or local text-to-speech model (Kokoro). `cachedvoiceclient.py` can be run directly to test Kokoro.
 
 Switch between text-to-speech providers, ElevenLabs or Kokoro, at the top of websocket.py:
 
