@@ -108,28 +108,34 @@ class AntServer(AntServerBase):
         if re.match(r'^\s*(computer|luna|lunar)\b.*$', message, re.IGNORECASE):
             if re.match(r'^\s*(computer|luna|lunar)\s+(sc\w*|sk\w*).*$', message, re.IGNORECASE):
                 await self.send_event("eyeOS_VC_ScanRoom")
+                self.scene_client.add_luna_commands(message)
                 return
             if re.match(r'^\s*(computer|luna|lunar).*(gravity|zero\s*g).*(on)\s*$', message, re.IGNORECASE):
                 await self.send_event("eyeOS_VC_GravityOn")
+                self.scene_client.add_luna_commands(message)
                 return
             if re.match(
                     r'^\s*(computer|luna|lunar).*(enable|return|activate|turn on|switch on\s*g)\s+(gravity)\s*$',
                     message, re.IGNORECASE):
                 await self.send_event("eyeOS_VC_GravityOn")
+                self.scene_client.add_luna_commands(message)
                 return
             if re.match(r'^\s*(computer|luna|lunar).*(gravity|zero\s*g).*(off)\s*$', message, re.IGNORECASE):
                 await self.send_event("eyeOS_VC_GravityOff")
+                self.scene_client.add_luna_commands(message)
                 return
             if re.match(r'^\s*(computer|luna|lunar).*(disable|disabled|remove|deactivate|turn off|switch off\s*g)\s+(gravity)\s*$', message, re.IGNORECASE):
                 await self.send_event("eyeOS_VC_GravityOff")
+                self.scene_client.add_luna_commands(message)
                 return
             if re.match(r'^\s*(computer|luna|lunar)\s+gravity\b.*$', message, re.IGNORECASE):
                 await self.send_event("eyeOS_VC_GravityToggle")
+                self.scene_client.add_luna_commands(message)
                 return
             if re.match(r'^\s*(computer|luna|lunar).*(open).*(door)\s*$', message, re.IGNORECASE):
                 await self.send_event("eyeOS_VC_OpenDoor")
+                self.scene_client.add_luna_commands(message)
                 return
-            self.scene_client.add_luna_commands(message)
         else:
             result = self.scene_client.handle_player_response(message, False)
             if result:

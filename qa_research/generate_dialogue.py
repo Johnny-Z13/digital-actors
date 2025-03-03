@@ -46,11 +46,11 @@ PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ACTORS = ["Eliza", "Player"]
 
 gScenes = [
-    "meet_the_caretaker",
-    "locate_an_engineer",
-    "describe_the_failures",
-    "find_exit",
-    "exit_the_room",
+    "1_meet_the_caretaker",
+    "2_locate_an_engineer",
+    "3_describe_the_failures",
+    "4_find_exit",
+    "5_exit_the_room",
 ]
 
 RED = "\033[91m"
