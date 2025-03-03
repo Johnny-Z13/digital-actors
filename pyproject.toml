@@ -7,5 +7,5 @@ requires-python = ">=3.12"
 dependencies = [
     "rich>=13.8.1",
     "six>=1.16.0",
-    "websockets>=13.1",
+    "websockets>=13.1,<15.0",
 ]
