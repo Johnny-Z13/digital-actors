@@ -13,8 +13,8 @@ console = Console(force_terminal=True)
 
 from ant_server import AntServer
 
-#voice_client = CachedVoiceClient("ChcIf9hNw4gUMX5XTD4A", "eleven_turbo_v2", 3, "elevenlabs")
-voice_client = CachedVoiceClient(None, None, None, tts_provider="kokoro")
+voice_client = CachedVoiceClient("ChcIf9hNw4gUMX5XTD4A", "eleven_turbo_v2", 3, "elevenlabs")
+#voice_client = CachedVoiceClient(None, None, None, tts_provider="kokoro")
 
 async def client_handler(websocket, path):
     # Client connect
