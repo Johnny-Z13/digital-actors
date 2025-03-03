@@ -17,8 +17,7 @@ class TTSProvider:
         """
         # Check for CUDA availability and set device
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"Using device: {self.device}")
-
+        
         self.provider = provider
         self.voice_id = voice_id
         self.model_id = model_id
@@ -31,6 +30,7 @@ class TTSProvider:
 
         # Preload Kokoro model to avoid delays in first request
         if provider == "kokoro":
+            print(f"Using device: {self.device}")
             import spacy
             # Ensure the Spacy model is installed
             try:
