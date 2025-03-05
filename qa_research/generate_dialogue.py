@@ -58,6 +58,8 @@ GREEN = "\033[92m"
 BLUE = "\033[94m"
 YELLOW = "\033[93m"
 WHITE = "\033[0m"
+CYAN = "\033[96m"
+ORANGE = "\033[93m"
 
 PREAMBLE_TEMPLATE = """{instruction_prefix}
 Back Story:
@@ -81,6 +83,32 @@ Dialogue so far:
 """
 
 SPEECH_TEMPLATE = "{actor}: {speech}"
+
+PREAMBLE_PLUS_TEMPLATE = """{instruction_prefix}
+This is the game back story. {back_story}\n
+Here's a summary of information acquired from dialogues earlier in the game. The non-playable characters should make use of this information where appropriate to bond with the player. {dialogue_summary}\n
+Here is a description of the scene in question. {scene_description}
+"""
+
+MERGE_PREAMBLE_TEMPLATE = """{instruction_prefix}
+This is the game back story. {back_story}\n
+"""
+
+MERGE_INSTRUCTION_TEMPLATE = """{preamble}
+Here is the first summary:\n
+{summary1} \n
+Here is the second summary:\n
+{summary2} \n
+{instruction_suffix}
+"""
+
+MERGE_INSTRUCTION_SUFFIX = """
+Give me a paragraph merging the information from the two summaries above. Your objective is to eliminate duplicities and redundancy. Do not ommit any biographical information, tastes and preferences from the player or the other characters. Keep the information about events that might have happened in the dialogue that are not mentioned in the script for this scene, that includes deals made, promises kept, grudges, etc. Provide only the summary paragraph, no other text.\n
+"""
+
+SUMMARY_INSTRUCTION_SUFFIX = """
+Give me a short paragraph summarising any information in the dialogue revealed by the player or the other characters that might be relevant for later dialogues. Include all personal or biographical information revealed in the dialoguethat helps to build a profile of the characters, including informations about their tastes and preferences. Also include any events that might have happened in the scene that weren't mentioned in the script, for instance deals made, promises kept, grudges, etc. Do not provide information that is already on the script, do not list things that are not present in the dialogue. Provide only the summary paragraph, no other text.\n
+"""
 
 
 @dataclass
@@ -210,8 +238,6 @@ def prompt_llm(prompt, model):
 
 # --------------------------------
 # DIALOGUE UTILITIES
-# TODO: I added the player_info files, we need to add the player_info to the prompts
-
 
 def collect_game_scenes() -> list[dict[str, list[str]]]:
     # Get the root directory (one level up from qa_research)
@@ -262,6 +288,8 @@ def load_prompts(scene, game, supplement_version=-1):
     )
 
     dialogue_instruction_prefix = load_prompt("dialogue_instruction_prefix.txt")
+    summary_instruction_prefix = load_prompt("summary_instruction_prefix.txt")
+    merge_instruction_prefix = load_prompt("merge_instruction_prefix.txt")
 
     # opening speech could have delays in squared brakets, lets remove them
     opening_speech = re.sub(r"\[.*?\]", "", opening_speech)
@@ -277,11 +305,44 @@ def load_prompts(scene, game, supplement_version=-1):
         opening_speech,
         queries,
         player_info,
+        summary_instruction_prefix,
+        merge_instruction_prefix,
     )
 
 
 # --------------------------------
 # SCENE SIMULATION
+
+def generate_dialogue_summary(dialogue: str, back_story: str, summary_instruction_prefix: str, dialogue_model: LLM) -> str:
+    summary_preamble = PREAMBLE_TEMPLATE.format( # Reusing PREAMBLE_TEMPLATE, could create a SUMMARY_PREAMBLE_TEMPLATE if needed to customize
+        instruction_prefix=summary_instruction_prefix,
+        back_story=back_story,
+        scene_description="",
+        scene_supplement="",
+        actors=list_to_conjunction(ACTORS),
+    )
+    prompt = INSTRUCTION_TEMPLATE.format(
+        preamble=summary_preamble,
+        dialogue=dialogue,
+        instruction_suffix=SUMMARY_INSTRUCTION_SUFFIX,
+    )
+    chain = prompt_llm(prompt, dialogue_model)
+    return chain.invoke({}).strip()
+
+
+def generate_merge_summary(summary1: str, summary2: str, back_story: str, merge_instruction_prefix: str, dialogue_model: LLM) -> str:
+    merge_preamble = MERGE_PREAMBLE_TEMPLATE.format(
+        instruction_prefix=merge_instruction_prefix,
+        back_story=back_story,
+    )
+    prompt = MERGE_INSTRUCTION_TEMPLATE.format(
+        preamble=merge_preamble,
+        summary1=summary1,
+        summary2=summary2,
+        instruction_suffix=MERGE_INSTRUCTION_SUFFIX,
+    )
+    chain = prompt_llm(prompt, dialogue_model)
+    return chain.invoke({}).strip()
 
 
 def get_player_llm_response(
@@ -291,6 +352,7 @@ def get_player_llm_response(
     scene_description: str,
     scene_supplement: str,
     player_info: str,
+    dialogue_summary: str = "",
     player_instruction_prefix: str = """
         You are going to generate one line of dialogue for a scene in the middle of a computer game.
         Your line will be the one of a {adjective_character} player.
@@ -317,13 +379,23 @@ def get_player_llm_response(
                         """.format(player_info=player_info)
     )
 
-    dialogue_preamble = PREAMBLE_TEMPLATE.format(
-        instruction_prefix=player_instruction_prefix,
-        back_story=back_story,
-        scene_description=scene_description,
-        scene_supplement=scene_supplement,
-        actors=list_to_conjunction(ACTORS),
-    )
+    if dialogue_summary:
+        dialogue_preamble = PREAMBLE_PLUS_TEMPLATE.format(
+            instruction_prefix=player_instruction_prefix,
+            back_story=back_story,
+            dialogue_summary=dialogue_summary,
+            scene_description=scene_description,
+            scene_supplement=scene_supplement,
+            actors=list_to_conjunction(ACTORS),
+        )
+    else:
+        dialogue_preamble = PREAMBLE_TEMPLATE.format(
+            instruction_prefix=player_instruction_prefix,
+            back_story=back_story,
+            scene_description=scene_description,
+            scene_supplement=scene_supplement,
+            actors=list_to_conjunction(ACTORS),
+        )
 
     prompt = INSTRUCTION_TEMPLATE.format(
         preamble=dialogue_preamble,
@@ -340,6 +412,7 @@ def get_npc_llm_response(
     back_story: str,
     scene_description: str,
     scene_supplement: str,
+    dialogue_summary: str = "",
     dialogue_instruction_prefix: str = """
         You are going to generate one line of dialogue for a scene in the middle of a computer game.
         """,
@@ -350,13 +423,23 @@ def get_npc_llm_response(
         """,
 ) -> str:
 
-    dialogue_preamble = PREAMBLE_TEMPLATE.format(
-        instruction_prefix=dialogue_instruction_prefix,
-        back_story=back_story,
-        scene_description=scene_description,
-        scene_supplement=scene_supplement,
-        actors=list_to_conjunction(ACTORS),
-    )
+    if dialogue_summary:
+        dialogue_preamble = PREAMBLE_PLUS_TEMPLATE.format(
+            instruction_prefix=dialogue_instruction_prefix,
+            back_story=back_story,
+            dialogue_summary=dialogue_summary,
+            scene_description=scene_description,
+            scene_supplement=scene_supplement,
+            actors=list_to_conjunction(ACTORS),
+        )
+    else:
+        dialogue_preamble = PREAMBLE_TEMPLATE.format(
+            instruction_prefix=dialogue_instruction_prefix,
+            back_story=back_story,
+            scene_description=scene_description,
+            scene_supplement=scene_supplement,
+            actors=list_to_conjunction(ACTORS),
+        )
 
     prompt = INSTRUCTION_TEMPLATE.format(
         preamble=dialogue_preamble,
@@ -436,6 +519,7 @@ def sim_mini_scene(
     player_model: LLM,
     scene: str,
     game: str,
+    dialogue_summary: str = "",
 ) -> tuple[str, bool]:
     actors = ACTORS
     (
@@ -446,6 +530,8 @@ def sim_mini_scene(
         opening_speech,
         queries,
         player_info,
+        summary_instruction_prefix,
+        merge_instruction_prefix,
     ) = load_prompts(scene, game, supplement_version)
 
     lines = split_text(opening_speech)
@@ -467,6 +553,7 @@ def sim_mini_scene(
                 scene_description,
                 scene_supplement,
                 player_info,
+                dialogue_summary,
             )
             if re.match(r"^\S+:\s+", speech):
                 speech = re.sub(r"^\S+:\s+", "", speech)
@@ -478,6 +565,7 @@ def sim_mini_scene(
                 back_story=back_story,
                 scene_description=scene_description,
                 scene_supplement=scene_supplement,
+                dialogue_summary=dialogue_summary,
                 dialogue_instruction_prefix=dialogue_instruction_prefix,
             )
             if re.match(r"^\S+:\s+", npc_speech):
@@ -494,16 +582,26 @@ def sim_mini_scene(
         success = fails == 0
         turn += 1
 
+    # Generate dialogue summary
+    current_summary = generate_dialogue_summary(dialogue, back_story, summary_instruction_prefix, dialogue_model)
+    print(CYAN + f"Current scene summary: {current_summary}")
+    if dialogue_summary:
+        dialogue_summary = generate_merge_summary(dialogue_summary, current_summary, back_story, merge_instruction_prefix, dialogue_model)
+        print(ORANGE + f"Merged dialogue summary: {dialogue_summary}")
+    else:
+        dialogue_summary = current_summary
+        print(ORANGE + f"Dialogue summary: {dialogue_summary}")
+
     if success:
         print("Mini scene completed successfully")
     else:
         print("Mini scene ended unsuccessfully")
 
-    return (dialogue, success)
+    return (dialogue, success, dialogue_summary)
 
 
 def save_dialogue_with_timestamp(
-    dialogue: str, scene: str, npc_model_name: str, game: str, prompt_version: str = "P2"
+    dialogue: str, dialogue_summary: str, scene: str, npc_model_name: str, game: str, prompt_version: str = "P2"
 ) -> None:
     stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -513,15 +611,20 @@ def save_dialogue_with_timestamp(
     directory = os.path.join(PATH, "qa_research", "dialogues", game, scene, npc_model_name)
     os.makedirs(directory, exist_ok=True)
 
-    # Create filename with model names
+    # Create filename
     filename = f"dialogue_{stamp}.txt"
+    summary_filename = f"summary_{stamp}.txt"
 
     # Full path
     filepath = os.path.join(directory, filename)
-
+    summary_filepath = os.path.join(directory, summary_filename)
     with open(filepath, "w", encoding="utf-8") as f:
         f.write(dialogue)
     print(f"Dialogue saved to {filepath}")
+    if dialogue_summary:
+        with open(summary_filepath, "w", encoding="utf-8") as f:
+            f.write(dialogue_summary)
+        print(f"Dialogue summary saved to {summary_filepath}")
 
 
 # --------------------------------
@@ -535,10 +638,11 @@ def generate_dialogue(
     scene: str,
     game: str,
     max_turns: int = 50,
-) -> None:
+    dialogue_summary: str = "",
+) -> str:
     player = True
     supplement_version = -1
-    dialogue, _ = sim_mini_scene(
+    dialogue, _,new_summary= sim_mini_scene(
         supplement_version,
         player=player,
         max_turns=max_turns,
@@ -550,11 +654,12 @@ def generate_dialogue(
     )
     save_dialogue_with_timestamp(
         dialogue,
+        dialogue_summary,
         scene,
         dialogue_model.__class__.__name__,
         game,
     )
-
+    return new_summary
 
 if __name__ == "__main__":
     # randomly select a scene
