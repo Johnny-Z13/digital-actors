@@ -95,14 +95,14 @@ Here is a summary of the script from previous scenes. {previous_scenes_descripti
 merge_instruction_template = """
 {preamble}
 Here is the first summary:\n
-{summary1} \n
+{prev_summary} \n
 Here is the second summary:\n
-{summary2} \n
+{new_summary} \n
 {instruction_suffix}
 """
 
 merge_instruction_suffix = """
-Give me a paragraph merging the information from the two summaries above. Your objective is to eliminate duplicities and redundancy. Do not omit any biographical information, tastes and preferences from the player or the other characters. Keep the information about events that might have happened in the dialogue that are not mentioned in the script for this scene, that includes deals made, promises kept, grudges, etc. Provide only the summary paragraph, no other text.\n
+Give me a paragraph merging the information from the two summaries above. The second summary details what happened just after the first summary. Your objective is to eliminate duplicities and redundancy. Do not omit any biographical information, tastes and preferences from the player or the other characters. Keep the information about events that might have happened in the dialogue that are not mentioned in the back story and scene description above. Provide only the summary paragraph, no other text.\n
 """
 
 instruction_template = """
@@ -127,7 +127,7 @@ Now consider the following statement about this dialogue. {statement} Is this st
 """
 
 summary_instruction_suffix = """
-Give me a short paragraph summarising any information in the dialogue revealed by the player or the other characters that might be relevant for later dialogues. Include all personal or biographical information revealed in the dialogue that helps to build a profile of the characters, including informations about their tastes and preferences. Also describe any events that have occurred that weren't mentioned in the back story and scene description above. You don't need to provide information that's already in the back story or scene description above. Please provide only the summary paragraph, no other text.\n
+Give me a short paragraph summarising any information in the dialogue revealed by the player or the other characters that might be relevant for later dialogues. Include all personal or biographical information revealed in the dialogue that helps to build a profile of the characters, including informations about their tastes and preferences. Also describe any events that have occurred that weren't mentioned in the back story and scene description above. Include how the non-playable characters typically address the player. You don't need to provide information that's already in the back story or scene description above. Please provide only the summary paragraph, no other text.\n
 """
 
 # BUILDING DIALOGUES
@@ -462,8 +462,8 @@ class SceneClient:
             preamble=self.scene_data.merge_preamble,
             dialogue=self.scene_dialogue,
             instruction_suffix=merge_instruction_suffix,
-            summary1=self.dialogue_summary,
-            summary2=summary,
+            prev_summary=self.dialogue_summary,
+            new_summary=summary,
         )
         chain = prompt_llm(prompt, DIALOGUE_MODEL)
         return  chain.invoke({})
@@ -510,34 +510,39 @@ class SceneClient:
         print(CYAN + f'Starting response handler for scenes: "{self.scenes}"')
         self.load_next_scene()
 
-    def add_luna_commands(self, message: str):
+    def add_luna_commands(self, message: str, luna_message: str = ""):
         self.scene_dialogue += "[Player]: " + message + "\n\n"
 
+        # if self.scene_data.scene_name == "4_find_exit" and luna_message:
+        #     print(GREEN + f'Adding Luna message: "{luna_message}"')
+        #     self.scene_dialogue += "[Luna]: " + luna_message + "\n\n"
+        #     self.handle_player_response(luna_message, False, True)
+
     def handle_player_response(
-        self, message: str, automated: bool
+        self, message: str, automated: bool, from_luna: bool = False
     ) -> Tuple[List[Line], List[StateChange]]:
         if message:
             print(CYAN + f'Handling player response: "{message}"')
-
             if False:
                 self.scene_dialogue += "Eliza to comment on " + message + "\n"
             else:
-                player_dialogue = speech_template.format(
-                    actor=ACTORS[1], speech=message
-                )
-                self.scene_dialogue += player_dialogue + "\n"
-
-            state_changes, to_print = self.scene_data.run_queries(self.scene_dialogue)
-            if to_print:
-                self.scene_dialogue += to_print + "\n\n"
+                if not from_luna:
+                    player_dialogue = speech_template.format(
+                        actor=ACTORS[1], speech=message
+                    )
+                    self.scene_dialogue += player_dialogue + "\n"
             result_lines = []
-            if self.scene_data.all_queries_handled():
-                print(
-                    ORANGE
-                    + f"All queries for {self.scene_data.scene_name} complete, autoloading next scene"
-                )
-                if self.load_next_scene():
-                    result_lines = self.scene_data.opening_speech
+            if not from_luna:
+                state_changes, to_print = self.scene_data.run_queries(self.scene_dialogue)
+                if to_print:
+                    self.scene_dialogue += to_print + "\n\n"
+                if self.scene_data.all_queries_handled():
+                    print(
+                        ORANGE
+                        + f"All queries for {self.scene_data.scene_name} complete, autoloading next scene"
+                    )
+                    if self.load_next_scene():
+                        result_lines = self.scene_data.opening_speech
 
             if not result_lines:
                 prompt = instruction_template.format(
@@ -548,7 +553,7 @@ class SceneClient:
                 chain = prompt_llm(prompt, DIALOGUE_MODEL)
                 eliza_response = chain.invoke({})
 
-                # print(RED + f"Eliza response: {eliza_response}")
+                print(RED + f"Eliza response: {eliza_response}")
                 eliza_response = eliza_response.split("\nComputer", 1)[0]
 
                 # print(ORANGE + f"Eliza response post processed: {eliza_response}")
@@ -562,8 +567,11 @@ class SceneClient:
                     self.scene_dialogue += to_print + "\n\n"
 
                 print(CYAN + f"Scene dialogue: {self.scene_dialogue}")
-
-                state_changes.extend(state_changes2)
+                
+                if not from_luna:
+                    state_changes.extend(state_changes2)
+                else:
+                    state_changes = state_changes2
 
                 eliza_text = (
                     str(eliza_response).strip().removeprefix(f"[{ACTORS[0]}]: ")

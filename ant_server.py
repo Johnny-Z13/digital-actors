@@ -122,15 +122,15 @@ class AntServer(AntServerBase):
                 return
             if re.match(r'^\s*(computer|luna|lunar).*(gravity|zero\s*g).*(off)\s*$', message, re.IGNORECASE):
                 await self.send_event("eyeOS_VC_GravityOff")
-                self.scene_client.add_luna_commands(message)
+                self.scene_client.add_luna_commands(message, "[Luna]: Disabling gravity.")
                 return
             if re.match(r'^\s*(computer|luna|lunar).*(disable|disabled|remove|deactivate|turn off|switch off\s*g)\s+(gravity)\s*$', message, re.IGNORECASE):
                 await self.send_event("eyeOS_VC_GravityOff")
-                self.scene_client.add_luna_commands(message)
+                self.scene_client.add_luna_commands(message, "[Luna]: Disabling gravity.")
                 return
             if re.match(r'^\s*(computer|luna|lunar)\s+gravity\b.*$', message, re.IGNORECASE):
                 await self.send_event("eyeOS_VC_GravityToggle")
-                self.scene_client.add_luna_commands(message)
+                self.scene_client.add_luna_commands(message, "[Luna]: Toggling gravity.")
                 return
             if re.match(r'^\s*(computer|luna|lunar).*(open).*(door)\s*$', message, re.IGNORECASE):
                 await self.send_event("eyeOS_VC_OpenDoor")
