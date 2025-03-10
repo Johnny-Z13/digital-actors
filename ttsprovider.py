@@ -5,18 +5,13 @@ import time
 import base64
 import io
 import numpy as np
-import torch
 import websockets
-from pydub import AudioSegment
-from pydub.playback import play
 
 class TTSProvider:
     def __init__(self, provider="elevenlabs", voice_id=None, model_id=None, lang_code='a', optimize_streaming_latency=3):
         """
         Initializes the TTS provider and preloads the Kokoro model.
         """
-        # Check for CUDA availability and set device
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         self.provider = provider
         self.voice_id = voice_id
@@ -30,6 +25,10 @@ class TTSProvider:
 
         # Preload Kokoro model to avoid delays in first request
         if provider == "kokoro":
+            import torch
+            # Check for CUDA availability and set device
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
             print(f"Using device: {self.device}")
             import spacy
             # Ensure the Spacy model is installed
@@ -55,6 +54,7 @@ class TTSProvider:
             ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
 
             # Set pydub to use this ffmpeg
+            from pydub import AudioSegment
             AudioSegment.converter = ffmpeg_path
 
             # Ensure it works
@@ -75,6 +75,8 @@ class TTSProvider:
             raise ValueError(f"Unsupported TTS provider: {self.provider}")
 
     async def _generate_kokoro(self, text, voice):
+        import torch
+
         start_time = time.time()  # Start timer
         first_chunk_played = False  # Track first chunk playback
 
@@ -113,6 +115,8 @@ class TTSProvider:
 
     def _process_audio_chunk(self, audio, is_final=False):
         """Helper method to process audio chunks and convert to MP3."""
+        from pydub import AudioSegment
+
         if is_final:
             audio_segment = AudioSegment.silent(duration=100, frame_rate=44100)
         else:
