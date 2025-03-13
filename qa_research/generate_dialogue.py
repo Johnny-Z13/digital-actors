@@ -84,10 +84,19 @@ Dialogue so far:
 
 SPEECH_TEMPLATE = "{actor}: {speech}"
 
-PREAMBLE_PLUS_TEMPLATE = """{instruction_prefix}
-This is the game back story. {back_story}\n
-Here's a summary of information acquired from dialogues earlier in the game. The non-playable characters should make use of this information where appropriate to bond with the player. {dialogue_summary}\n
-Here is a description of the scene in question. {scene_description}
+PREAMBLE_PLUS_TEMPLATE = """
+{instruction_prefix}
+This is the game back story. 
+{back_story}
+\n
+Here's a summary of information acquired from dialogues earlier in the game. The non-playable characters should make use of this information where appropriate to bond with the player. 
+{dialogue_summary}\n
+
+Here is a description of the scene in question. 
+{scene_description}\n
+
+Scene Supplement:
+{scene_supplement}\n
 """
 
 MERGE_PREAMBLE_TEMPLATE = """{instruction_prefix}
@@ -265,9 +274,12 @@ def collect_game_scenes() -> list[dict[str, list[str]]]:
 
 
 def load_prompts(scene, game, supplement_version=-1):
+    # remove the first digit and _
+    if re.match(r'^\d+_', scene):
+        file_name = re.sub(r'^\d+_', '', scene)
     back_story = load_prompt(game + "/back_story.txt")
     scene_description = load_prompt(
-        game + "/scenes/" + scene + "/" + scene + "_scene_description.txt"
+        game + "/scenes/" + scene + "/" + file_name + "_scene_description.txt"
     )
     if supplement_version == -1:
         scene_supplement = ""
@@ -278,13 +290,13 @@ def load_prompts(scene, game, supplement_version=-1):
             + "/scenes/"
             + scene
             + "_scene/"
-            + scene
+            + file_name
             + "_supplement_"
             + str(supplement_version)
             + ".txt"
         )
     opening_speech = load_prompt(
-        game + "/scenes/" + scene + "/" + scene + "_opening_speech.txt"
+        game + "/scenes/" + scene + "/" + file_name + "_opening_speech.txt"
     )
 
     dialogue_instruction_prefix = load_prompt("dialogue_instruction_prefix.txt")
@@ -294,9 +306,9 @@ def load_prompts(scene, game, supplement_version=-1):
     # opening speech could have delays in squared brakets, lets remove them
     opening_speech = re.sub(r"\[.*?\]", "", opening_speech)
     player_info = load_prompt(
-        game + "/scenes/" + scene + "/" + scene + "_player_info.txt"
+        game + "/scenes/" + scene + "/" + file_name + "_player_info.txt"
     )
-    queries = read_queries(game + "/scenes/" + scene + "/" + scene + "_queries.txt")
+    queries = read_queries(game + "/scenes/" + scene + "/" + file_name + "_queries.txt")
     return (
         back_story,
         dialogue_instruction_prefix,
@@ -544,16 +556,17 @@ def sim_mini_scene(
     turn = 1
     success = False
 
+    print("dialogue_summary", dialogue_summary)
     while turn < max_turns and not success:
         if player and (turn % 2 == 1):
             speech = get_player_llm_response(
-                dialogue,
-                player_model,
-                back_story,
-                scene_description,
-                scene_supplement,
-                player_info,
-                dialogue_summary,
+                dialogue=dialogue,
+                player_model=player_model,
+                back_story=back_story,
+                scene_description=scene_description,
+                scene_supplement=scene_supplement,
+                player_info=player_info,
+                dialogue_summary=dialogue_summary,
             )
             if re.match(r"^\S+:\s+", speech):
                 speech = re.sub(r"^\S+:\s+", "", speech)
@@ -642,7 +655,7 @@ def generate_dialogue(
 ) -> str:
     player = True
     supplement_version = -1
-    dialogue, _,new_summary= sim_mini_scene(
+    dialogue, _, new_summary= sim_mini_scene(
         supplement_version,
         player=player,
         max_turns=max_turns,
@@ -651,6 +664,7 @@ def generate_dialogue(
         player_model=player_model,
         scene=scene,
         game=game,
+        dialogue_summary=dialogue_summary
     )
     save_dialogue_with_timestamp(
         dialogue,
