@@ -577,11 +577,9 @@ class SceneClient:
                     dialogue=self.scene_dialogue,
                     instruction_suffix=dialogue_instruction_suffix,
                 )
-                print(CYAN + f"Prompt: {prompt}")
                 chain = prompt_llm(prompt, DIALOGUE_MODEL)
                 eliza_response = chain.invoke({})
 
-                print(RED + f"Eliza response: {eliza_response}")
                 eliza_response = eliza_response.split("\nComputer", 1)[0]
 
                 # print(ORANGE + f"Eliza response post processed: {eliza_response}")
@@ -606,12 +604,7 @@ class SceneClient:
                 )
                 eliza_text = eliza_text.replace('"', "")
                 eliza_text = eliza_text.replace("*", "")
-
-                print(
-                    CYAN
-                    + f'Results: text="{eliza_text}" state_changes="{state_changes}"'
-                )
-
+                # eliza_text = re.sub(r'\(.*?\)', 'uh', eliza_text)
                 result_lines = [Line(text=eliza_text, delay=0)]
 
                 if self.scene_data.all_queries_handled():
