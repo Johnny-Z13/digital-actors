@@ -1,5 +1,6 @@
 from typing import Any
 import os
+import glob
 import asyncio
 import json
 from itertools import combinations
@@ -12,20 +13,40 @@ from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 
 
-def load_dialogues_for_variant(scene: str, variant_name: str) -> str:
-    """Load and concatenate all dialogue text from the variant's folders for a specific scene.
-       Expects 'scene' to be the scene folder name (e.g. "describe_the_failures").
-       Assumes dialogues are stored in: <cwd>/dialogues/<act_folder>/<scene>/<variant_name>/*.txt.
+def load_dialogues_and_summaries_for_variant(scene: str, variant_name: str) -> str:
+    """Load and concatenate all dialogue text and their corresponding summaries for a specific scene.
+    For each dialogue file (dialogue_*.txt), looks for a matching summary file (summary_*.txt).
+    If no summary is found, uses a default summary message.
     """
-    import os, glob
-    dialogues = []
+    DEFAULT_SUMMARY = "This is the first scene, there is no summary for previous dialogues."
+    combined_texts = []
     base_path = os.path.join(os.getcwd(), "dialogues")
-    # The '*' matches any act folder like "act_1", "act_2", etc.
-    pattern = os.path.join(base_path, scene, variant_name, "*.txt")
-    for filename in glob.glob(pattern):
-        with open(filename, "r", encoding="utf-8") as f:
-            dialogues.append(f.read())
-    return "\n\n ** new play, same actors ** \n\n".join(dialogues)
+    pattern = os.path.join(base_path, scene, variant_name, "dialogue*.txt")
+    
+    for dialogue_file in glob.glob(pattern):
+        # Read dialogue
+        with open(dialogue_file, "r", encoding="utf-8") as f:
+            dialogue = f.read()
+            
+        # Construct matching summary filename by replacing 'dialogue' with 'summary'
+        summary_file = dialogue_file.replace("dialogue_", "summary_")
+        
+        # Try to read summary, use default if not found
+        try:
+            with open(summary_file, "r", encoding="utf-8") as f:
+                summary = f.read()
+        except FileNotFoundError:
+            summary = DEFAULT_SUMMARY
+            
+        # Combine summary and dialogue with proper formatting
+        combined_text = (
+            f"Summary that actors received:\n{summary}\n\n"
+            f"Dialogue to evaluate:\n{dialogue}"
+        )
+        combined_texts.append(combined_text)
+    
+    # Join all dialogues with the separator
+    return "\n\n** New play, same actors **\n\n".join(combined_texts)
 
 
 def get_scene_context(scene_link: str) -> str:
@@ -35,11 +56,12 @@ def get_scene_context(scene_link: str) -> str:
     """
     act, scene = scene_link.split("/", 1)
     # load_prompts signature: load_prompts(scene, game, supplement_version=-1)
-    back_story, _, scene_description, scene_supplement, _, queries, _ = load_prompts(scene, act)
+    back_story, _, scene_description, previous_scenes_description, _, scene_supplement, _, queries, _, _, _ = load_prompts(scene, act)
     # Assuming queries is a list of strings (or convertible to strings)
     query_texts = "\n\n".join(str(q) for q in queries)
     scene_context = (
         f"Back Story:\n\n{back_story}\n\n-----\n\n"
+        f"Previous Scenes Description:\n\n{previous_scenes_description}\n\n-----\n\n"
         f"Scene Description:\n\n{scene_description}\n\n-----\n\n"
         f"Scene Supplement:\n\n{scene_supplement}\n\n-----\n\n"
         f"Queries, these are the objectives of the scene, a scene is not considered succesful unless all of these statement are satisfied in the dialogue:\n\n{query_texts}"
@@ -66,9 +88,10 @@ async def contrast_set_actors(
          computer videogame. Here is the contextual information of the game and the scene: \n---\n {scene}\n---\n
          Your review focuses on the quality of the dialogues of the actors {evaluated_actors} in the scene.
          Since the actors need to improv and adap to what players might say, you are to evaluate the actors
-         across several instances. Below are the dialogues of the first set of actors:
+         across several instances. Note that for each dialogue the actors received a summary of the previous interactions with the player,
+         actors are expected to leverage that information to provide a better experience. Now we introduce the summaries and dialogues of the first set of actors:
         \n---\n {set_actor_1}\n---\n
-        And below are the dialogues of the second set of actors:
+        And below are the summaries and dialogues of the second set of actors:
         \n---\n {set_actor_2}\n---\n
         Your output is in json format. It starts with a "review" field, where you write your review.
         Your review is structured in the following format: First, it lists the most relevant good and bad points of the
@@ -158,7 +181,7 @@ async def process_scene(evaluation_model, act, scene, models, repetitions,
     scene_link = f"{act}/{scene}"
     scene_context = get_scene_context(scene_link)
     dialogues_by_model = {
-        model: load_dialogues_for_variant(scene_link, model)
+        model: load_dialogues_and_summaries_for_variant(scene_link, model)
         for model in models
     }
     tasks = []
