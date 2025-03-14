@@ -56,11 +56,12 @@ def get_scene_context(scene_link: str) -> str:
     """
     act, scene = scene_link.split("/", 1)
     # load_prompts signature: load_prompts(scene, game, supplement_version=-1)
-    back_story, _, scene_description, scene_supplement, _, queries, _, _, _ = load_prompts(scene, act)
+    back_story, _, scene_description, previous_scenes_description, _, scene_supplement, _, queries, _, _, _ = load_prompts(scene, act)
     # Assuming queries is a list of strings (or convertible to strings)
     query_texts = "\n\n".join(str(q) for q in queries)
     scene_context = (
         f"Back Story:\n\n{back_story}\n\n-----\n\n"
+        f"Previous Scenes Description:\n\n{previous_scenes_description}\n\n-----\n\n"
         f"Scene Description:\n\n{scene_description}\n\n-----\n\n"
         f"Scene Supplement:\n\n{scene_supplement}\n\n-----\n\n"
         f"Queries, these are the objectives of the scene, a scene is not considered succesful unless all of these statement are satisfied in the dialogue:\n\n{query_texts}"

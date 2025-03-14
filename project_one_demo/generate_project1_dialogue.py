@@ -5,13 +5,17 @@ import math
 import time
 from iconic_tools.langchain import (
     InstructSonnet,
+    InstructSonnet37,
     InstructOpus3,
     InstructGPT4,
     InstructO1,
     InstructGeminiPro,
-    InstructGPT35,
     InstructGeminiFlash,
     InstructGeminiFlash2,
+    InstructGeminiFlash2Latest,
+    InstructGeminiFlash2LiteLatest,
+    InstructGeminiPro2,
+    InstructGPT35,
 )
 from langchain_core.prompts import ChatPromptTemplate
 from concurrent.futures import ThreadPoolExecutor
@@ -25,8 +29,8 @@ from dataclasses import dataclass, field
 # DIALOGUE_MODEL = InstructGPT4(temperature=1.0, max_tokens=3000)
 # QUERY_MODEL = InstructGPT4(temperature=1.0, max_tokens=3000)
 
-DIALOGUE_MODEL = InstructGeminiFlash2(temperature=1.0, max_tokens=3000)
-QUERY_MODEL = InstructGeminiFlash2(temperature=0.0, max_tokens=300)
+DIALOGUE_MODEL = InstructGeminiFlash2Latest(temperature=0.8, max_tokens=2000)
+QUERY_MODEL = InstructGeminiFlash2Latest(temperature=0.0, max_tokens=300)
 
 # DIALOGUE_MODEL = InstructO1()
 # QUERY_MODEL = InstructO1()
@@ -74,40 +78,47 @@ def load_prompt(filename):
 preamble_template = """
 {instruction_prefix}
 This is the game back story. {back_story}\n
-Here is a description of the scene in question. {previous_scenes_description}\n{scene_description}\n{scene_supplement}\n
-The characters in the dialogue are {actors}.
+Here is a description of the scene in question. {previous_scenes_description}\n{scene_description}\n {steer_back_instructions}\n{scene_supplement}\n
+The characters in the dialogue are {actors}.\n\n
+"""
+
+query_preamble_template = """
+{instruction_prefix}
+This is the game back story. {back_story}\n
+The characters in the dialogue are {actors}.\n\n
 """
 
 preamble_plus_template = """
 {instruction_prefix}
-This is the game back story. {back_story}\n
-Here is a summary of the script from previous scenes. {previous_scenes_description}\n
-Here's a summary of information acquired from dialogues earlier in the game. The non-playable characters should make use of this information where appropriate to bond with the player. {dialogue_summary}\n
-Here is a description of the scene in question. {scene_description}
+This is the game back story. {back_story}\n\n
+Here is a summary of the script from previous scenes. {previous_scenes_description}\n\n
+Here's a summary of information acquired from dialogues earlier in the game. The non-playable characters should make use of this information where appropriate to bond with the player. {dialogue_summary}\n\n
+Here is a description of the scene in question. {scene_description}\n{steer_back_instructions}\n{scene_supplement}\n\n
+The characters in the dialogue are {actors}.\n\n
 """
 
 merge_preamble_template = """
 {instruction_prefix}
-This is the game back story. {back_story}\n
-Here is a summary of the script from previous scenes. {previous_scenes_description}\n
+This is the game back story. {back_story}\n\n
+Here is a summary of the script from previous scenes. {previous_scenes_description}\n\n
 """
 
 merge_instruction_template = """
 {preamble}
 Here is the first summary:\n
-{prev_summary} \n
+{prev_summary} \n\n
 Here is the second summary:\n
-{new_summary} \n
+{new_summary} \n\n
 {instruction_suffix}
 """
 
 merge_instruction_suffix = """
-Give me a paragraph merging the information from the two summaries above. The second summary details what happened just after the first summary. Your objective is to eliminate duplicities and redundancy. Do not omit any biographical information, tastes and preferences from the player or the other characters. Keep the information about events that might have happened in the dialogue that are not mentioned in the back story and scene description above. Provide only the summary paragraph, no other text.\n
+Give me a paragraph merging the information from the two summaries above. The second summary details what happened just after the first summary. Your objective is to eliminate duplicities and redundancy. Do not omit any biographical information, tastes and preferences from the player or the other characters. Keep the information about events that might have happened in the dialogue that are not mentioned in the back story and scene description above. Keep any description of how the non-playable characters typically address the player (or any evolution of this description if it changes). Provide only the summary paragraph, no other text.\n
 """
 
 instruction_template = """
 {preamble}
-Here is the dialogue so far\n\n
+Here is the dialogue so far:\n
 {dialogue}
 {instruction_suffix}
 """
@@ -119,15 +130,15 @@ Give me the next line in the dialogue in the same format. Don't provide stage di
 """
 
 query_instruction_prefix = """
-You are going to answer a single question about the current state of the dialogue in a scene in the middle of a computer game.
+You are going to answer a single question about the current state of the dialogue in a scene in the middle of a computer game.\n
 """
 
 query_instruction_suffix_template = """
-Now consider the following statement about this dialogue. {statement} Is this statement true or false? Answer with a single word, true or false.
+Now consider the following statement about this dialogue. {statement} Is this statement true or false? Answer with a single word, true or false.\n
 """
 
 summary_instruction_suffix = """
-Give me a short paragraph summarising any information in the dialogue revealed by the player or the other characters that might be relevant for later dialogues. Include all personal or biographical information revealed in the dialogue that helps to build a profile of the characters, including informations about their tastes and preferences. Also describe any events that have occurred that weren't mentioned in the back story and scene description above. Include how the non-playable characters typically address the player. You don't need to provide information that's already in the back story or scene description above. Please provide only the summary paragraph, no other text.\n
+Give me a short paragraph summarising any information in the dialogue revealed by the player or the other characters that might be relevant for later dialogues. Include all personal or biographical information revealed in the dialogue that helps to build a profile of the characters, including informations about their tastes and preferences. Also describe any events that have occurred that weren't mentioned in the back story and scene description above. Include a description of how the non-playable characters typically address the player. You don't need to provide information that's already in the back story or scene description above. Please provide only the summary paragraph, no other text.\n
 """
 
 # BUILDING DIALOGUES
@@ -166,6 +177,7 @@ class SceneData:
     scene_name: str
     scene_description: str
     previous_scenes_description: str
+    steer_back_instructions: str
     scene_supplement: str
     back_story: str
     dialogue_instruction_prefix: str
@@ -185,6 +197,7 @@ class SceneData:
                 back_story=self.back_story,
                 dialogue_summary=self.dialogue_summary,
                 scene_description=self.scene_description,
+                steer_back_instructions=self.steer_back_instructions,
                 scene_supplement=self.scene_supplement,
                 actors=list_to_conjunction(ACTORS),
                 previous_scenes_description=self.previous_scenes_description,
@@ -194,15 +207,14 @@ class SceneData:
                 instruction_prefix=self.dialogue_instruction_prefix,
                 back_story=self.back_story,
                 scene_description=self.scene_description,
+                steer_back_instructions=self.steer_back_instructions,
                 scene_supplement=self.scene_supplement,
                 actors=list_to_conjunction(ACTORS),
                 previous_scenes_description=self.previous_scenes_description,
             )
-        self.query_preamble = preamble_template.format(
+        self.query_preamble = query_preamble_template.format(
             instruction_prefix=query_instruction_prefix,
             back_story=self.back_story,
-            scene_description="",
-            scene_supplement="",
             actors=list_to_conjunction(ACTORS),
             previous_scenes_description=self.previous_scenes_description,
         )
@@ -210,6 +222,7 @@ class SceneData:
             instruction_prefix=self.summary_instruction_prefix,
             back_story=self.back_story,
             scene_description="",
+            steer_back_instructions="",
             scene_supplement="",
             actors=list_to_conjunction(ACTORS),
             previous_scenes_description=self.previous_scenes_description,
@@ -225,7 +238,7 @@ class SceneData:
         field = "\033[97m"
         text = "\033[90m"
         reset = "\033[0m"
-        return f"{field}SceneData\n{{\n   scene_name:{text} {self.scene_name}\n{field}   scene_description:{text}  {self.scene_description}\n{field}   previous_scenes_description:{text} {self.previous_scenes_description}\n{field}   dialogue_summary:{text} {self.dialogue_summary}\n{field}   scene_supplement:{text} {self.scene_supplement}\n{field}   dialogue_instruction_prefix:{text} {self.dialogue_instruction_prefix}\n{field}   back_story:{text} {self.back_story}\n{field}   opening_speech:{reset}\n{self.opening_speech}\n{field}   queries:{reset}\n{self.queries}\n{field}}}{reset}"
+        return f"{field}SceneData\n{{\n   scene_name:{text} {self.scene_name}\n{field}   scene_description:{text}  {self.scene_description}\n{field}   previous_scenes_description:{text} steer_back_instructions:{text} {self.steer_back_instructions}\n{field}   dialogue_summary:{text} {self.dialogue_summary}\n{field}   scene_supplement:{text} {self.scene_supplement}\n{field}   dialogue_instruction_prefix:{text} {self.dialogue_instruction_prefix}\n{field}   back_story:{text} {self.back_story}\n{field}   opening_speech:{reset}\n{self.opening_speech}\n{field}   queries:{reset}\n{self.queries}\n{field}}}{reset}"
 
     def get_initial_dialog(self) -> str:
         dialogue = ""
@@ -276,7 +289,7 @@ class SceneData:
 
 def resource_path():
     cwd = os.path.abspath(os.getcwd())
-    relative_path = "/project_one_demo/prompts/act_1"
+    relative_path = "/project_one_demo/prompts"
     return cwd + relative_path
     # # Get the absolute path to the resource in both development and PyInstaller environments
     # if hasattr(sys, "_MEIPASS"):
@@ -293,17 +306,29 @@ def load_root_file(file) -> str:
         with open(file_path) as f:
             return f.read()
     except FileNotFoundError:
+        print(RED + f'File "{file}" not found')
+        return ""  # Return an empty string if the file doesn't exist
+    
+
+def load_act_file(file) -> str:
+    file_path = resource_path() + f"/act_1/{file}.txt"
+    try:
+        with open(file_path) as f:
+            return f.read()
+    except FileNotFoundError:
+        print(RED + f'File "{file}" not found')
         return ""  # Return an empty string if the file doesn't exist
 
 
 def load_scene_file(scene_name: str, suffix: str) -> str:
      # we need to remove the first digit and underscore, e.g. 1_ from the scene_name for the file name
     scene_name_file = scene_name[2:]
-    file_path = resource_path() + f"/scenes/{scene_name}/{scene_name_file}_{suffix}.txt"
+    file_path = resource_path() + f"/act_1/scenes/{scene_name}/{scene_name_file}_{suffix}.txt"
     try:
         with open(file_path) as f:
             return f.read()
     except FileNotFoundError:
+        print(RED + f'File "{file_path}" not found')
         return ""  # Return an empty string if the file doesn't exist
 
 
@@ -408,6 +433,7 @@ def load_scene_data(scene_name: str, dialogue_summary: str = "") -> SceneData:
     scene_description = load_scene_file(scene_name, "scene_description")
     previous_scenes_description = load_scene_file(scene_name, "prev_scenes_description")
     scene_supplement = load_scene_file(scene_name, "scene_supplement")
+    steer_back_instructions = load_root_file("steer_back_instructions")
     dialogue_instruction_prefix = load_root_file("dialogue_instruction_prefix")
     summary_instruction_prefix = load_root_file(
         "summary_instruction_prefix"
@@ -415,12 +441,13 @@ def load_scene_data(scene_name: str, dialogue_summary: str = "") -> SceneData:
     merge_instruction_prefix = load_root_file(
         "merge_instruction_prefix"
     )
-    back_story = load_root_file("back_story")
+    back_story = load_act_file("back_story")
     opening_speech = load_opening_speech(scene_name)
     queries = load_queries(scene_name)
     return SceneData(
         scene_name=scene_name,
         scene_description=scene_description,
+        steer_back_instructions=steer_back_instructions,
         scene_supplement=scene_supplement,
         dialogue_instruction_prefix=dialogue_instruction_prefix,
         back_story=back_story,
@@ -550,6 +577,7 @@ class SceneClient:
                     dialogue=self.scene_dialogue,
                     instruction_suffix=dialogue_instruction_suffix,
                 )
+                print(CYAN + f"Prompt: {prompt}")
                 chain = prompt_llm(prompt, DIALOGUE_MODEL)
                 eliza_response = chain.invoke({})
 
