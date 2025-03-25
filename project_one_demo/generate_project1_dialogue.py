@@ -4,6 +4,7 @@ import re
 import math
 import time
 from iconic_tools.langchain import (
+    InstructHaiku,
     InstructSonnet,
     InstructSonnet37,
     InstructOpus3,
@@ -29,8 +30,9 @@ from dataclasses import dataclass, field
 # DIALOGUE_MODEL = InstructGPT4(temperature=1.0, max_tokens=3000)
 # QUERY_MODEL = InstructGPT4(temperature=1.0, max_tokens=3000)
 
-DIALOGUE_MODEL = InstructGeminiFlash2Latest(temperature=0.8, max_tokens=2000)
-QUERY_MODEL = InstructGeminiFlash2Latest(temperature=0.0, max_tokens=300)
+DIALOGUE_MODEL = InstructGeminiFlash2(temperature=0.8, max_tokens=1500)
+SUMMARY_MODEL = InstructGeminiFlash2(temperature=0.2, max_tokens=5000)
+QUERY_MODEL = InstructGeminiFlash2(temperature=0.2, max_tokens=300)
 
 # DIALOGUE_MODEL = InstructO1()
 # QUERY_MODEL = InstructO1()
@@ -263,7 +265,7 @@ class SceneData:
                     dialogue=dialogue,
                     instruction_suffix=instruction,
                 )
-                chain = prompt_llm(prompt, DIALOGUE_MODEL)
+                chain = prompt_llm(prompt, QUERY_MODEL)
                 response = chain.invoke({})
                 print(ORANGE + f'Query for "{query.text}" - response: "{response}"')
                 print(YELLOW + f"To print: {to_print}")
@@ -481,7 +483,7 @@ class SceneClient:
             dialogue=self.scene_dialogue,
             instruction_suffix=summary_instruction_suffix,
         )
-        chain = prompt_llm(prompt, DIALOGUE_MODEL)
+        chain = prompt_llm(prompt, SUMMARY_MODEL)
         return chain.invoke({})
 
     def generate_merge_summary(self, summary: str) -> str:
@@ -492,7 +494,7 @@ class SceneClient:
             prev_summary=self.dialogue_summary,
             new_summary=summary,
         )
-        chain = prompt_llm(prompt, DIALOGUE_MODEL)
+        chain = prompt_llm(prompt, SUMMARY_MODEL)
         return  chain.invoke({})
 
     def load_next_scene(self) -> bool:
