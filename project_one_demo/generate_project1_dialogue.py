@@ -22,6 +22,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from concurrent.futures import ThreadPoolExecutor
 from typing import NamedTuple, List, Tuple
 from dataclasses import dataclass, field
+from project_one_demo.model_utils import GeminiFlash25NoThinking
 
 # CONSTANTS AND INITIALISATION
 # DIALOGUE_MODEL = InstructGeminiPro(temperature=1.0, max_tokens=3000)
@@ -30,9 +31,9 @@ from dataclasses import dataclass, field
 # DIALOGUE_MODEL = InstructGPT4(temperature=1.0, max_tokens=3000)
 # QUERY_MODEL = InstructGPT4(temperature=1.0, max_tokens=3000)
 
-DIALOGUE_MODEL = InstructGeminiFlash2(temperature=0.8, max_tokens=1500)
-SUMMARY_MODEL = InstructGeminiFlash2(temperature=0.2, max_tokens=5000)
-QUERY_MODEL = InstructGeminiFlash2(temperature=0.2, max_tokens=300)
+DIALOGUE_MODEL = GeminiFlash25NoThinking(temperature=0.8, max_tokens=1500)
+SUMMARY_MODEL = GeminiFlash25NoThinking(temperature=0.2, max_tokens=5000)
+QUERY_MODEL = GeminiFlash25NoThinking(temperature=0.2, max_tokens=300)
 
 # DIALOGUE_MODEL = InstructO1()
 # QUERY_MODEL = InstructO1()
