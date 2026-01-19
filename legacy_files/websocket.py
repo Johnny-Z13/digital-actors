@@ -5,7 +5,8 @@ from rich.console import Console
 from protocol import Protocol
 import traceback
 import logging
-from project_one_demo.generate_project1_dialogue import SceneData, Query, Line, load_scene_data
+from llm_prompt_core.types import SceneData, Query, Line
+from project_one_demo.generate_project1_dialogue import load_scene_data
 
 from cachedvoiceclient import CachedVoiceClient
 

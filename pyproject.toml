@@ -1,7 +1,7 @@
 [project]
-name = "antdemo-server"
+name = "digital-actors"
 version = "0.1.0"
-description = "Add your description here"
+description = "LLM-powered character dialogue system with web interface and game integration"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

@@ -8,3 +8,8 @@ imageio-ffmpeg
 kokoro
 six>=1.16.0  # Ensures compatibility with TOML dependencies
 google-genai
+anthropic  # Claude API SDK
+openai  # OpenAI API SDK
+langchain-core  # LLM abstraction framework
+pydantic  # Data validation
+aiohttp  # Async HTTP server for web interface

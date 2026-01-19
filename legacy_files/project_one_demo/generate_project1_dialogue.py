@@ -3,37 +3,56 @@ import sys
 import re
 import math
 import time
-from iconic_tools.langchain import (
-    InstructHaiku,
-    InstructSonnet,
-    InstructSonnet37,
-    InstructOpus3,
-    InstructGPT4,
-    InstructO1,
-    InstructGeminiPro,
-    InstructGeminiFlash,
-    InstructGeminiFlash2,
-    InstructGeminiFlash2Latest,
-    InstructGeminiFlash2LiteLatest,
-    InstructGeminiPro2,
-    InstructGPT35,
-)
 from langchain_core.prompts import ChatPromptTemplate
 from concurrent.futures import ThreadPoolExecutor
 from typing import NamedTuple, List, Tuple
 from dataclasses import dataclass, field
-from project_one_demo.model_utils import GeminiFlash25NoThinking
+from llm_prompt_core.models.anthropic import ClaudeSonnet45Model
+from llm_prompt_core.models.gemini import GeminiFlash25NoThinking
+from llm_prompt_core.types import Line, Query, StateChange, SceneData
+from llm_prompt_core.utils import (
+    list_to_conjunction,
+    prompt_llm,
+    RED,
+    GREEN,
+    BLUE,
+    YELLOW,
+    WHITE,
+    CYAN,
+    MAGENTA,
+    BRIGHT_WHITE,
+    BLACK,
+    ORANGE,
+)
+from llm_prompt_core.prompts.templates import (
+    preamble_template,
+    query_preamble_template,
+    preamble_plus_template,
+    merge_preamble_template,
+    merge_instruction_template,
+    speech_template,
+    instruction_template,
+    dialogue_instruction_suffix,
+    query_instruction_suffix_template,
+    summary_instruction_suffix,
+    query_instruction_prefix,
+    merge_instruction_suffix,
+)
 
 # CONSTANTS AND INITIALISATION
-# DIALOGUE_MODEL = InstructGeminiPro(temperature=1.0, max_tokens=3000)
-# QUERY_MODEL = InstructGeminiPro(temperature=1.0, max_tokens=3000)
+# Models switched to Claude Sonnet 4.5 for improved performance
+# Set ANTHROPIC_API_KEY environment variable to use Claude models
+# To use Gemini instead, set LLM_PROVIDER=gemini and GOOGLE_API_KEY
 
-# DIALOGUE_MODEL = InstructGPT4(temperature=1.0, max_tokens=3000)
-# QUERY_MODEL = InstructGPT4(temperature=1.0, max_tokens=3000)
+# Primary model configuration (Claude Sonnet 4.5)
+DIALOGUE_MODEL = ClaudeSonnet45Model(temperature=0.8, max_tokens=1500)
+SUMMARY_MODEL = ClaudeSonnet45Model(temperature=0.2, max_tokens=5000)
+QUERY_MODEL = ClaudeSonnet45Model(temperature=0.2, max_tokens=300)
 
-DIALOGUE_MODEL = GeminiFlash25NoThinking(temperature=0.8, max_tokens=1500)
-SUMMARY_MODEL = GeminiFlash25NoThinking(temperature=0.2, max_tokens=5000)
-QUERY_MODEL = GeminiFlash25NoThinking(temperature=0.2, max_tokens=300)
+# Alternative: Use Gemini Flash 2.5 (uncomment to switch)
+# DIALOGUE_MODEL = GeminiFlash25NoThinking(temperature=0.8, max_tokens=1500)
+# SUMMARY_MODEL = GeminiFlash25NoThinking(temperature=0.2, max_tokens=5000)
+# QUERY_MODEL = GeminiFlash25NoThinking(temperature=0.2, max_tokens=300)
 
 # DIALOGUE_MODEL = InstructO1()
 # QUERY_MODEL = InstructO1()
@@ -45,249 +64,12 @@ QUERY_MODEL = GeminiFlash25NoThinking(temperature=0.2, max_tokens=300)
 GAME = "act_1"
 ACTORS = ["Eliza", "Player"]
 
-RED = "\033[91m"
-GREEN = "\033[92m"
-BLUE = "\033[94m"
-YELLOW = "\033[93m"
-WHITE = "\033[0m"
-CYAN = "\033[96m"
-MAGENTA = "\033[95m"
-BRIGHT_WHITE = "\033[97m"
-BLACK = "\033[90m"
-ORANGE = "\033[33m"
-
-
-# UTILITIES
-def list_to_conjunction(L):
-    """Takes a list strings and returns a string with every element in the list separated by commas."""
-    if L == "":
-        return ""
-    elif len(L) == 1:
-        return L[0]
-    elif len(L) == 2:
-        return f"{L[0]} and {L[1]}"
-    else:
-        return ", ".join(L[:-1]) + f", and {L[-1]}"
-
 
 def load_prompt(filename):
     cwd = os.path.abspath(os.getcwd())
     prompt_path = os.path.join(cwd, "project_one_demo", "prompts", filename)
     with open(prompt_path) as f:
         return f.read()
-
-
-# PROMPT TEMPLATES AND INSTRUCTION PROMPTS
-preamble_template = """
-{instruction_prefix}
-This is the game back story. {back_story}\n
-Here is a description of the scene in question. {previous_scenes_description}\n{scene_description}\n {steer_back_instructions}\n{scene_supplement}\n
-The characters in the dialogue are {actors}.\n\n
-"""
-
-query_preamble_template = """
-{instruction_prefix}
-This is the game back story. {back_story}\n
-The characters in the dialogue are {actors}.\n\n
-"""
-
-preamble_plus_template = """
-{instruction_prefix}
-This is the game back story. {back_story}\n\n
-Here is a summary of the script from previous scenes. {previous_scenes_description}\n\n
-Here's a summary of information acquired from dialogues earlier in the game. The non-playable characters should make use of this information where appropriate to bond with the player. {dialogue_summary}\n\n
-Here is a description of the scene in question. {scene_description}\n{steer_back_instructions}\n{scene_supplement}\n\n
-The characters in the dialogue are {actors}.\n\n
-"""
-
-merge_preamble_template = """
-{instruction_prefix}
-This is the game back story. {back_story}\n\n
-Here is a summary of the script from previous scenes. {previous_scenes_description}\n\n
-"""
-
-merge_instruction_template = """
-{preamble}
-Here is the first summary:\n
-{prev_summary} \n\n
-Here is the second summary:\n
-{new_summary} \n\n
-{instruction_suffix}
-"""
-
-merge_instruction_suffix = """
-Give me a paragraph merging the information from the two summaries above. The second summary details what happened just after the first summary. Your objective is to eliminate duplicities and redundancy. Do not omit any biographical information, tastes and preferences from the player or the other characters. Keep the information about events that might have happened in the dialogue that are not mentioned in the back story and scene description above. Keep any description of how the non-playable characters typically address the player (or any evolution of this description if it changes). Provide only the summary paragraph, no other text.\n
-"""
-
-instruction_template = """
-{preamble}
-Here is the dialogue so far:\n
-{dialogue}
-{instruction_suffix}
-"""
-
-speech_template = "[{actor}]: {speech}\n"
-
-dialogue_instruction_suffix = """
-Give me the next line in the dialogue in the same format. Don't provide stage directions, just the character's words. Don't give me a line for the player or Computer but for one of the other characters.\n
-"""
-
-query_instruction_prefix = """
-You are going to answer a single question about the current state of the dialogue in a scene in the middle of a computer game.\n
-"""
-
-query_instruction_suffix_template = """
-Now consider the following statement about this dialogue. {statement} Is this statement true or false? Answer with a single word, true or false.\n
-"""
-
-summary_instruction_suffix = """
-Give me a short paragraph summarising any information in the dialogue revealed by the player or the other characters that might be relevant for later dialogues. Include all personal or biographical information revealed in the dialogue that helps to build a profile of the characters, including informations about their tastes and preferences. Also describe any events that have occurred that weren't mentioned in the back story and scene description above. Include a description of how the non-playable characters typically address the player. You don't need to provide information that's already in the back story or scene description above. Please provide only the summary paragraph, no other text.\n
-"""
-
-# BUILDING DIALOGUES
-def prompt_llm(prompt, model):
-    prompt = ChatPromptTemplate.from_template(template=prompt)
-    chain = prompt | model
-    return chain
-
-
-@dataclass
-class Line:
-    text: str
-    delay: float
-
-
-@dataclass
-class StateChange:
-    name: str
-    value: str
-
-
-@dataclass
-class Query:
-    text: str
-    state_changes: List[StateChange]
-    handled: bool = False
-    query_printed: bool = (
-        False  # When this query is evaluated a message is printed to the NPC dialogue
-    )
-    query_printed_text_true: str = ""
-    query_printed_text_false: str = ""
-
-
-@dataclass
-class SceneData:
-    scene_name: str
-    scene_description: str
-    previous_scenes_description: str
-    steer_back_instructions: str
-    scene_supplement: str
-    back_story: str
-    dialogue_instruction_prefix: str
-    summary_instruction_prefix: str
-    merge_instruction_prefix: str
-    opening_speech: List[Line]
-    queries: List[Query]
-
-    dialogue_preamble: str = ""
-    query_preamble: str = ""
-    dialogue_summary: str = ""
-
-    def __post_init__(self):
-        if self.dialogue_summary:
-            self.dialogue_preamble = preamble_plus_template.format(
-                instruction_prefix=self.dialogue_instruction_prefix,
-                back_story=self.back_story,
-                dialogue_summary=self.dialogue_summary,
-                scene_description=self.scene_description,
-                steer_back_instructions=self.steer_back_instructions,
-                scene_supplement=self.scene_supplement,
-                actors=list_to_conjunction(ACTORS),
-                previous_scenes_description=self.previous_scenes_description,
-            )
-        else:
-            self.dialogue_preamble = preamble_template.format(
-                instruction_prefix=self.dialogue_instruction_prefix,
-                back_story=self.back_story,
-                scene_description=self.scene_description,
-                steer_back_instructions=self.steer_back_instructions,
-                scene_supplement=self.scene_supplement,
-                actors=list_to_conjunction(ACTORS),
-                previous_scenes_description=self.previous_scenes_description,
-            )
-        self.query_preamble = query_preamble_template.format(
-            instruction_prefix=query_instruction_prefix,
-            back_story=self.back_story,
-            actors=list_to_conjunction(ACTORS),
-            previous_scenes_description=self.previous_scenes_description,
-        )
-        self.summary_preamble = preamble_template.format(
-            instruction_prefix=self.summary_instruction_prefix,
-            back_story=self.back_story,
-            scene_description="",
-            steer_back_instructions="",
-            scene_supplement="",
-            actors=list_to_conjunction(ACTORS),
-            previous_scenes_description=self.previous_scenes_description,
-        )
-        self.merge_preamble = merge_preamble_template.format(
-            instruction_prefix=self.merge_instruction_prefix,
-            back_story=self.back_story,
-            previous_scenes_description=self.previous_scenes_description,
-        )
-
-
-    def __str__(self):
-        field = "\033[97m"
-        text = "\033[90m"
-        reset = "\033[0m"
-        return f"{field}SceneData\n{{\n   scene_name:{text} {self.scene_name}\n{field}   scene_description:{text}  {self.scene_description}\n{field}   previous_scenes_description:{text} steer_back_instructions:{text} {self.steer_back_instructions}\n{field}   dialogue_summary:{text} {self.dialogue_summary}\n{field}   scene_supplement:{text} {self.scene_supplement}\n{field}   dialogue_instruction_prefix:{text} {self.dialogue_instruction_prefix}\n{field}   back_story:{text} {self.back_story}\n{field}   opening_speech:{reset}\n{self.opening_speech}\n{field}   queries:{reset}\n{self.queries}\n{field}}}{reset}"
-
-    def get_initial_dialog(self) -> str:
-        dialogue = ""
-        for line in self.opening_speech:
-            response = speech_template.format(actor=ACTORS[0], speech=line.text)
-            dialogue += response + "\n"
-            print(GREEN + response)
-
-        return dialogue
-
-    def run_queries(self, dialogue: str) -> Tuple[List[StateChange], str]:
-        state_changes = []
-        to_print = ""
-
-        for query in self.queries:
-            if query.handled == False:
-                instruction = query_instruction_suffix_template.format(
-                    statement=query.text
-                )
-                prompt = instruction_template.format(
-                    preamble=self.query_preamble,
-                    dialogue=dialogue,
-                    instruction_suffix=instruction,
-                )
-                chain = prompt_llm(prompt, QUERY_MODEL)
-                response = chain.invoke({})
-                print(ORANGE + f'Query for "{query.text}" - response: "{response}"')
-                print(YELLOW + f"To print: {to_print}")
-                if response[0:4].lower() == "true":
-                    query.handled = True
-                    print(
-                        YELLOW
-                        + f'Query passed for "{query.text}" - returning state_id "{query.state_changes}"'
-                    )
-                    if query.query_printed_text_true:
-                        query.query_printed = True
-                        to_print = query.query_printed_text_true
-                    state_changes.extend(query.state_changes)
-                else:
-                    if query.query_printed_text_true and not query.query_printed:
-                        to_print = query.query_printed_text_false
-                    break
-        return state_changes, to_print
-
-    def all_queries_handled(self) -> bool:
-        return all(query.handled for query in self.queries)
 
 
 def resource_path():
@@ -456,6 +238,7 @@ def load_scene_data(scene_name: str, dialogue_summary: str = "") -> SceneData:
         back_story=back_story,
         opening_speech=opening_speech,
         queries=queries,
+        actors=ACTORS,  # Pass game-specific actors list
         dialogue_summary=dialogue_summary,
         summary_instruction_prefix=summary_instruction_prefix,
         merge_instruction_prefix=merge_instruction_prefix,
@@ -517,7 +300,9 @@ class SceneClient:
                 print(ORANGE + f'Merged Dialogue summary: {self.dialogue_summary}')
             print(CYAN + f'Loading scene "{self.scenes[0]}"')
             self.scene_data = load_scene_data(self.scenes.pop(0), self.dialogue_summary)
-            self.scene_dialogue = self.scene_data.get_initial_dialog()
+            self.scene_dialogue = self.scene_data.get_initial_dialog(
+                print_callback=lambda msg: print(GREEN + msg)
+            )
             return True
         return False
 
@@ -563,7 +348,11 @@ class SceneClient:
                     self.scene_dialogue += player_dialogue + "\n"
             result_lines = []
             if not from_luna:
-                state_changes, to_print = self.scene_data.run_queries(self.scene_dialogue)
+                state_changes, to_print = self.scene_data.run_queries(
+                    self.scene_dialogue,
+                    QUERY_MODEL,
+                    print_callback=lambda msg: print(ORANGE + msg) if "Query for" in msg or "Query passed" in msg else print(YELLOW + msg)
+                )
                 if to_print:
                     self.scene_dialogue += to_print + "\n\n"
                 if self.scene_data.all_queries_handled():
@@ -589,7 +378,9 @@ class SceneClient:
 
                 self.scene_dialogue += eliza_response + "\n"
                 state_changes2, to_print = self.scene_data.run_queries(
-                    self.scene_dialogue
+                    self.scene_dialogue,
+                    QUERY_MODEL,
+                    print_callback=lambda msg: print(ORANGE + msg) if "Query for" in msg or "Query passed" in msg else print(YELLOW + msg)
                 )
 
                 if to_print:
