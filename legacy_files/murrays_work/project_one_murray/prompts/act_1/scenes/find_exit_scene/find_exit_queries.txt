@@ -1,3 +1,0 @@
-The player has confirmed to Eliza that they have fond the exit.
-
-The player has reported the correct door id to Eliza.

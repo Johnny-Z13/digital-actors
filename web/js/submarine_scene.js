@@ -23,7 +23,13 @@ export class SubmarineScene {
         // Audio system
         this.audioContext = null;
         this.sounds = {};
+        this.alarmInterval = null;  // For looping alarm
+        this.alarmActive = false;   // Track if alarm is currently active
         this.initAudio();
+
+        // Emergency lighting
+        this.emergencyLight = null;
+        this.emergencyLightOn = false;
 
         // Performance tracking
         this.frameCount = 0; // For throttling expensive operations
@@ -76,6 +82,79 @@ export class SubmarineScene {
         // For now, use generated sounds
         if (this.sounds[soundName]) {
             this.sounds[soundName]();
+        }
+    }
+
+    playAlarmSound() {
+        // Create audio context on first interaction (required by browsers)
+        if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        const ctx = this.audioContext;
+        const currentTime = ctx.currentTime;
+
+        // Create oscillators for alarm sound (two-tone siren)
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+
+        osc1.connect(gainNode);
+        osc2.connect(gainNode);
+        gainNode.connect(ctx.destination);
+
+        // Two-tone alarm: alternating high/low
+        osc1.frequency.setValueAtTime(800, currentTime);
+        osc1.frequency.setValueAtTime(600, currentTime + 0.25);
+        osc1.frequency.setValueAtTime(800, currentTime + 0.5);
+        osc1.frequency.setValueAtTime(600, currentTime + 0.75);
+        osc1.type = 'square';
+
+        // Second oscillator for richer sound
+        osc2.frequency.setValueAtTime(400, currentTime);
+        osc2.frequency.setValueAtTime(300, currentTime + 0.25);
+        osc2.frequency.setValueAtTime(400, currentTime + 0.5);
+        osc2.frequency.setValueAtTime(300, currentTime + 0.75);
+        osc2.type = 'sawtooth';
+
+        // Volume envelope
+        gainNode.gain.setValueAtTime(0.15, currentTime);
+        gainNode.gain.setValueAtTime(0.15, currentTime + 0.9);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, currentTime + 1.0);
+
+        // Play for 1 second
+        osc1.start(currentTime);
+        osc2.start(currentTime);
+        osc1.stop(currentTime + 1.0);
+        osc2.stop(currentTime + 1.0);
+    }
+
+    startAlarm() {
+        if (this.alarmActive) return;
+
+        this.alarmActive = true;
+        console.log('[ALARM] Emergency alarm activated - oxygen critical!');
+
+        // Play alarm immediately
+        this.playAlarmSound();
+
+        // Loop alarm every 1.5 seconds
+        this.alarmInterval = setInterval(() => {
+            if (this.alarmActive) {
+                this.playAlarmSound();
+            }
+        }, 1500);
+    }
+
+    stopAlarm() {
+        if (!this.alarmActive) return;
+
+        this.alarmActive = false;
+        console.log('[ALARM] Emergency alarm deactivated');
+
+        if (this.alarmInterval) {
+            clearInterval(this.alarmInterval);
+            this.alarmInterval = null;
         }
     }
 
@@ -371,7 +450,7 @@ export class SubmarineScene {
     }
 
     createControlPanel() {
-        // Main control panel
+        // Main control panel - CENTERED in view
         const panelGeometry = new THREE.BoxGeometry(1.5, 0.8, 0.15);
         const panelMaterial = new THREE.MeshStandardMaterial({
             color: 0x3a3a3a,
@@ -379,34 +458,34 @@ export class SubmarineScene {
             metalness: 0.4,
         });
         const panel = new THREE.Mesh(panelGeometry, panelMaterial);
-        panel.position.set(1.5, 1.5, -2.7);
+        panel.position.set(0, 1.3, -2.7);  // Centered at x=0, lowered slightly
         this.scene.add(panel);
 
-        // Create buttons
+        // Create buttons - positions relative to panel center (0, 1.3)
         const buttonPositions = [
             { x: -0.4, y: 0.2, label: 'O2 VALVE', color: 0xff3333 },
-            { x: 0.2, y: 0.2, label: 'VENT', color: 0xffaa33 },
+            { x: 0.4, y: 0.2, label: 'VENT', color: 0xffaa33 },
             { x: -0.4, y: -0.15, label: 'BALLAST', color: 0x3399ff },
-            { x: 0.2, y: -0.15, label: 'POWER', color: 0x33ff33 },
+            { x: 0.4, y: -0.15, label: 'POWER', color: 0x33ff33 },
         ];
 
         buttonPositions.forEach(pos => {
-            const buttonGeometry = new THREE.CylinderGeometry(0.08, 0.08, 0.05, 16);
+            const buttonGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.06, 16);  // Slightly larger buttons
             const buttonMaterial = new THREE.MeshStandardMaterial({
                 color: pos.color,
                 roughness: 0.3,
                 metalness: 0.7,
                 emissive: pos.color,
-                emissiveIntensity: 0.3,
+                emissiveIntensity: 0.4,
             });
             const button = new THREE.Mesh(buttonGeometry, buttonMaterial);
-            button.position.set(1.5 + pos.x, 1.5 + pos.y, -2.62);
+            button.position.set(pos.x, 1.3 + pos.y, -2.62);  // Centered panel
             button.rotation.x = Math.PI / 2;
             button.userData = { type: 'button', action: pos.label, originalColor: pos.color };
             this.scene.add(button);
             this.interactiveObjects.push(button);
 
-            // Button label - 100% larger (doubled)
+            // Button label
             const labelCanvas = document.createElement('canvas');
             labelCanvas.width = 256;
             labelCanvas.height = 64;
@@ -422,7 +501,7 @@ export class SubmarineScene {
                 transparent: true,
             });
             const label = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.12), labelMaterial);
-            label.position.set(1.5 + pos.x, 1.5 + pos.y - 0.15, -2.62);
+            label.position.set(pos.x, 1.3 + pos.y - 0.18, -2.62);  // Below button
             this.scene.add(label);
         });
     }
@@ -506,7 +585,24 @@ export class SubmarineScene {
         interiorLight.position.set(0, 2.2, -1.5); // Near control panel
         this.scene.add(interiorLight);
 
-        // Total lights: 4 (ambient + 2 warning + 1 main + 1 interior)
+        // Emergency red light - starts OFF, activated when oxygen < 60 seconds
+        this.emergencyLight = new THREE.PointLight(0xff0000, 0, 12);
+        this.emergencyLight.position.set(0, 3.2, -1);
+        this.scene.add(this.emergencyLight);
+
+        // Emergency light fixture (visible red dome)
+        const emergencyDomeGeometry = new THREE.SphereGeometry(0.12, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+        this.emergencyDomeMaterial = new THREE.MeshBasicMaterial({
+            color: 0x330000,  // Dark red when off
+            transparent: true,
+            opacity: 0.8,
+        });
+        const emergencyDome = new THREE.Mesh(emergencyDomeGeometry, this.emergencyDomeMaterial);
+        emergencyDome.position.set(0, 3.4, -1);
+        emergencyDome.rotation.x = Math.PI;  // Dome facing down
+        this.scene.add(emergencyDome);
+
+        // Total lights: 5 (ambient + 2 warning + 1 main + 1 interior + 1 emergency)
     }
 
     setupInteraction() {
@@ -544,13 +640,11 @@ export class SubmarineScene {
         const time = Date.now() * 0.001;
         this.frameCount++;
 
-        // Update oxygen display
-        if (this.oxygenLevel > 0) {
-            this.oxygenLevel -= 0.016; // Approximately 1 second per frame
-        }
+        // NOTE: Oxygen countdown is now handled server-side
+        // The setOxygenLevel() method receives updates from the server
 
-        // Only update oxygen canvas texture every 30 frames (~500ms at 60fps) for performance
-        if (this.oxygenText && this.frameCount % 30 === 0) {
+        // Update oxygen canvas texture every 10 frames for smoother display
+        if (this.oxygenText && this.frameCount % 10 === 0) {
             const minutes = Math.floor(this.oxygenLevel / 60);
             const seconds = Math.floor(this.oxygenLevel % 60);
             const display = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
@@ -572,6 +666,20 @@ export class SubmarineScene {
                     light.intensity = 0.3 + Math.sin(time * 3 + i) * 0.2 + Math.random() * 0.1;
                 }
             });
+        }
+
+        // Pulse emergency light when active (oxygen < 60 seconds)
+        if (this.emergencyLightOn && this.emergencyLight) {
+            // Pulsing red light effect - rapid flash
+            const pulse = Math.sin(time * 8) * 0.5 + 0.5;  // 0-1 pulsing
+            this.emergencyLight.intensity = 1.5 + pulse * 1.5;  // 1.5 to 3.0 intensity
+
+            // Update dome color to glow bright red
+            if (this.emergencyDomeMaterial) {
+                const brightness = Math.floor(pulse * 255);
+                this.emergencyDomeMaterial.color.setRGB(1, brightness / 255 * 0.2, 0);
+                this.emergencyDomeMaterial.emissive = this.emergencyDomeMaterial.color;
+            }
         }
 
         // Animate underwater particles - throttled to every 5 frames for performance
@@ -636,7 +744,47 @@ export class SubmarineScene {
 
     // Method to update oxygen level externally
     setOxygenLevel(seconds) {
+        const previousLevel = this.oxygenLevel;
         this.oxygenLevel = seconds;
+
+        // Trigger emergency mode when oxygen drops to 60 seconds (1 minute)
+        if (seconds <= 60 && previousLevel > 60) {
+            this.activateEmergencyMode();
+        }
+
+        // Deactivate if oxygen goes back above 60 (e.g., refilled)
+        if (seconds > 60 && previousLevel <= 60) {
+            this.deactivateEmergencyMode();
+        }
+    }
+
+    activateEmergencyMode() {
+        console.log('[EMERGENCY] Oxygen critical - activating emergency systems!');
+
+        // Turn on emergency red light
+        this.emergencyLightOn = true;
+        if (this.emergencyDomeMaterial) {
+            this.emergencyDomeMaterial.color.setHex(0xff0000);
+        }
+
+        // Start alarm sound
+        this.startAlarm();
+    }
+
+    deactivateEmergencyMode() {
+        console.log('[EMERGENCY] Oxygen restored - deactivating emergency systems');
+
+        // Turn off emergency light
+        this.emergencyLightOn = false;
+        if (this.emergencyLight) {
+            this.emergencyLight.intensity = 0;
+        }
+        if (this.emergencyDomeMaterial) {
+            this.emergencyDomeMaterial.color.setHex(0x330000);
+        }
+
+        // Stop alarm
+        this.stopAlarm();
     }
 
     // Method to add visual feedback for events

@@ -1,6 +1,0 @@
-After saying "Luna Scan" the players sees the information panels next to the pods correctly displayed.
-There are several pods in the platform with people from Science, Medicine and Botany.
-In front of the pod of the player there is a pod with the following information:
-"Name: John Lusty; Occupation: Engineering; ID: ED 3122".
-After Eliza stating she is trying to wake up the engineer, the player can see the proccess being triggered with a loading bar which is shorlty interrupted by a red warning message saying "Error".
-Seconds after, a fire starts in the pod.

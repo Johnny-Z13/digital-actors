@@ -1,0 +1,18 @@
+{
+  "name": "digital-actors-web",
+  "version": "0.1.0",
+  "description": "Frontend for Digital Actors - AI character dialogue system",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint js/**/*.js",
+    "lint:fix": "eslint js/**/*.js --fix",
+    "format": "prettier --write js/**/*.js css/**/*.css",
+    "format:check": "prettier --check js/**/*.js css/**/*.css"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.0"
+  },
+  "keywords": ["three.js", "websocket", "ai", "dialogue"],
+  "license": "MIT"
+}

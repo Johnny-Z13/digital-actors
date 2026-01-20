@@ -8,24 +8,61 @@ This server:
 - Supports multiple characters and scenes
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
-import os
 import mimetypes
 import time
 from pathlib import Path
-from typing import Dict, Any
-from aiohttp import web
-import aiohttp
+from typing import TYPE_CHECKING, Any
 
-from llm_prompt_core.models.anthropic import ClaudeSonnet45Model
-from llm_prompt_core.types import Line, Query, StateChange, SceneData
-from llm_prompt_core.utils import prompt_llm
+import aiohttp
+from aiohttp import web
+from dotenv import load_dotenv
+
+import logging
+
+# Load environment variables from .env file
+load_dotenv()
+
+from constants import (
+    GAME_OVER_DELAY_SECONDS,
+    INTERRUPTION_OXYGEN_PENALTY,
+    INTERRUPTION_TRUST_PENALTY,
+    LLM_MAX_TOKENS_DIALOGUE,
+    LLM_MAX_TOKENS_QUERY,
+    LLM_TEMPERATURE_DIALOGUE,
+    LLM_TEMPERATURE_QUERY,
+    RAPID_ACTION_COUNT_THRESHOLD,
+    RAPID_ACTION_OXYGEN_PENALTY,
+    RAPID_ACTION_THRESHOLD_SECONDS,
+    RAPID_ACTION_TRUST_PENALTY,
+    TRUST_MINIMUM,
+)
+from exceptions import (
+    InvalidMessageError,
+    LLMError,
+    SceneStateError,
+)
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+from llm_prompt_core.models.anthropic import ClaudeHaikuModel
 from llm_prompt_core.prompts.templates import (
-    instruction_template,
     dialogue_instruction_suffix,
+    instruction_template,
     speech_template,
 )
+from llm_prompt_core.types import SceneData
+from llm_prompt_core.utils import prompt_llm
+
+# Import TTS system
+from tts_elevenlabs import get_tts_manager, synthesize_npc_speech
 
 # Import modular character and scene systems
 from characters import CHARACTERS as CHARACTER_REGISTRY
@@ -37,13 +74,21 @@ from player_memory import PlayerMemory
 # Import world director (dungeon master)
 from world_director import WorldDirector
 
+if TYPE_CHECKING:
+    from aiohttp.web import WebSocketResponse
+
 # Initialize models
-print("Initializing LLM models...")
+logger.info("Initializing LLM models...")
 # Use Haiku for faster responses (2-3x faster than Sonnet)
-from llm_prompt_core.models.anthropic import ClaudeHaikuModel
-DIALOGUE_MODEL = ClaudeHaikuModel(temperature=0.8, max_tokens=800)  # Reduced tokens for speed
-QUERY_MODEL = ClaudeHaikuModel(temperature=0.2, max_tokens=200)
-print("✓ Models initialized (using Haiku for performance)")
+DIALOGUE_MODEL = ClaudeHaikuModel(
+    temperature=LLM_TEMPERATURE_DIALOGUE,
+    max_tokens=LLM_MAX_TOKENS_DIALOGUE,
+)
+QUERY_MODEL = ClaudeHaikuModel(
+    temperature=LLM_TEMPERATURE_QUERY,
+    max_tokens=LLM_MAX_TOKENS_QUERY,
+)
+logger.info("Models initialized (using Haiku for performance)")
 
 # Convert character objects to dictionary format for compatibility
 CHARACTERS = {
@@ -61,7 +106,16 @@ SCENES = {
 class ChatSession:
     """Manages a chat session for a single WebSocket connection."""
 
-    def __init__(self, ws, character_id='eliza', scene_id='introduction', player_id=None):
+    # TTS manager (shared across sessions)
+    tts_manager = get_tts_manager()
+
+    def __init__(
+        self,
+        ws: WebSocketResponse,
+        character_id: str = "eliza",
+        scene_id: str = "introduction",
+        player_id: str | None = None,
+    ) -> None:
         self.ws = ws
         self.character_id = character_id
         self.scene_id = scene_id
@@ -72,12 +126,12 @@ class ChatSession:
         # Player memory system
         self.player_id = player_id or f"player_{id(ws)}"  # Use websocket ID if no player_id provided
         self.player_memory = PlayerMemory(self.player_id)
-        print(f"Loaded player memory for {self.player_id}")
+        logger.info("Loaded player memory for %s", self.player_id)
 
         # World Director (dungeon master)
         self.world_director = WorldDirector()
         self.director_npc_modifier = ""  # Behavior modifications from director
-        print("World Director initialized")
+        logger.info("World Director initialized")
 
         # Store scene controls for npc_aware checking
         self.scene_controls = {
@@ -103,6 +157,9 @@ class ChatSession:
         self.game_over = False
         self.game_outcome = None  # Will be 'success', 'failure', or specific ending type
 
+        # Oxygen countdown task (managed by session)
+        self.oxygen_task = None
+
         # Build scene data
         self.scene_data = self.create_scene_data()
 
@@ -119,11 +176,110 @@ class ChatSession:
         )
         if 'oxygen_bonus' in difficulty and 'oxygen' in self.scene_state:
             self.scene_state['oxygen'] += difficulty['oxygen_bonus']
-            print(f"Director adjusted oxygen: {difficulty['oxygen_bonus']:+d} (player skill-based)")
+            logger.info(
+                "Director adjusted oxygen: %+d (player skill-based)", difficulty['oxygen_bonus']
+            )
 
         self.difficulty_settings = difficulty  # Store for later use
 
-    def create_scene_data(self):
+    def start_oxygen_countdown(self) -> None:
+        """Start the oxygen countdown task if this scene has oxygen."""
+        if 'oxygen' in self.scene_state and self.oxygen_task is None:
+            self.oxygen_task = asyncio.create_task(self._oxygen_countdown_loop())
+            logger.info("Started oxygen countdown task")
+
+    def stop_oxygen_countdown(self) -> None:
+        """Stop the oxygen countdown task if running."""
+        if self.oxygen_task:
+            self.oxygen_task.cancel()
+            self.oxygen_task = None
+            logger.info("Stopped oxygen countdown task")
+
+    async def _oxygen_countdown_loop(self) -> None:
+        """Background task that decrements oxygen every second."""
+        try:
+            while not self.game_over:
+                await asyncio.sleep(1)
+
+                if 'oxygen' not in self.scene_state or self.game_over:
+                    break
+
+                # Get update rate from scene config (default -1 per second)
+                update_rate = -1.0
+                for var in self.scene_config.get('state_variables', []):
+                    if var['name'] == 'oxygen':
+                        update_rate = var.get('update_rate', -1.0)
+                        break
+
+                if update_rate != 0:
+                    self.scene_state['oxygen'] = max(0, self.scene_state['oxygen'] + update_rate)
+                    oxygen = self.scene_state['oxygen']
+
+                    # Log oxygen level periodically
+                    if int(oxygen) % 30 == 0:
+                        logger.info("Oxygen level: %.0f", oxygen)
+
+                    # Send state update to client
+                    try:
+                        await self.ws.send_json({
+                            'type': 'state_update',
+                            'state': self.scene_state
+                        })
+                    except Exception:
+                        break  # Connection closed
+
+                    # Check for game over
+                    self.check_game_over_conditions()
+                    if self.game_over:
+                        await self.trigger_game_over()
+                        break
+        except asyncio.CancelledError:
+            pass  # Task was cancelled, that's fine
+
+    async def send_character_response(
+        self,
+        content: str,
+        emotion_context: str | None = None,
+    ) -> None:
+        """
+        Send a character response to the client, including TTS audio if available.
+
+        Args:
+            content: The dialogue text
+            emotion_context: Optional emotional context for TTS (e.g., "panicked", "calm")
+        """
+        # Generate TTS audio in parallel with sending text
+        audio_task = None
+        if self.tts_manager.is_enabled():
+            audio_task = asyncio.create_task(
+                synthesize_npc_speech(content, self.character_id, emotion_context)
+            )
+
+        # Send text response immediately (don't wait for audio)
+        response_data = {
+            'type': 'character_response',
+            'character_name': self.character_config['name'],
+            'content': content,
+        }
+
+        # Wait for audio if TTS is enabled
+        if audio_task:
+            try:
+                audio_base64 = await audio_task
+                if audio_base64:
+                    response_data['audio'] = audio_base64
+                    response_data['audio_format'] = 'mp3'
+                    logger.info("TTS audio included: %d chars", len(audio_base64))
+                else:
+                    logger.warning("TTS returned no audio")
+            except Exception as e:
+                logger.warning("TTS generation failed: %s", e)
+        else:
+            logger.info("TTS not enabled or no audio task")
+
+        await self.ws.send_json(response_data)
+
+    def create_scene_data(self) -> SceneData:
         """Create a SceneData object from character and scene configs."""
         return SceneData(
             scene_name=self.scene_id,
@@ -140,7 +296,7 @@ class ChatSession:
             actors=[self.character_config['name'], "Player"]
         )
 
-    def check_game_over_conditions(self):
+    def check_game_over_conditions(self) -> None:
         """Check if any win/lose conditions are met."""
         if self.game_over:
             return  # Already game over
@@ -173,17 +329,17 @@ class ChatSession:
                 }
                 return
 
-    def evaluate_condition(self, condition_str):
+    def evaluate_condition(self, condition_str: str) -> bool:
         """Evaluate a condition string using scene state."""
         try:
             # Create a safe evaluation environment with just the state
             state = self.scene_state
             return eval(condition_str, {"__builtins__": {}}, {"state": state})
         except Exception as e:
-            print(f"Error evaluating condition '{condition_str}': {e}")
+            logger.warning("Error evaluating condition '%s': %s", condition_str, e)
             return False
 
-    async def trigger_game_over(self):
+    async def trigger_game_over(self) -> None:
         """Trigger final speech and send game over message to client."""
         if not self.game_over or not self.game_outcome:
             return
@@ -225,15 +381,12 @@ Keep it to 2-3 short sentences maximum."""
         )
         final_speech = final_speech.replace('"', '').replace('*', '')
 
-        # Send final speech
-        await self.ws.send_json({
-            'type': 'character_response',
-            'character_name': self.character_config['name'],
-            'content': final_speech
-        })
+        # Send final speech with TTS
+        emotion = "panicked" if outcome_type == 'failure' else "relieved"
+        await self.send_character_response(final_speech, emotion_context=emotion)
 
         # Wait a moment for final speech to be displayed
-        await asyncio.sleep(3)
+        await asyncio.sleep(GAME_OVER_DELAY_SECONDS)
 
         # Record scene completion in player memory
         outcome_type = self.game_outcome['type']
@@ -245,15 +398,32 @@ Keep it to 2-3 short sentences maximum."""
             'outcome': self.game_outcome
         })
 
-    async def send_opening_speech(self):
-        """Send the character's opening lines."""
+    async def send_opening_speech(self) -> None:
+        """Send the character's opening lines with TTS audio."""
+        lines_data = []
+
+        # Generate TTS for each line
+        for line in self.scene_config['opening_speech']:
+            line_data = {'text': line.text, 'delay': line.delay}
+
+            # Generate TTS audio for this line
+            if self.tts_manager.is_enabled():
+                try:
+                    audio_base64 = await synthesize_npc_speech(
+                        line.text, self.character_id, emotion_context="urgent"
+                    )
+                    if audio_base64:
+                        line_data['audio'] = audio_base64
+                        line_data['audio_format'] = 'mp3'
+                except Exception as e:
+                    logger.warning("TTS failed for opening line: %s", e)
+
+            lines_data.append(line_data)
+
         await self.ws.send_json({
             'type': 'opening_speech',
             'character_name': self.character_config['name'],
-            'lines': [
-                {'text': line.text, 'delay': line.delay}
-                for line in self.scene_config['opening_speech']
-            ]
+            'lines': lines_data
         })
 
         # Add to dialogue history
@@ -264,7 +434,7 @@ Keep it to 2-3 short sentences maximum."""
             )
             self.dialogue_history += response + "\n"
 
-    async def handle_message(self, message):
+    async def handle_message(self, message: str) -> None:
         """Handle a user message and generate a response."""
         try:
             # Claim a new response ID - this cancels any pending responses
@@ -294,7 +464,9 @@ Keep it to 2-3 short sentences maximum."""
 
             # Check if this response is still current (not superseded by newer action)
             if my_response_id != self.current_response_id:
-                print(f"Response {my_response_id} cancelled (current: {self.current_response_id})")
+                logger.debug(
+                    "Response %d cancelled (current: %d)", my_response_id, self.current_response_id
+                )
                 self.npc_responding = False
                 return  # Discard this stale response
 
@@ -308,12 +480,8 @@ Keep it to 2-3 short sentences maximum."""
             # Add to dialogue history
             self.dialogue_history += f"[{self.character_config['name']}]: {character_response}\n"
 
-            # Send response to client
-            await self.ws.send_json({
-                'type': 'character_response',
-                'character_name': self.character_config['name'],
-                'content': character_response
-            })
+            # Send response to client with TTS
+            await self.send_character_response(character_response)
 
             self.npc_responding = False  # Done responding
 
@@ -323,14 +491,14 @@ Keep it to 2-3 short sentences maximum."""
                 await self.trigger_game_over()
 
         except Exception as e:
-            print(f"Error generating response: {e}")
+            logger.exception("Error generating response: %s", e)
             self.npc_responding = False
             await self.ws.send_json({
                 'type': 'error',
                 'message': 'Failed to generate response. Please try again.'
             })
 
-    async def handle_button_action(self, action):
+    async def handle_button_action(self, action: str) -> None:
         """Handle a button press action from a scene.
 
         Args:
@@ -353,8 +521,8 @@ Keep it to 2-3 short sentences maximum."""
             current_time = time.time()
             time_since_last = current_time - self.last_action_time
 
-            # Detect rapid button pressing (less than 3 seconds between actions)
-            if time_since_last < 3.0:
+            # Detect rapid button pressing
+            if time_since_last < RAPID_ACTION_THRESHOLD_SECONDS:
                 self.action_count_recent += 1
             else:
                 self.action_count_recent = 1
@@ -378,16 +546,16 @@ Keep it to 2-3 short sentences maximum."""
 
                 if was_interrupted:
                     # Player interrupted NPC mid-speech
-                    base_penalty_oxygen = 15
-                    base_penalty_trust = 10
+                    base_penalty_oxygen = INTERRUPTION_OXYGEN_PENALTY
+                    base_penalty_trust = INTERRUPTION_TRUST_PENALTY
                     penalty_incorrect = 1
                     interruption_note = " [INTERRUPTION: Player did not wait for instructions]"
                     # Record interruption in player memory
                     self.player_memory.record_interruption()
-                elif self.action_count_recent >= 3:
+                elif self.action_count_recent >= RAPID_ACTION_COUNT_THRESHOLD:
                     # Player is button mashing (3+ actions in quick succession)
-                    base_penalty_oxygen = 10
-                    base_penalty_trust = 5
+                    base_penalty_oxygen = RAPID_ACTION_OXYGEN_PENALTY
+                    base_penalty_trust = RAPID_ACTION_TRUST_PENALTY
                     penalty_incorrect = 1
                     interruption_note = " [RAPID ACTIONS: Player acting recklessly]"
                     # Record rapid actions in player memory
@@ -406,7 +574,9 @@ Keep it to 2-3 short sentences maximum."""
                 if 'oxygen' in self.scene_state:
                     self.scene_state['oxygen'] = max(0, self.scene_state['oxygen'] - penalty_oxygen)
                 if 'trust' in self.scene_state:
-                    self.scene_state['trust'] = max(-100, self.scene_state['trust'] - penalty_trust)
+                    self.scene_state['trust'] = max(
+                        TRUST_MINIMUM, self.scene_state['trust'] - penalty_trust
+                    )
                 if 'incorrect_actions' in self.scene_state:
                     self.scene_state['incorrect_actions'] += penalty_incorrect
 
@@ -441,7 +611,7 @@ Keep it to 2-3 short sentences maximum."""
                 self.dialogue_history += system_event
 
                 # Adjust instruction suffix based on interruption
-                if was_interrupted or self.action_count_recent >= 3:
+                if was_interrupted or self.action_count_recent >= RAPID_ACTION_COUNT_THRESHOLD:
                     extra_instruction = "\nThe player interrupted you or acted without waiting for your guidance. React with panic, frustration, or anger. Make it clear they're making things worse."
                 else:
                     extra_instruction = "\nThe player just performed an action. React to it immediately and naturally."
@@ -459,7 +629,11 @@ Keep it to 2-3 short sentences maximum."""
 
                 # Check if this response is still current (not superseded by newer action)
                 if my_response_id != self.current_response_id:
-                    print(f"Response {my_response_id} cancelled (current: {self.current_response_id})")
+                    logger.debug(
+                        "Response %d cancelled (current: %d)",
+                        my_response_id,
+                        self.current_response_id,
+                    )
                     self.npc_responding = False
                     return  # Discard this stale response
 
@@ -473,12 +647,11 @@ Keep it to 2-3 short sentences maximum."""
                 # Add to dialogue history
                 self.dialogue_history += f"[{self.character_config['name']}]: {character_response}\n"
 
-                # Send response to client
-                await self.ws.send_json({
-                    'type': 'character_response',
-                    'character_name': self.character_config['name'],
-                    'content': character_response
-                })
+                # Determine emotion based on interruption/rapid action
+                emotion = "stressed" if (was_interrupted or self.action_count_recent >= RAPID_ACTION_COUNT_THRESHOLD) else None
+
+                # Send response to client with TTS
+                await self.send_character_response(character_response, emotion_context=emotion)
 
                 self.npc_responding = False  # Done responding
 
@@ -488,18 +661,18 @@ Keep it to 2-3 short sentences maximum."""
             else:
                 # NPC is NOT aware - action is hidden from them
                 # Just acknowledge to player but don't notify character
-                print(f"Button '{action}' pressed - NPC not aware (npc_aware=False)")
+                logger.debug("Button '%s' pressed - NPC not aware (npc_aware=False)", action)
                 # Could send a system message to player like "[Hidden action - NPC didn't notice]"
                 # For now, just log it - the frontend already shows the action
 
         except Exception as e:
-            print(f"Error handling button action: {e}")
+            logger.exception("Error handling button action: %s", e)
             await self.ws.send_json({
                 'type': 'error',
                 'message': 'Failed to process action. Please try again.'
             })
 
-    async def consult_director(self, last_action: str = None):
+    async def consult_director(self, last_action: str | None = None) -> None:
         """
         Consult the World Director to see if intervention is needed.
 
@@ -517,7 +690,7 @@ Keep it to 2-3 short sentences maximum."""
                 last_action=last_action
             )
 
-            print(f"[Director] Decision: {decision.type}")
+            logger.info("[Director] Decision: %s", decision.type)
 
             # Handle different decision types
             if decision.type == 'continue':
@@ -538,15 +711,21 @@ Keep it to 2-3 short sentences maximum."""
 
             elif decision.type == 'transition':
                 # Director recommends scene transition
-                print(f"[Director] Recommends transition to: {decision.data.get('next_scene')}")
+                logger.info(
+                    "[Director] Recommends transition to: %s", decision.data.get('next_scene')
+                )
                 # For now, log it. Could auto-transition in future.
 
         except Exception as e:
-            print(f"Error consulting director: {e}")
+            logger.exception("Error consulting director: %s", e)
 
-    async def handle_director_event(self, event_data: Dict):
+    async def handle_director_event(self, event_data: dict[str, Any]) -> None:
         """Handle a dynamic event spawned by the World Director."""
-        print(f"[Director] Spawning event: {event_data.get('event_type')} - {event_data.get('event_description')}")
+        logger.info(
+            "[Director] Spawning event: %s - %s",
+            event_data.get('event_type'),
+            event_data.get('event_description'),
+        )
 
         # Generate the actual event
         event = self.world_director.generate_dynamic_event(
@@ -593,20 +772,16 @@ Keep it to 2-3 short sentences maximum."""
         npc_reaction = npc_reaction.strip().removeprefix(f"[{self.character_config['name']}]: ")
         npc_reaction = npc_reaction.replace('"', '').replace('*', '')
 
-        # Send NPC reaction
-        await self.ws.send_json({
-            'type': 'character_response',
-            'character_name': self.character_config['name'],
-            'content': npc_reaction
-        })
+        # Send NPC reaction with TTS (urgent emotion for events)
+        await self.send_character_response(npc_reaction, emotion_context="urgent")
 
         self.dialogue_history += f"[{self.character_config['name']}]: {npc_reaction}\n"
         self.npc_responding = False
 
-    def handle_npc_adjustment(self, adjustment_data: Dict):
+    def handle_npc_adjustment(self, adjustment_data: dict[str, Any]) -> None:
         """Apply behavior adjustment to NPC."""
         behavior_change = adjustment_data.get('behavior_change', '')
-        print(f"[Director] Adjusting NPC: {behavior_change}")
+        logger.info("[Director] Adjusting NPC: %s", behavior_change)
 
         # Generate instruction suffix for next NPC response
         self.director_npc_modifier = self.world_director.generate_npc_behavior_adjustment(
@@ -615,12 +790,12 @@ Keep it to 2-3 short sentences maximum."""
             self.scene_state
         )
 
-    async def handle_director_hint(self, hint_data: Dict):
+    async def handle_director_hint(self, hint_data: dict[str, Any]) -> None:
         """Give player a hint through the NPC."""
         hint_type = hint_data.get('hint_type', 'subtle')
         hint_content = hint_data.get('hint_content', 'what to do next')
 
-        print(f"[Director] Giving {hint_type} hint: {hint_content}")
+        logger.info("[Director] Giving %s hint: %s", hint_type, hint_content)
 
         # Generate hint instruction
         hint_instruction = self.world_director.generate_hint(
@@ -647,17 +822,82 @@ Keep it to 2-3 short sentences maximum."""
         hint_response = hint_response.strip().removeprefix(f"[{self.character_config['name']}]: ")
         hint_response = hint_response.replace('"', '').replace('*', '')
 
-        # Send hint
-        await self.ws.send_json({
-            'type': 'character_response',
-            'character_name': self.character_config['name'],
-            'content': hint_response
-        })
+        # Send hint with TTS
+        await self.send_character_response(hint_response)
 
         self.dialogue_history += f"[{self.character_config['name']}]: {hint_response}\n"
         self.npc_responding = False
 
-    def update_config(self, character_id, scene_id):
+    async def handle_waiting_complete(self) -> None:
+        """Handle when the player has waited (5 dots reached) - move story forward.
+
+        This is triggered by the World Director system when the player is
+        patiently waiting for the NPC to do something.
+        """
+        try:
+            # Record patient behavior in player memory
+            self.player_memory.record_patient_wait()
+
+            # Consult the World Director to decide what should happen
+            decision = await self.world_director.evaluate_situation(
+                scene_id=self.scene_id,
+                scene_state=self.scene_state,
+                dialogue_history=self.dialogue_history,
+                player_memory=self.player_memory,
+                character_id=self.character_id,
+                last_action="waited_patiently"
+            )
+
+            logger.info("[Director] Waiting complete decision: %s", decision.type)
+
+            # If director says continue, make NPC speak unprompted
+            if decision.type == 'continue':
+                # Generate NPC dialogue to move story forward
+                self.npc_responding = True
+
+                player_context = self.player_memory.get_full_context_for_llm(self.character_id)
+                prompt = instruction_template.format(
+                    preamble=self.scene_data.dialogue_preamble + "\n\n" + player_context,
+                    dialogue=self.dialogue_history,
+                    instruction_suffix="The player is waiting patiently. Continue the conversation - give them guidance, react to the situation, or move the story forward. Be proactive."
+                )
+
+                chain = prompt_llm(prompt, DIALOGUE_MODEL)
+                character_response = chain.invoke({})
+
+                # Clean up response
+                character_response = character_response.split("\nComputer", 1)[0]
+                character_response = character_response.strip().removeprefix(
+                    f"[{self.character_config['name']}]: "
+                )
+                character_response = character_response.replace('"', '').replace('*', '')
+
+                # Add to dialogue history
+                self.dialogue_history += f"[{self.character_config['name']}]: {character_response}\n"
+
+                # Send response to client with TTS
+                await self.send_character_response(character_response)
+
+                self.npc_responding = False
+
+            elif decision.type == 'give_hint':
+                # Director wants to give a hint
+                await self.handle_director_hint(decision.data)
+
+            elif decision.type == 'spawn_event':
+                # Director wants to spawn an event
+                await self.handle_director_event(decision.data)
+
+            elif decision.type == 'adjust_npc':
+                # Adjust NPC and then have them speak
+                self.handle_npc_adjustment(decision.data)
+                # Generate follow-up dialogue with adjusted behavior
+                await self.handle_waiting_complete()  # Recursive with new modifier
+
+        except Exception as e:
+            logger.exception("Error handling waiting complete: %s", e)
+
+    def update_config(self, character_id: str, scene_id: str) -> None:
         """Update character and scene configuration."""
         self.character_id = character_id
         self.scene_id = scene_id
@@ -672,8 +912,11 @@ Keep it to 2-3 short sentences maximum."""
         self.scene_data = self.create_scene_data()
         self.dialogue_history = ""
 
-    async def restart(self, character_id=None, scene_id=None):
+    async def restart(self, character_id: str | None = None, scene_id: str | None = None) -> None:
         """Restart the conversation."""
+        # Stop any existing oxygen countdown
+        self.stop_oxygen_countdown()
+
         if character_id:
             self.character_id = character_id
         if scene_id:
@@ -698,19 +941,25 @@ Keep it to 2-3 short sentences maximum."""
             initial_state=self.scene_state.copy()
         )
 
+        # Start oxygen countdown if this scene has oxygen
+        self.start_oxygen_countdown()
+
         await self.send_opening_speech()
 
 
 # WebSocket handler
-async def websocket_handler(request):
+async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     """Handle WebSocket connections."""
     ws = web.WebSocketResponse()
     await ws.prepare(request)
 
-    print("Client connected")
+    logger.info("Client connected")
 
     # Create chat session
     session = ChatSession(ws)
+
+    # Start oxygen countdown if this scene has oxygen
+    session.start_oxygen_countdown()
 
     try:
         # Send opening speech
@@ -747,26 +996,32 @@ async def websocket_handler(request):
                         scene_id = data.get('scene')
                         await session.restart(character_id, scene_id)
 
-                except json.JSONDecodeError:
-                    print("Invalid JSON received")
+                    elif msg_type == 'waiting_complete':
+                        # Player waited (5 dots reached) - move story forward
+                        await session.handle_waiting_complete()
+
+                except json.JSONDecodeError as e:
+                    logger.warning("Invalid JSON received: %s", e)
                 except Exception as e:
-                    print(f"Error handling message: {e}")
+                    logger.exception("Error handling message: %s", e)
                     await ws.send_json({
                         'type': 'error',
                         'message': 'Server error. Please try again.'
                     })
 
             elif msg.type == aiohttp.WSMsgType.ERROR:
-                print(f'WebSocket error: {ws.exception()}')
+                logger.error("WebSocket error: %s", ws.exception())
 
     finally:
-        print("Client disconnected")
+        # Stop oxygen countdown task if running
+        session.stop_oxygen_countdown()
+        logger.info("Client disconnected")
 
     return ws
 
 
 # Static file handler
-async def static_handler(request):
+async def static_handler(request: web.Request) -> web.Response:
     """Serve static files from the web directory."""
     # Get the file path
     file_path = request.match_info.get('path', 'index.html')
@@ -809,7 +1064,7 @@ async def static_handler(request):
 
 
 # Create app
-async def create_app():
+async def create_app() -> web.Application:
     """Create and configure the web application."""
     app = web.Application()
 
@@ -822,21 +1077,18 @@ async def create_app():
 
 
 # Main entry point
-def main():
+def main() -> None:
     """Start the web server."""
-    print("=" * 60)
-    print("Character Chat Web Server")
-    print("=" * 60)
-    print()
-    print("Starting server on http://localhost:8080")
-    print("Open your browser and navigate to http://localhost:8080")
-    print()
-    print("Press Ctrl+C to stop")
-    print("=" * 60)
-    print()
+    logger.info("=" * 60)
+    logger.info("Character Chat Web Server")
+    logger.info("=" * 60)
+    logger.info("Starting server on http://localhost:8888")
+    logger.info("Open your browser and navigate to http://localhost:8888")
+    logger.info("Press Ctrl+C to stop")
+    logger.info("=" * 60)
 
     app = create_app()
-    web.run_app(app, host='0.0.0.0', port=8080)
+    web.run_app(app, host='0.0.0.0', port=8888)
 
 
 if __name__ == '__main__':

@@ -1,9 +1,0 @@
-The player has learned about eye-OS and Luna.
-
-The player has found a stasis pod containing an engineer.
-
-The player has told Eliza the pod-id of the engineer's stasis pod.
-
-Eliza has attempted to wake the engineer.
-
-The player has reported that the engineer's stasis pod is on fire.

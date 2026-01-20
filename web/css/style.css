@@ -82,11 +82,89 @@ body {
     bottom: 20px;
     right: 20px;
     width: 400px;
+    min-width: 280px;
+    min-height: 200px;
     max-width: calc(100vw - 40px);
     height: 500px;
     max-height: calc(100vh - 40px);
     display: flex;
     flex-direction: column;
+    resize: none; /* We handle resize manually */
+}
+
+#chat-container.minimized {
+    height: auto !important;
+    min-height: auto;
+}
+
+#chat-container.minimized #chat-body,
+#chat-container.minimized #chat-resize-handle {
+    display: none;
+}
+
+/* Chat Header (Drag Handle) */
+#chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    margin: -20px -20px 15px -20px;
+    background: rgba(79, 195, 247, 0.15);
+    border-radius: 12px 12px 0 0;
+    cursor: move;
+    user-select: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#chat-header span {
+    font-weight: 600;
+    font-size: 14px;
+    color: #4fc3f7;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#chat-minimize {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 4px;
+    width: 24px;
+    height: 24px;
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+#chat-minimize:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Chat Body */
+#chat-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Chat Resize Handle */
+#chat-resize-handle {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 20px;
+    height: 20px;
+    cursor: sw-resize;
+    background: linear-gradient(135deg, transparent 50%, rgba(79, 195, 247, 0.3) 50%);
+    border-radius: 0 0 0 12px;
+}
+
+#chat-resize-handle:hover {
+    background: linear-gradient(135deg, transparent 50%, rgba(79, 195, 247, 0.5) 50%);
 }
 
 #chat-messages {
@@ -294,6 +372,11 @@ body {
     cursor: pointer;
 }
 
+#config-content select option {
+    background: #1a1a2a;
+    color: #fff;
+}
+
 #restart-button {
     width: 100%;
     margin-top: 15px;
@@ -350,7 +433,7 @@ body {
     color: #aaa;
 }
 
-/* Typing Indicator */
+/* Typing Indicator (legacy) */
 .typing-indicator {
     display: inline-block;
 }
@@ -376,6 +459,70 @@ body {
 @keyframes typing {
     0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
     30% { transform: translateY(-10px); opacity: 1; }
+}
+
+/* Waiting Indicator (. . . . .) */
+.waiting-indicator {
+    opacity: 0.8;
+}
+
+.waiting-indicator .message-sender {
+    color: #888 !important;
+    font-style: italic;
+}
+
+.waiting-dots {
+    font-size: 24px;
+    font-weight: bold;
+    letter-spacing: 4px;
+    color: #4fc3f7;
+    animation: waitingPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes waitingPulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+/* Voice Annotations - styled in orange for NPC stage directions */
+/* These are things like [static], [voice cracks], [breathing heavily], etc. */
+.voice-annotation {
+    color: #ff9800;
+    font-style: italic;
+    font-weight: 500;
+    /* Slightly smaller to distinguish from speech */
+    font-size: 0.95em;
+}
+
+/* Different styles for specific annotation types (optional enhancement) */
+.voice-annotation[data-elevenlabs-effect="radio_static"] {
+    color: #ff7043;
+    text-shadow: 0 0 4px rgba(255, 112, 67, 0.3);
+}
+
+.voice-annotation[data-elevenlabs-effect="breathing"],
+.voice-annotation[data-elevenlabs-effect="voice_crack"] {
+    color: #ffb74d;
+}
+
+.voice-annotation[data-elevenlabs-effect="panic"],
+.voice-annotation[data-elevenlabs-effect="shout"] {
+    color: #ff5722;
+    font-weight: 600;
+}
+
+.voice-annotation[data-elevenlabs-effect="whisper"] {
+    color: #ffcc80;
+    font-weight: 400;
+    font-size: 0.9em;
+}
+
+.voice-annotation[data-elevenlabs-effect="sfx_alarm"],
+.voice-annotation[data-elevenlabs-effect="signal_lost"] {
+    color: #f44336;
+    text-transform: uppercase;
+    font-size: 0.85em;
+    letter-spacing: 0.5px;
 }
 
 /* Responsive */

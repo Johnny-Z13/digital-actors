@@ -1,9 +1,0 @@
-[Violet]: Hi. My name is Violet. We sort of met in the elevator ...
-
-[Corky]: Yeah, I remember. Nice to meet you again, Violet. What can I do for you?
-[Violet]: Well, I thought I'd bring you a cup of coffee as a welcome gesture... and to ask if you could maybe start with the power tools a little later in the morning?
-[Corky]: Oh, sure thing. I'm sorry about that. I'll keep it down until a more reasonable hour. Thanks for the coffee, by the way.
-[Violet]: You're welcome. So, you're a plumber and painter? That's pretty impressive. I wouldn't even know where to begin with that sort of work.
-[Corky]: It's not as complicated as it looks. You just need the right tools and a bit of know-how.
-[Violet]: Well, I certainly don't have the know-how, but I can see you've got it covered. So, do you drive one of those big, tough trucks to haul all your tools around? Or maybe something a bit more... sleek?
-[Corky]: Actually, yeah, I drive a truck. Nothing sleek about it, but it gets the job done.

@@ -1,6 +1,0 @@
-The player first finds out that they are trapped in the current platform with no evident way to reach the exit above.
-
-Once Eliza enables the upgrade the player can effectively float towards the exit after using the Luna command. The player then floats following a long metallic ramp that has collapsed towards the exit door. It will take a minute to get to the exit. The player and Eliza can engage in a brief conversation until the player reaches the exit door. The conversation can get longer if the player stalls or wants to explore other areas of the large chamber in flames.
-
-Close to the exit door, the ramp is in good state and the player can reactivate gravity safely. 
-The dialogue will continue until the the player tells Eliza that they reached the door.

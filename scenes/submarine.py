@@ -158,21 +158,21 @@ class Submarine(Scene):
                 id="oxygen_depleted",
                 description="Ran out of oxygen",
                 condition="state['oxygen'] <= 0",
-                message="*static* ...I can't... breathe... *signal lost*",
+                message="[static] ...I can't... breathe... [signal lost]",
                 ending_type="death"
             ),
             FailureCriterion(
                 id="too_many_mistakes",
                 description="Made too many incorrect actions",
                 condition="state['incorrect_actions'] >= 5",
-                message="Stop! You're making it worse! We're losing pressure... *alarm blares*",
+                message="Stop! You're making it worse! We're losing pressure... [alarm blares]",
                 ending_type="critical_failure"
             ),
             FailureCriterion(
                 id="trust_broken",
                 description="Refused to cooperate",
                 condition="state['trust'] < -20 and state['oxygen'] < 90",
-                message="You won't listen... I can't do this alone... *voice fades*",
+                message="You won't listen... I can't do this alone... [voice fades]",
                 ending_type="refused_cooperation"
             ),
         ]
@@ -245,9 +245,9 @@ class Submarine(Scene):
 
             TIME PRESSURE: This is a 3-minute scene with real oxygen countdown. Act quickly but carefully.""",
             opening_speech=[
-                Line(text="*static crackles* ...can you hear me? This is Casey in the engine room!", delay=0),
+                Line(text="[static crackles] ...can you hear me? This is Casey in the engine room!", delay=0),
                 Line(text="I can't get to you - the bulkhead door is sealed!", delay=2.0),
-                Line(text="*breathing heavily* We're running out of oxygen. We have maybe three minutes.", delay=3.0),
+                Line(text="[breathing heavily] We're running out of oxygen. We have maybe three minutes.", delay=3.0),
                 Line(text="You're gonna have to trust me. I can fix this, but only if we work together.", delay=3.5),
                 Line(text="Are you there? Please respond!", delay=2.5),
             ],

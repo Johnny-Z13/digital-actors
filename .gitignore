@@ -6,6 +6,16 @@ data/
 *.sqlite3
 *.db-journal
 
+# Claude Code settings (user-specific)
+.claude/
+
+# Node.js / npm (web frontend linting tools)
+web/node_modules/
+web/package-lock.json
+
+# Ruff cache
+.ruff_cache/
+
 # macOS
 .DS_Store
 .AppleDouble

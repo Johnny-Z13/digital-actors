@@ -1,5 +1,0 @@
-The player has been chatting with Eliza.
-
-The player has acknowledged the emergency override message.
-
-The player has repeated the correct pass phrase (Bravo Tango Delta) back to Eliza.

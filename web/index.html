@@ -21,8 +21,13 @@
 
         <!-- Chat Container -->
         <div id="chat-container" class="panel">
-            <div id="chat-messages"></div>
-            <div id="chat-input-container">
+            <div id="chat-header" class="drag-handle">
+                <span>Chat</span>
+                <button id="chat-minimize" title="Minimize">−</button>
+            </div>
+            <div id="chat-body">
+                <div id="chat-messages"></div>
+                <div id="chat-input-container">
                 <input
                     type="text"
                     id="chat-input"
@@ -31,7 +36,9 @@
                 />
                 <button id="send-button">Send</button>
             </div>
-            <div id="connection-status" class="disconnected">Connecting...</div>
+                <div id="connection-status" class="disconnected">Connecting...</div>
+            </div>
+            <div id="chat-resize-handle"></div>
         </div>
 
         <!-- Configuration Panel (collapsible) -->

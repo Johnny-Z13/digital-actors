@@ -5,11 +5,33 @@ Tracks player behavior, preferences, and progress across sessions.
 This allows characters to remember players and adapt to their play style.
 """
 
-import sqlite3
+from __future__ import annotations
+
 import json
+import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any
+
+from constants import (
+    FAMILIARITY_MODERATE,
+    FAMILIARITY_NEW,
+    HINT_SCENE_ATTEMPTS_THRESHOLD,
+    PERSONALITY_COOPERATION_DECREMENT,
+    PERSONALITY_COOPERATION_INCREMENT,
+    PERSONALITY_HIGH_THRESHOLD,
+    PERSONALITY_IMPULSIVENESS_DECREMENT,
+    PERSONALITY_IMPULSIVENESS_INCREMENT,
+    PERSONALITY_MID_THRESHOLD,
+    PERSONALITY_PATIENCE_DECREMENT,
+    PERSONALITY_PATIENCE_INCREMENT,
+    PERSONALITY_PROBLEM_SOLVING_DECREMENT,
+    PERSONALITY_PROBLEM_SOLVING_INCREMENT,
+    TRUST_HIGH_THRESHOLD,
+    TRUST_LOW_THRESHOLD,
+    TRUST_NEGATIVE_THRESHOLD,
+    TRUST_POSITIVE_THRESHOLD,
+)
 
 
 class PlayerMemory:
@@ -223,6 +245,25 @@ class PlayerMemory:
         self.current_scene_data['rapid_action_count'] = \
             self.current_scene_data.get('rapid_action_count', 0) + 1
 
+    def record_patient_wait(self):
+        """Record that player waited patiently for NPC.
+
+        This is called when the waiting indicator reaches 5 dots,
+        indicating the player is being patient rather than spamming.
+        """
+        self.current_scene_data['patient_waits'] = \
+            self.current_scene_data.get('patient_waits', 0) + 1
+        # Reward patience in personality profile
+        self.personality_profile['patience'] = min(
+            100,
+            self.personality_profile['patience'] + PERSONALITY_PATIENCE_INCREMENT
+        )
+        # Slightly reduce impulsiveness for patient behavior
+        self.personality_profile['impulsiveness'] = max(
+            0,
+            self.personality_profile['impulsiveness'] - PERSONALITY_IMPULSIVENESS_DECREMENT
+        )
+
     def end_scene(self, outcome: str, final_state: Dict):
         """Record the end of a scene attempt and update personality."""
         if not self.current_scene_data:
@@ -299,42 +340,66 @@ class PlayerMemory:
         # Clear current scene data
         self.current_scene_data = {}
 
-    def _update_personality(self, interrupted: int, rapid_actions: int,
-                           correct_actions: int, incorrect_actions: int, outcome: str):
+    def _update_personality(
+        self,
+        interrupted: int,
+        rapid_actions: int,
+        correct_actions: int,
+        incorrect_actions: int,
+        outcome: str,
+    ) -> None:
         """Update personality profile based on scene behavior."""
         # Impulsiveness (increases with interruptions and rapid actions)
         if interrupted > 0:
-            self.personality_profile['impulsiveness'] = min(100,
-                self.personality_profile['impulsiveness'] + (interrupted * 3))
+            self.personality_profile['impulsiveness'] = min(
+                100,
+                self.personality_profile['impulsiveness']
+                + (interrupted * PERSONALITY_IMPULSIVENESS_INCREMENT),
+            )
         else:
             # Slowly decrease if no interruptions
-            self.personality_profile['impulsiveness'] = max(0,
-                self.personality_profile['impulsiveness'] - 1)
+            self.personality_profile['impulsiveness'] = max(
+                0,
+                self.personality_profile['impulsiveness'] - PERSONALITY_IMPULSIVENESS_DECREMENT,
+            )
 
         # Patience (decreases with rapid actions)
         if rapid_actions > 0:
-            self.personality_profile['patience'] = max(0,
-                self.personality_profile['patience'] - (rapid_actions * 3))
+            self.personality_profile['patience'] = max(
+                0,
+                self.personality_profile['patience']
+                - (rapid_actions * PERSONALITY_PATIENCE_DECREMENT),
+            )
         elif interrupted == 0:
             # Increase if patient
-            self.personality_profile['patience'] = min(100,
-                self.personality_profile['patience'] + 2)
+            self.personality_profile['patience'] = min(
+                100,
+                self.personality_profile['patience'] + PERSONALITY_PATIENCE_INCREMENT,
+            )
 
         # Cooperation (increases if low interruptions and good outcome)
         if interrupted == 0 and outcome == 'success':
-            self.personality_profile['cooperation'] = min(100,
-                self.personality_profile['cooperation'] + 3)
+            self.personality_profile['cooperation'] = min(
+                100,
+                self.personality_profile['cooperation'] + PERSONALITY_COOPERATION_INCREMENT,
+            )
         elif interrupted > 2:
-            self.personality_profile['cooperation'] = max(0,
-                self.personality_profile['cooperation'] - 2)
+            self.personality_profile['cooperation'] = max(
+                0,
+                self.personality_profile['cooperation'] - PERSONALITY_COOPERATION_DECREMENT,
+            )
 
         # Problem solving (increases with correct actions)
         if correct_actions > incorrect_actions:
-            self.personality_profile['problem_solving'] = min(100,
-                self.personality_profile['problem_solving'] + 2)
+            self.personality_profile['problem_solving'] = min(
+                100,
+                self.personality_profile['problem_solving'] + PERSONALITY_PROBLEM_SOLVING_INCREMENT,
+            )
         elif incorrect_actions > correct_actions * 2:
-            self.personality_profile['problem_solving'] = max(0,
-                self.personality_profile['problem_solving'] - 1)
+            self.personality_profile['problem_solving'] = max(
+                0,
+                self.personality_profile['problem_solving'] - PERSONALITY_PROBLEM_SOLVING_DECREMENT,
+            )
 
     def _update_relationship(self, character_id: str, trust_change: int):
         """Update relationship with a character."""
@@ -371,20 +436,20 @@ class PlayerMemory:
         familiarity = rel['familiarity']
         trust = rel['trust']
 
-        if familiarity == 1:
+        if familiarity == FAMILIARITY_NEW:
             context = "You've met this player once before. "
-        elif familiarity < 5:
+        elif familiarity < FAMILIARITY_MODERATE:
             context = f"You've worked with this player {familiarity} times before. "
         else:
             context = f"You and this player have a long history ({familiarity} encounters). "
 
-        if trust > 50:
+        if trust > TRUST_HIGH_THRESHOLD:
             context += "They've earned your trust through good cooperation."
-        elif trust > 20:
+        elif trust > TRUST_POSITIVE_THRESHOLD:
             context += "You have a decent working relationship."
-        elif trust > -20:
+        elif trust > TRUST_NEGATIVE_THRESHOLD:
             context += "Your relationship is neutral."
-        elif trust > -50:
+        elif trust > TRUST_LOW_THRESHOLD:
             context += "You're somewhat frustrated with their past behavior."
         else:
             context += "You have serious doubts about their ability to cooperate."
@@ -398,33 +463,33 @@ class PlayerMemory:
         summary = "Player behavioral profile:\n"
 
         # Impulsiveness
-        if p['impulsiveness'] > 70:
+        if p['impulsiveness'] > PERSONALITY_HIGH_THRESHOLD:
             summary += "- VERY IMPULSIVE: Acts without thinking, interrupts frequently\n"
-        elif p['impulsiveness'] > 50:
+        elif p['impulsiveness'] > PERSONALITY_MID_THRESHOLD:
             summary += "- Somewhat impulsive: Tends to act quickly\n"
         else:
             summary += "- Thoughtful: Takes time to consider actions\n"
 
         # Patience
-        if p['patience'] > 70:
+        if p['patience'] > PERSONALITY_HIGH_THRESHOLD:
             summary += "- VERY PATIENT: Waits for instructions, listens carefully\n"
-        elif p['patience'] > 50:
+        elif p['patience'] > PERSONALITY_MID_THRESHOLD:
             summary += "- Patient: Generally waits for guidance\n"
         else:
             summary += "- IMPATIENT: Button mashes, doesn't wait for instructions\n"
 
         # Cooperation
-        if p['cooperation'] > 70:
+        if p['cooperation'] > PERSONALITY_HIGH_THRESHOLD:
             summary += "- HIGHLY COOPERATIVE: Follows instructions well\n"
-        elif p['cooperation'] > 50:
+        elif p['cooperation'] > PERSONALITY_MID_THRESHOLD:
             summary += "- Cooperative: Usually follows guidance\n"
         else:
             summary += "- UNCOOPERATIVE: Ignores instructions, acts independently\n"
 
         # Problem solving
-        if p['problem_solving'] > 70:
+        if p['problem_solving'] > PERSONALITY_HIGH_THRESHOLD:
             summary += "- SKILLED: Makes mostly correct decisions\n"
-        elif p['problem_solving'] > 50:
+        elif p['problem_solving'] > PERSONALITY_MID_THRESHOLD:
             summary += "- Competent: Decent decision-making\n"
         else:
             summary += "- STRUGGLES: Often makes incorrect choices\n"
@@ -452,7 +517,7 @@ INSTRUCTION: Adapt your dialogue to match this player's history and personality.
     def should_give_hint(self, scene_id: str) -> bool:
         """Check if player might need a hint based on history."""
         attempts = self.scene_attempts.get(scene_id, 0)
-        return attempts >= 2  # Failed this scene twice before
+        return attempts >= HINT_SCENE_ATTEMPTS_THRESHOLD
 
     def get_difficulty_recommendation(self) -> str:
         """Recommend difficulty adjustment based on player performance."""

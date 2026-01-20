@@ -9,20 +9,51 @@ Orchestrates the experience by:
 - Personalizing difficulty based on player memory
 """
 
+from __future__ import annotations
+
 import json
-from typing import Dict, Any, Optional, List
+from typing import TYPE_CHECKING, Any
+
+from constants import (
+    CRITICAL_OXYGEN_LEVEL,
+    DIFFICULTY_EASY_OXYGEN_BONUS,
+    DIFFICULTY_EASY_PENALTY_MULTIPLIER,
+    DIFFICULTY_EASY_SUCCESS_RATE,
+    DIFFICULTY_HARD_OXYGEN_PENALTY,
+    DIFFICULTY_HARD_PENALTY_MULTIPLIER,
+    DIFFICULTY_HARD_SUCCESS_RATE,
+    DIFFICULTY_SCENE_ATTEMPTS_THRESHOLD,
+    DIRECTOR_COOLDOWN_ADJUST_NPC,
+    DIRECTOR_COOLDOWN_GIVE_HINT,
+    DIRECTOR_COOLDOWN_SPAWN_EVENT,
+    EVENT_CRISIS_OXYGEN_PENALTY,
+    EVENT_CRISIS_TRUST_PENALTY,
+    EVENT_HELP_OXYGEN_BONUS,
+    EVENT_HELP_TRUST_BONUS,
+    LLM_MAX_TOKENS_DIRECTOR,
+    LLM_TEMPERATURE_DIRECTOR,
+    MAX_INCORRECT_ACTIONS,
+    TRUST_LOW_THRESHOLD,
+)
+import logging
+
 from llm_prompt_core.models.anthropic import ClaudeHaikuModel
 from llm_prompt_core.utils import prompt_llm
+
+if TYPE_CHECKING:
+    from player_memory import PlayerMemory
+
+logger = logging.getLogger(__name__)
 
 
 class DirectorDecision:
     """Represents a decision made by the World Director."""
 
-    def __init__(self, decision_type: str, data: Dict[str, Any]):
+    def __init__(self, decision_type: str, data: dict[str, Any]) -> None:
         self.type = decision_type  # 'continue', 'event', 'transition', 'adjust_npc', 'hint'
         self.data = data
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"DirectorDecision(type={self.type}, data={self.data})"
 
 
@@ -33,18 +64,21 @@ class WorldDirector:
     Runs after player actions to decide what should happen next.
     """
 
-    def __init__(self):
-        self.model = ClaudeHaikuModel(temperature=0.7, max_tokens=500)
+    def __init__(self) -> None:
+        self.model = ClaudeHaikuModel(
+            temperature=LLM_TEMPERATURE_DIRECTOR,
+            max_tokens=LLM_MAX_TOKENS_DIRECTOR,
+        )
         self.decision_cooldown = 0  # Prevent too-frequent interventions
 
     async def evaluate_situation(
         self,
         scene_id: str,
-        scene_state: Dict[str, Any],
+        scene_state: dict[str, Any],
         dialogue_history: str,
-        player_memory: Any,
+        player_memory: PlayerMemory | None,
         character_id: str,
-        last_action: str = None
+        last_action: str | None = None,
     ) -> DirectorDecision:
         """
         Evaluate the current situation and decide what should happen next.
@@ -87,12 +121,12 @@ RULES:
 5. Give hints if player is clearly stuck (failed 2+ times)
 
 Respond in JSON format:
-{{
+{{{{
     "assessment": "brief analysis of current situation",
     "tension_level": "low/medium/high",
     "player_struggling": true/false,
     "action": "continue/spawn_event/adjust_npc/give_hint/transition",
-    "details": {{
+    "details": {{{{
         // If action=spawn_event:
         "event_type": "crisis/challenge/help",
         "event_description": "what happens",
@@ -107,8 +141,8 @@ Respond in JSON format:
         // If action=transition:
         "next_scene": "scene_id",
         "reason": "why transition now"
-    }}
-}}"""
+    }}}}
+}}}}"""
 
         # Get director decision
         try:
@@ -120,26 +154,26 @@ Respond in JSON format:
 
             # Set cooldown based on action type
             if decision_data['action'] == 'spawn_event':
-                self.decision_cooldown = 5  # Don't spawn events too frequently
+                self.decision_cooldown = DIRECTOR_COOLDOWN_SPAWN_EVENT
             elif decision_data['action'] == 'adjust_npc':
-                self.decision_cooldown = 3
+                self.decision_cooldown = DIRECTOR_COOLDOWN_ADJUST_NPC
             elif decision_data['action'] == 'give_hint':
-                self.decision_cooldown = 4
+                self.decision_cooldown = DIRECTOR_COOLDOWN_GIVE_HINT
 
             return DirectorDecision(decision_data['action'], decision_data['details'])
 
         except Exception as e:
-            print(f"World Director error: {e}")
+            logger.exception("World Director error: %s", e)
             return DirectorDecision('continue', {})
 
     def _build_director_context(
         self,
         scene_id: str,
-        scene_state: Dict[str, Any],
+        scene_state: dict[str, Any],
         dialogue_history: str,
-        player_memory: Any,
+        player_memory: PlayerMemory | None,
         character_id: str,
-        last_action: str
+        last_action: str | None,
     ) -> str:
         """Build context string for director prompt."""
 
@@ -152,20 +186,24 @@ Respond in JSON format:
         # Check if player is struggling
         scene_attempts = player_memory.scene_attempts.get(scene_id, 0) if player_memory else 0
 
+        # Escape curly braces for LangChain template compatibility
+        scene_state_str = json.dumps(scene_state, indent=2).replace('{', '{{').replace('}', '}}')
+        pattern_str = 'Struggling - failed multiple times' if scene_attempts >= 2 else 'First attempt or doing well'
+
         context = f"""=== CURRENT SITUATION ===
 Scene: {scene_id}
 Character: {character_id}
 Last Player Action: {last_action or 'None'}
 
 Scene State:
-{json.dumps(scene_state, indent=2)}
+{scene_state_str}
 
 Player Profile:
 {personality}
 
 Scene History:
 - Attempts at this scene: {scene_attempts}
-- Pattern: {'Struggling - failed multiple times' if scene_attempts >= 2 else 'First attempt or doing well'}
+- Pattern: {pattern_str}
 
 Recent Dialogue:
 {recent_dialogue}
@@ -180,7 +218,7 @@ You are the dungeon master. Your job is to:
 """
         return context
 
-    def _parse_director_response(self, response: str) -> Dict[str, Any]:
+    def _parse_director_response(self, response: str) -> dict[str, Any]:
         """Parse the LLM's JSON response."""
         try:
             # Extract JSON from response (handle markdown code blocks)
@@ -194,8 +232,8 @@ You are the dungeon master. Your job is to:
             data = json.loads(json_str)
             return data
         except Exception as e:
-            print(f"Failed to parse director response: {e}")
-            print(f"Response was: {response}")
+            logger.warning("Failed to parse director response: %s", e)
+            logger.debug("Response was: %s", response)
             return {
                 'action': 'continue',
                 'details': {}
@@ -206,8 +244,8 @@ You are the dungeon master. Your job is to:
         scene_id: str,
         event_type: str,
         event_description: str,
-        scene_state: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        scene_state: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         Generate a dynamic event that affects the scene.
 
@@ -233,18 +271,18 @@ You are the dungeon master. Your job is to:
         if event_type == 'crisis':
             # Make situation worse
             if 'oxygen' in scene_state:
-                event['state_changes']['oxygen'] = -20
+                event['state_changes']['oxygen'] = -EVENT_CRISIS_OXYGEN_PENALTY
                 event['narrative'] = f"[EMERGENCY] {event_description} - Oxygen dropping fast!"
             if 'trust' in scene_state:
-                event['state_changes']['trust'] = -10
+                event['state_changes']['trust'] = -EVENT_CRISIS_TRUST_PENALTY
 
         elif event_type == 'help':
             # Give player a break
             if 'oxygen' in scene_state:
-                event['state_changes']['oxygen'] = 15
+                event['state_changes']['oxygen'] = EVENT_HELP_OXYGEN_BONUS
                 event['narrative'] = f"[LUCKY BREAK] {event_description} - You gained some oxygen!"
             if 'trust' in scene_state:
-                event['state_changes']['trust'] = 5
+                event['state_changes']['trust'] = EVENT_HELP_TRUST_BONUS
 
         elif event_type == 'challenge':
             # Create tension without being catastrophic
@@ -254,9 +292,9 @@ You are the dungeon master. Your job is to:
 
     def should_force_game_over(
         self,
-        scene_state: Dict[str, Any],
-        player_memory: Any
-    ) -> Optional[str]:
+        scene_state: dict[str, Any],
+        player_memory: PlayerMemory | None,
+    ) -> str | None:
         """
         Check if director should force an early game over.
 
@@ -268,11 +306,14 @@ You are the dungeon master. Your job is to:
             return 'failure'
 
         # Too many incorrect actions
-        if scene_state.get('incorrect_actions', 0) >= 5:
+        if scene_state.get('incorrect_actions', 0) >= MAX_INCORRECT_ACTIONS:
             return 'failure'
 
         # Trust completely broken + low oxygen
-        if scene_state.get('trust', 0) < -50 and scene_state.get('oxygen', 999) < 60:
+        if (
+            scene_state.get('trust', 0) < TRUST_LOW_THRESHOLD
+            and scene_state.get('oxygen', 999) < CRITICAL_OXYGEN_LEVEL
+        ):
             return 'failure'
 
         return None
@@ -281,7 +322,7 @@ You are the dungeon master. Your job is to:
         self,
         character_id: str,
         behavior_change: str,
-        current_state: Dict[str, Any]
+        current_state: dict[str, Any],
     ) -> str:
         """
         Generate instruction to adjust NPC behavior mid-scene.
@@ -340,9 +381,9 @@ You are the dungeon master. Your job is to:
     async def evaluate_for_scene_transition(
         self,
         current_scene: str,
-        scene_state: Dict[str, Any],
-        player_memory: Any
-    ) -> Optional[str]:
+        scene_state: dict[str, Any],
+        player_memory: PlayerMemory | None,
+    ) -> str | None:
         """
         Check if it's time to transition to a new scene.
 
@@ -356,9 +397,9 @@ You are the dungeon master. Your job is to:
 
     def get_difficulty_adjustment(
         self,
-        player_memory: Any,
-        scene_id: str
-    ) -> Dict[str, Any]:
+        player_memory: PlayerMemory | None,
+        scene_id: str,
+    ) -> dict[str, Any]:
         """
         Recommend difficulty adjustments based on player performance.
 
@@ -376,19 +417,22 @@ You are the dungeon master. Your job is to:
         scene_attempts = player_memory.scene_attempts.get(scene_id, 0)
 
         # Struggling player - make it easier
-        if success_rate < 0.3 or scene_attempts >= 3:
+        if (
+            success_rate < DIFFICULTY_EASY_SUCCESS_RATE
+            or scene_attempts >= DIFFICULTY_SCENE_ATTEMPTS_THRESHOLD
+        ):
             return {
-                'penalty_multiplier': 0.7,  # 30% less harsh penalties
+                'penalty_multiplier': DIFFICULTY_EASY_PENALTY_MULTIPLIER,
                 'hint_frequency': 'frequent',
-                'oxygen_bonus': 30,  # Start with more oxygen
+                'oxygen_bonus': DIFFICULTY_EASY_OXYGEN_BONUS,
             }
 
         # Skilled player - make it harder
-        elif success_rate > 0.8 and scene_attempts < 2:
+        elif success_rate > DIFFICULTY_HARD_SUCCESS_RATE and scene_attempts < 2:
             return {
-                'penalty_multiplier': 1.3,  # 30% harsher penalties
+                'penalty_multiplier': DIFFICULTY_HARD_PENALTY_MULTIPLIER,
                 'hint_frequency': 'rare',
-                'oxygen_bonus': -30,  # Start with less oxygen
+                'oxygen_bonus': -DIFFICULTY_HARD_OXYGEN_PENALTY,
             }
 
         # Normal difficulty

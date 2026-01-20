@@ -1,9 +1,0 @@
-[Violet]: Hi. My name is Violet. We sort of met in the elevator ...
-
-[Corky]: Hey, yeah, I remember. Corky. Nice to meet you, Violet.
-[Violet]: I thought I'd bring you a cup of coffee, sort of a neighborly gesture. Plus, I wanted to mention... those power tools of yours make quite a symphony in the morning.
-[Corky]: Oh, I'm sorry about that. I'll make sure to start a little later from now on. Thanks for the coffee, by the way. So, what can I do for you?
-[Violet]: Oh, I just wanted to see what you were working on. It's not every day we get someone who can handle all that hardware. I'm quite impressed, honestly.
-[Corky]: Well, thank you. It's just a bathroom renovation, pretty straightforward stuff. But it's nice to know someone's noticing.
-[Violet]: And you must have some serious skills. I wouldn't even know where to start with a wrench, let alone power tools. By the way, what do you drive? My guess is something strong and dependable, like you. Maybe... a Jeep?
-[Corky]: Close, but no. I drive a truck. Gets the job done, and it suits me just fine.
