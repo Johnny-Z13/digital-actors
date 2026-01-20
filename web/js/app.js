@@ -1,9 +1,11 @@
 import { CharacterScene } from './scene.js';
+import { SubmarineScene } from './submarine_scene.js';
 
 class ChatApp {
     constructor() {
         this.ws = null;
         this.scene = null;
+        this.sceneType = 'character'; // 'character' or 'submarine'
         this.currentCharacter = 'eliza';
         this.currentScene = 'introduction';
         this.isConnected = false;
@@ -14,7 +16,7 @@ class ChatApp {
     init() {
         // Initialize Three.js scene
         const sceneContainer = document.getElementById('scene-container');
-        this.scene = new CharacterScene(sceneContainer);
+        this.createScene(sceneContainer, this.currentScene);
 
         // Setup event listeners
         this.setupEventListeners();
@@ -26,6 +28,36 @@ class ChatApp {
         setTimeout(() => {
             document.getElementById('loading-screen').classList.add('hidden');
         }, 1000);
+    }
+
+    createScene(container, sceneId) {
+        // Clear existing scene
+        if (this.scene && this.scene.renderer) {
+            container.removeChild(this.scene.renderer.domElement);
+        }
+
+        // Create appropriate scene based on scene ID
+        if (sceneId === 'submarine') {
+            this.sceneType = 'submarine';
+            this.scene = new SubmarineScene(container, (action) => this.handleButtonClick(action));
+        } else {
+            this.sceneType = 'character';
+            this.scene = new CharacterScene(container);
+        }
+    }
+
+    handleButtonClick(action) {
+        // Handle submarine button clicks
+        console.log('Button clicked:', action);
+        this.addSystemMessage(`[Control] ${action} activated`);
+
+        // Send button action to server
+        if (this.isConnected) {
+            this.ws.send(JSON.stringify({
+                type: 'button_action',
+                action: action
+            }));
+        }
     }
 
     setupEventListeners() {
@@ -58,7 +90,17 @@ class ChatApp {
         // Scene selection
         const sceneSelect = document.getElementById('scene-select');
         sceneSelect.addEventListener('change', (e) => {
-            this.currentScene = e.target.value;
+            const newScene = e.target.value;
+            if (newScene !== this.currentScene) {
+                this.currentScene = newScene;
+
+                // Recreate the 3D scene if switching to/from submarine
+                const needsSceneRecreate = (newScene === 'submarine' || this.currentScene === 'submarine');
+                if (needsSceneRecreate) {
+                    const sceneContainer = document.getElementById('scene-container');
+                    this.createScene(sceneContainer, newScene);
+                }
+            }
         });
 
         // Restart button
@@ -183,12 +225,119 @@ class ChatApp {
                 });
                 break;
 
+            case 'game_over':
+                // Game over screen
+                this.showGameOverScreen(data.outcome);
+                break;
+
+            case 'system_event':
+                // World Director spawned an event
+                this.addSystemMessage(data.content);
+                break;
+
             default:
                 console.log('Unknown message type:', data.type);
         }
     }
 
-    addMessage(sender, content, type) {
+    showGameOverScreen(outcome) {
+        // Create game over overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'game-over-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            animation: fadeIn 0.5s;
+        `;
+
+        // Title
+        const title = document.createElement('div');
+        title.style.cssText = `
+            font-size: 4rem;
+            font-weight: bold;
+            margin-bottom: 2rem;
+            color: ${outcome.type === 'success' ? '#4ade80' : '#ef4444'};
+            text-shadow: 0 0 20px currentColor;
+        `;
+        title.textContent = 'THE END';
+
+        // Outcome description
+        const description = document.createElement('div');
+        description.style.cssText = `
+            font-size: 1.5rem;
+            max-width: 600px;
+            text-align: center;
+            line-height: 1.8;
+            color: #e0e0e0;
+            padding: 0 2rem;
+            margin-bottom: 3rem;
+        `;
+        description.textContent = outcome.description || outcome.message;
+
+        // Restart button
+        const restartButton = document.createElement('button');
+        restartButton.textContent = 'Try Again';
+        restartButton.style.cssText = `
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            background: ${outcome.type === 'success' ? '#4ade80' : '#ef4444'};
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        `;
+        restartButton.onmouseover = () => restartButton.style.transform = 'scale(1.1)';
+        restartButton.onmouseout = () => restartButton.style.transform = 'scale(1)';
+        restartButton.onclick = () => {
+            document.body.removeChild(overlay);
+            this.restart();
+        };
+
+        // Add CSS animation
+        if (!document.getElementById('game-over-styles')) {
+            const style = document.createElement('style');
+            style.id = 'game-over-styles';
+            style.textContent = `
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        overlay.appendChild(title);
+        overlay.appendChild(description);
+        overlay.appendChild(restartButton);
+        document.body.appendChild(overlay);
+    }
+
+    restart() {
+        // Send restart message to server
+        if (this.isConnected) {
+            this.ws.send(JSON.stringify({
+                type: 'restart',
+                character: this.currentCharacter,
+                scene: this.currentScene
+            }));
+        }
+
+        // Clear chat messages
+        const messagesContainer = document.getElementById('chat-messages');
+        messagesContainer.innerHTML = '';
+    }
+
+    addMessage(sender, content, type, useTypingEffect = true) {
         const messagesContainer = document.getElementById('chat-messages');
 
         const messageDiv = document.createElement('div');
@@ -200,7 +349,6 @@ class ChatApp {
 
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
-        contentDiv.textContent = content;
 
         messageDiv.appendChild(senderDiv);
         messageDiv.appendChild(contentDiv);
@@ -208,6 +356,45 @@ class ChatApp {
 
         // Scroll to bottom
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        // Apply typing effect for character messages
+        if (type === 'character' && useTypingEffect) {
+            this.typeMessage(contentDiv, content);
+        } else {
+            contentDiv.textContent = content;
+        }
+    }
+
+    typeMessage(element, text, speed = 30) {
+        let index = 0;
+        element.textContent = '';
+
+        const messagesContainer = document.getElementById('chat-messages');
+        let lastScrollTime = 0;
+
+        const typeInterval = setInterval(() => {
+            if (index < text.length) {
+                // Batch multiple characters for better performance
+                const charsToAdd = Math.min(2, text.length - index);
+                element.textContent += text.substring(index, index + charsToAdd);
+                index += charsToAdd;
+
+                // Throttle scroll updates to every 60ms (max ~16 times per second)
+                const now = Date.now();
+                if (now - lastScrollTime > 60) {
+                    requestAnimationFrame(() => {
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    });
+                    lastScrollTime = now;
+                }
+            } else {
+                clearInterval(typeInterval);
+                // Final scroll to ensure we're at bottom
+                requestAnimationFrame(() => {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                });
+            }
+        }, speed);
     }
 
     addSystemMessage(content) {
@@ -266,6 +453,7 @@ class ChatApp {
             'eliza': 'Eliza',
             'wizard': 'Merlin',
             'detective': 'Detective Stone',
+            'engineer': 'Casey Reeves',
             'custom': 'Custom Character'
         };
 
@@ -273,6 +461,7 @@ class ChatApp {
             'eliza': 'AI Caretaker',
             'wizard': 'Wise Wizard',
             'detective': 'Hard-boiled Detective',
+            'engineer': 'Sub Engineer',
             'custom': 'Custom Character'
         };
 
@@ -280,14 +469,17 @@ class ChatApp {
             'eliza': 0x4fc3f7,
             'wizard': 0x9c27b0,
             'detective': 0x795548,
+            'engineer': 0xff6b35,
             'custom': 0x4caf50
         };
 
         document.getElementById('character-name').textContent = characterNames[characterId];
         document.getElementById('character-description').textContent = characterDescriptions[characterId];
 
-        // Update 3D character appearance
-        this.scene.updateCharacter({ color: characterColors[characterId] });
+        // Update 3D character appearance (only for character scenes)
+        if (this.sceneType === 'character' && this.scene.updateCharacter) {
+            this.scene.updateCharacter({ color: characterColors[characterId] });
+        }
 
         // Send config to server
         this.sendConfig();
@@ -299,6 +491,12 @@ class ChatApp {
         // Clear chat
         const messagesContainer = document.getElementById('chat-messages');
         messagesContainer.innerHTML = '';
+
+        // Recreate the scene if submarine
+        if (this.currentScene === 'submarine') {
+            const sceneContainer = document.getElementById('scene-container');
+            this.createScene(sceneContainer, this.currentScene);
+        }
 
         // Send restart message to server
         if (this.isConnected) {

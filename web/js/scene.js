@@ -174,7 +174,7 @@ export class CharacterScene {
 
     createParticles() {
         const particlesGeometry = new THREE.BufferGeometry();
-        const particlesCount = 1000;
+        const particlesCount = 200; // Reduced from 1000 for performance
         const positions = new Float32Array(particlesCount * 3);
 
         for (let i = 0; i < particlesCount * 3; i++) {

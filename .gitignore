@@ -1,4 +1,25 @@
+# Project-specific
 voicecache/
+data/
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# Audio cache
+*.wav
+*.mp3
+*.ogg
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

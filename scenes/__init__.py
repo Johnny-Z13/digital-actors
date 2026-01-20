@@ -8,12 +8,14 @@ from scenes.base import Scene
 from scenes.introduction import Introduction
 from scenes.conversation import Conversation
 from scenes.quest import Quest
+from scenes.submarine import Submarine
 
 # Registry of all available scenes
 SCENES = {
     'introduction': Introduction(),
     'conversation': Conversation(),
     'quest': Quest(),
+    'submarine': Submarine(),
 }
 
-__all__ = ['Scene', 'SCENES', 'Introduction', 'Conversation', 'Quest']
+__all__ = ['Scene', 'SCENES', 'Introduction', 'Conversation', 'Quest', 'Submarine']
