@@ -50,8 +50,8 @@ class Submarine(Scene):
         )
 
         # Define user controls
-        # Note: All controls have npc_aware=True because Casey can sense system changes
-        # from the engine room (gauges, sounds, pressure changes, etc.)
+        # Note: All controls have npc_aware=True because James can sense system changes
+        # from forward control (gauges, sounds, pressure changes, etc.)
         controls = [
             SceneControl(
                 id="o2_valve",
@@ -61,7 +61,7 @@ class Submarine(Scene):
                 position={'x': -0.4, 'y': 0.2, 'z': 0},
                 description="Oxygen valve control - temporarily shuts off oxygen flow to rebalance pressure",
                 action_type="critical",
-                npc_aware=True  # Casey can see oxygen gauges in engine room
+                npc_aware=True  # James can see oxygen gauges in forward control
             ),
             SceneControl(
                 id="vent",
@@ -71,7 +71,7 @@ class Submarine(Scene):
                 position={'x': 0.2, 'y': 0.2, 'z': 0},
                 description="Emergency vent system - releases pressure but causes temporary panic",
                 action_type="dangerous",
-                npc_aware=True  # Casey can hear the loud hissing sound
+                npc_aware=True  # James can hear the loud hissing sound
             ),
             SceneControl(
                 id="ballast",
@@ -81,7 +81,7 @@ class Submarine(Scene):
                 position={'x': -0.4, 'y': -0.15, 'z': 0},
                 description="Ballast control - adjusts submarine buoyancy to reduce strain",
                 action_type="safe",
-                npc_aware=True  # Casey can feel the submarine's movement/pressure change
+                npc_aware=True  # James can feel the submarine's movement/pressure change
             ),
             SceneControl(
                 id="power",
@@ -91,7 +91,7 @@ class Submarine(Scene):
                 position={'x': 0.2, 'y': -0.15, 'z': 0},
                 description="Power relay - activates backup power systems",
                 action_type="critical",
-                npc_aware=True  # Casey can see power indicators in engine room
+                npc_aware=True  # James can see power indicators in forward control
             ),
             SceneControl(
                 id="crank",

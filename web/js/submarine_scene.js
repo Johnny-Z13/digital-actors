@@ -188,8 +188,8 @@ export class SubmarineScene {
             0.1,
             1000
         );
-        // Start centered in the cabin, looking forward at control panel
-        this.camera.position.set(0, 1.6, 0.5);
+        // Start centered in the cabin, looking forward at control panel (slightly closer)
+        this.camera.position.set(0, 1.6, 0.2);
 
         // Renderer
         this.renderer = new THREE.WebGLRenderer({
