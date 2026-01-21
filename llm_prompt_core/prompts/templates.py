@@ -65,7 +65,18 @@ speech_template = "[{actor}]: {speech}\n"
 
 # Instruction suffix for dialogue generation
 dialogue_instruction_suffix = """
-Give me the next line in the dialogue in the same format. Don't provide stage directions, just the character's words. Don't give me a line for the player or Computer but for one of the other characters.\n
+Continue the dialogue as your character. Stay in character. Respond naturally to what just happened.
+
+CRITICAL FORMATTING RULES:
+- Use [square brackets] for ALL emotional cues, sound effects, and physical descriptions
+- Examples: [breathing heavily] [pause] [coughing] [voice breaking] [sharp intake of breath]
+- DO NOT use *asterisks* for actions or descriptions
+- DO NOT speak your actions out loud (e.g., don't say "nervously fidgets" - use [nervous] instead)
+- Emotional cues should ENHANCE the dialogue, not replace it
+
+BREVITY: Keep responses SHORT (1-3 sentences). Say what matters, then stop. No rambling or over-explaining.
+
+Respond ONLY as your character. Do NOT break character. Do NOT provide meta-commentary, explanations, or apologies about the situation. Just speak as your character would.\n
 """
 
 # Instruction prefix for query evaluation

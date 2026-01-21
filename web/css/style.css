@@ -261,6 +261,10 @@ body {
     font-size: 14px;
     outline: none;
     transition: background-color 0.3s, border-color 0.3s;
+    /* Performance optimizations for input field */
+    will-change: contents;
+    transform: translateZ(0);  /* Force hardware acceleration and separate compositing layer */
+    backface-visibility: hidden;
 }
 
 #chat-input:focus {

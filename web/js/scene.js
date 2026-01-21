@@ -30,12 +30,16 @@ export class CharacterScene {
         );
         this.camera.position.set(0, 1.6, 3);
 
-        // Renderer
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        // Renderer - optimized for performance
+        this.renderer = new THREE.WebGLRenderer({
+            antialias: false,  // Disable expensive antialiasing
+            powerPreference: "high-performance",
+            stencil: false,
+            depth: true
+        });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap at 2x for performance
+        this.renderer.shadowMap.enabled = false; // Disable shadows for better performance
         this.container.appendChild(this.renderer.domElement);
 
         // Controls
@@ -174,7 +178,7 @@ export class CharacterScene {
 
     createParticles() {
         const particlesGeometry = new THREE.BufferGeometry();
-        const particlesCount = 200; // Reduced from 1000 for performance
+        const particlesCount = 100; // Reduced from 1000 for maximum performance
         const positions = new Float32Array(particlesCount * 3);
 
         for (let i = 0; i < particlesCount * 3; i++) {

@@ -26,6 +26,11 @@ class ChatApp {
         this.currentAudio = null;
         this.audioVolume = 0.8;
 
+        // Web Audio API for radio effects
+        this.audioContext = null;
+        this.radioEffectsEnabled = false;
+        this.staticNoise = null;
+
         // Dialogue lock - ensures only one dialogue at a time
         this.dialogueLocked = false;
         this.pendingResponses = [];
@@ -343,11 +348,27 @@ class ChatApp {
                 break;
 
             case 'state_update':
-                // Server-side state update (e.g., oxygen countdown)
+                // Server-side state update (e.g., radiation levels, time remaining, hull pressure)
                 if (data.state && this.sceneType === 'submarine' && this.scene) {
-                    // Sync oxygen level with server
-                    if (data.state.oxygen !== undefined) {
-                        this.scene.setOxygenLevel(data.state.oxygen);
+                    // Sync radiation level with server
+                    if (data.state.radiation !== undefined) {
+                        this.scene.setRadiationLevel(data.state.radiation);
+                    }
+                    // Sync time remaining with server
+                    if (data.state.time_remaining !== undefined) {
+                        this.scene.setTimeRemaining(data.state.time_remaining);
+                    }
+                    // Sync hull pressure/depth with server
+                    if (data.state.hull_pressure !== undefined) {
+                        this.scene.setHullPressure(data.state.hull_pressure);
+                    }
+                    // Sync systems repaired counter with server
+                    if (data.state.systems_repaired !== undefined) {
+                        this.scene.setSystemsRepaired(data.state.systems_repaired);
+                    }
+                    // Sync phase with server
+                    if (data.state.phase !== undefined) {
+                        this.scene.setPhase(data.state.phase);
                     }
                 }
                 break;
@@ -359,6 +380,7 @@ class ChatApp {
 
             case 'opening_speech':
                 // Character's opening lines - queue them to display one at a time
+                console.log('[OPENING_SPEECH] Received opening_speech with', data.lines.length, 'lines');
                 this.queueOpeningLines(data.lines, data.character_name || 'Character');
                 break;
 
@@ -370,6 +392,11 @@ class ChatApp {
             case 'system_event':
                 // World Director spawned an event
                 this.addSystemMessage(data.content);
+                break;
+
+            case 'system_notification':
+                // Button press or action notification
+                this.addSystemMessage(data.message);
                 break;
 
             default:
@@ -693,6 +720,63 @@ class ChatApp {
     }
 
     /**
+     * Initialize Web Audio context and radio effects
+     */
+    initRadioEffects() {
+        if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            console.log('[RADIO] Web Audio context initialized');
+        }
+
+        // Enable radio effects for submarine scene
+        if (this.sceneType === 'submarine') {
+            this.radioEffectsEnabled = true;
+            console.log('[RADIO] Radio effects enabled for submarine scene');
+        }
+    }
+
+    /**
+     * Create radio effect processing chain
+     * @param {AudioBufferSourceNode} source - Audio source node
+     * @returns {AudioNode} - Final node in the chain to connect to destination
+     */
+    createRadioEffectChain(source) {
+        if (!this.audioContext) return source;
+
+        // Low-pass filter (muffles high frequencies like a radio)
+        const lowpass = this.audioContext.createBiquadFilter();
+        lowpass.type = 'lowpass';
+        lowpass.frequency.value = 3000; // Cut off frequencies above 3kHz
+        lowpass.Q.value = 0.7;
+
+        // High-pass filter (removes very low rumble)
+        const highpass = this.audioContext.createBiquadFilter();
+        highpass.type = 'highpass';
+        highpass.frequency.value = 300; // Cut off frequencies below 300Hz
+        highpass.Q.value = 0.7;
+
+        // Compressor (adds radio compression effect)
+        const compressor = this.audioContext.createDynamicsCompressor();
+        compressor.threshold.value = -20;
+        compressor.knee.value = 10;
+        compressor.ratio.value = 12;
+        compressor.attack.value = 0.003;
+        compressor.release.value = 0.05;
+
+        // Gain (volume control)
+        const gainNode = this.audioContext.createGain();
+        gainNode.gain.value = this.audioVolume;
+
+        // Connect the chain: source -> highpass -> lowpass -> compressor -> gain
+        source.connect(highpass);
+        highpass.connect(lowpass);
+        lowpass.connect(compressor);
+        compressor.connect(gainNode);
+
+        return gainNode;
+    }
+
+    /**
      * Play audio with a callback when finished
      * @param {string} audioBase64 - Base64 encoded audio data
      * @param {string} format - Audio format (default: 'mp3')
@@ -717,6 +801,53 @@ class ChatApp {
             const audioBlob = this.base64ToBlob(audioBase64, `audio/${format}`);
             const audioUrl = URL.createObjectURL(audioBlob);
 
+            // Use Web Audio API with radio effects for submarine scene
+            if (this.sceneType === 'submarine') {
+                this.initRadioEffects();
+
+                // Decode audio data
+                fetch(audioUrl)
+                    .then(response => response.arrayBuffer())
+                    .then(arrayBuffer => this.audioContext.decodeAudioData(arrayBuffer))
+                    .then(audioBuffer => {
+                        // Create source
+                        const source = this.audioContext.createBufferSource();
+                        source.buffer = audioBuffer;
+
+                        // Apply radio effects
+                        const effectChain = this.createRadioEffectChain(source);
+                        effectChain.connect(this.audioContext.destination);
+
+                        // Handle completion
+                        source.onended = () => {
+                            console.log('[RADIO] Audio playback ended');
+                            URL.revokeObjectURL(audioUrl);
+                            this.currentAudio = null;
+                            if (this.audioCallback) {
+                                const cb = this.audioCallback;
+                                this.audioCallback = null;
+                                cb();
+                            }
+                        };
+
+                        // Start playback
+                        source.start(0);
+                        this.currentAudio = source; // Store reference
+                        console.log('[RADIO] Radio-processed playback started');
+                    })
+                    .catch(e => {
+                        console.error('[RADIO] Audio processing failed:', e);
+                        URL.revokeObjectURL(audioUrl);
+                        if (this.audioCallback) {
+                            const cb = this.audioCallback;
+                            this.audioCallback = null;
+                            cb();
+                        }
+                    });
+                return;
+            }
+
+            // Standard playback (no effects) for non-submarine scenes
             this.currentAudio = new Audio(audioUrl);
             this.currentAudio.volume = this.audioVolume;
 
@@ -934,8 +1065,11 @@ class ChatApp {
      * Queue opening lines to display one at a time
      */
     queueOpeningLines(lines, characterName) {
+        console.log('[OPENING_SPEECH] queueOpeningLines called with', lines.length, 'lines. Current queue length:', this.messageQueue.length);
+
         // Add all lines to the queue (including audio if available)
         lines.forEach((line, index) => {
+            console.log('[OPENING_SPEECH] Adding line', index + 1, ':', line.text.substring(0, 50) + '...');
             this.messageQueue.push({
                 sender: characterName,
                 content: line.text,
@@ -945,6 +1079,8 @@ class ChatApp {
                 audio_format: line.audio_format || 'mp3'
             });
         });
+
+        console.log('[OPENING_SPEECH] Queue now has', this.messageQueue.length, 'messages');
 
         // Start processing the queue
         this.processMessageQueue();
@@ -1139,7 +1275,7 @@ class ChatApp {
             'eliza': 'Eliza',
             'wizard': 'Merlin',
             'detective': 'Detective Stone',
-            'engineer': 'Casey Reeves',
+            'engineer': 'Lt. Cmdr. James Kovich',
             'custom': 'Custom Character'
         };
 
@@ -1147,7 +1283,7 @@ class ChatApp {
             'eliza': 'AI Caretaker',
             'wizard': 'Wise Wizard',
             'detective': 'Hard-boiled Detective',
-            'engineer': 'Sub Engineer',
+            'engineer': 'Sub Commander',
             'custom': 'Custom Character'
         };
 

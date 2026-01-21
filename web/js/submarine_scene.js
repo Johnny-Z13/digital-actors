@@ -11,10 +11,23 @@ export class SubmarineScene {
         this.camera = null;
         this.renderer = null;
         this.controls = null;
-        this.oxygenLevel = 180; // 3 minutes in seconds
-        this.oxygenText = null;
+        this.radiationLevel = 0; // Radiation percentage (0-100)
+        this.timeRemaining = 480; // 8 minutes in seconds
+        this.hullPressure = 2400; // Depth in feet
+        this.systemsRepaired = 0; // Systems repaired counter (0-4)
+        this.phase = 1; // Current phase (1-4)
+        this.radiationText = null;
+        this.timeText = null;
+        this.pressureText = null;
+        this.systemsText = null;
+        this.phaseText = null;
         this.warningLights = [];
         this.interactiveObjects = [];
+
+        // Framerate limiting for better input responsiveness
+        this.targetFPS = 50; // Limit to 50 FPS to give CPU time for input
+        this.frameInterval = 1000 / this.targetFPS;
+        this.lastFrameTime = 0;
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
         this.hoveredObject = null;
@@ -33,6 +46,10 @@ export class SubmarineScene {
 
         // Performance tracking
         this.frameCount = 0; // For throttling expensive operations
+
+        // Button debouncing
+        this.lastButtonClick = 0;
+        this.buttonDebounceMs = 500; // Prevent clicking same button within 500ms
 
         this.init();
         this.animate();
@@ -117,9 +134,9 @@ export class SubmarineScene {
         osc2.frequency.setValueAtTime(300, currentTime + 0.75);
         osc2.type = 'sawtooth';
 
-        // Volume envelope
-        gainNode.gain.setValueAtTime(0.15, currentTime);
-        gainNode.gain.setValueAtTime(0.15, currentTime + 0.9);
+        // Volume envelope (75% quieter than original)
+        gainNode.gain.setValueAtTime(0.0375, currentTime);
+        gainNode.gain.setValueAtTime(0.0375, currentTime + 0.9);
         gainNode.gain.exponentialRampToValueAtTime(0.01, currentTime + 1.0);
 
         // Play for 1 second
@@ -133,17 +150,17 @@ export class SubmarineScene {
         if (this.alarmActive) return;
 
         this.alarmActive = true;
-        console.log('[ALARM] Emergency alarm activated - oxygen critical!');
+        console.log('[ALARM] Emergency alarm activated - radiation critical!');
 
-        // Play alarm immediately
-        this.playAlarmSound();
+        // Alarm sound disabled per user request
+        // this.playAlarmSound();
 
         // Loop alarm every 1.5 seconds
-        this.alarmInterval = setInterval(() => {
-            if (this.alarmActive) {
-                this.playAlarmSound();
-            }
-        }, 1500);
+        // this.alarmInterval = setInterval(() => {
+        //     if (this.alarmActive) {
+        //         this.playAlarmSound();
+        //     }
+        // }, 1500);
     }
 
     stopAlarm() {
@@ -175,7 +192,12 @@ export class SubmarineScene {
         this.camera.position.set(0, 1.6, 0.5);
 
         // Renderer
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.renderer = new THREE.WebGLRenderer({
+            antialias: false,  // Disable expensive antialiasing for better performance
+            powerPreference: "high-performance",  // Request high-performance GPU
+            stencil: false,  // Disable stencil buffer (not needed)
+            depth: true  // Keep depth buffer for proper z-sorting
+        });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap at 2x for performance
         this.renderer.shadowMap.enabled = false; // Disable shadows for performance
@@ -209,7 +231,7 @@ export class SubmarineScene {
         this.createSubmarineInterior();
         this.createPorthole();
         this.createSmallPorthole();  // Small porthole near control panel
-        this.createOxygenGauge();
+        this.createGauges();  // Radiation gauge and time remaining display
         this.createControlPanel();
         this.createIntercom();
         this.setupLights();
@@ -386,67 +408,316 @@ export class SubmarineScene {
         this.scene.add(this.smallPortholeParticles);
     }
 
-    createOxygenGauge() {
-        // Gauge panel background
-        const panelGeometry = new THREE.BoxGeometry(0.8, 0.5, 0.1);
-        const panelMaterial = new THREE.MeshStandardMaterial({
+    createGauges() {
+        // === RADIATION GAUGE (LEFT) ===
+        // Panel background
+        const radPanelGeometry = new THREE.BoxGeometry(0.7, 0.5, 0.1);
+        const radPanelMaterial = new THREE.MeshStandardMaterial({
             color: 0x2a2a2a,
             roughness: 0.7,
             metalness: 0.3,
         });
-        const panel = new THREE.Mesh(panelGeometry, panelMaterial);
-        panel.position.set(0, 2.5, -2.8);
-        this.scene.add(panel);
+        const radPanel = new THREE.Mesh(radPanelGeometry, radPanelMaterial);
+        radPanel.position.set(-0.6, 2.5, -2.8);
+        this.scene.add(radPanel);
 
-        // Gauge display
-        const displayGeometry = new THREE.PlaneGeometry(0.6, 0.3);
-        const displayMaterial = new THREE.MeshBasicMaterial({
+        // Display screen
+        const radDisplayGeometry = new THREE.PlaneGeometry(0.55, 0.3);
+        const radDisplayMaterial = new THREE.MeshBasicMaterial({
             color: 0x0a0a0a,
         });
-        const display = new THREE.Mesh(displayGeometry, displayMaterial);
-        display.position.set(0, 2.5, -2.75);
-        this.scene.add(display);
+        const radDisplay = new THREE.Mesh(radDisplayGeometry, radDisplayMaterial);
+        radDisplay.position.set(-0.6, 2.5, -2.75);
+        this.scene.add(radDisplay);
 
-        // Oxygen text (will be updated in animate)
-        const canvas = document.createElement('canvas');
-        canvas.width = 256;
-        canvas.height = 128;
-        const context = canvas.getContext('2d');
-        context.fillStyle = '#ff3333';
-        context.font = 'bold 48px monospace';
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        context.fillText('03:00', 128, 64);
+        // Radiation text (will be updated in animate)
+        const radCanvas = document.createElement('canvas');
+        radCanvas.width = 256;
+        radCanvas.height = 128;
+        const radContext = radCanvas.getContext('2d');
+        radContext.fillStyle = '#ff3333';
+        radContext.font = 'bold 48px monospace';
+        radContext.textAlign = 'center';
+        radContext.textBaseline = 'middle';
+        radContext.fillText('0%', 128, 64);
 
-        const texture = new THREE.CanvasTexture(canvas);
-        const textMaterial = new THREE.MeshBasicMaterial({
-            map: texture,
+        const radTexture = new THREE.CanvasTexture(radCanvas);
+        const radTextMaterial = new THREE.MeshBasicMaterial({
+            map: radTexture,
             transparent: true,
         });
-        const textMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.25), textMaterial);
-        textMesh.position.set(0, 2.5, -2.74);
-        this.scene.add(textMesh);
+        const radTextMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.25), radTextMaterial);
+        radTextMesh.position.set(-0.6, 2.5, -2.74);
+        this.scene.add(radTextMesh);
 
-        this.oxygenText = { canvas, context, texture, mesh: textMesh };
+        this.radiationText = { canvas: radCanvas, context: radContext, texture: radTexture, mesh: radTextMesh };
 
-        // Label
-        const labelCanvas = document.createElement('canvas');
-        labelCanvas.width = 256;
-        labelCanvas.height = 64;
-        const labelContext = labelCanvas.getContext('2d');
-        labelContext.fillStyle = '#ffffff';
-        labelContext.font = 'bold 24px monospace';
-        labelContext.textAlign = 'center';
-        labelContext.fillText('OXYGEN', 128, 32);
+        // Radiation label
+        const radLabelCanvas = document.createElement('canvas');
+        radLabelCanvas.width = 256;
+        radLabelCanvas.height = 64;
+        const radLabelContext = radLabelCanvas.getContext('2d');
+        radLabelContext.fillStyle = '#ffffff';
+        radLabelContext.font = 'bold 20px monospace';
+        radLabelContext.textAlign = 'center';
+        radLabelContext.fillText('RADIATION', 128, 32);
 
-        const labelTexture = new THREE.CanvasTexture(labelCanvas);
-        const labelMaterial = new THREE.MeshBasicMaterial({
-            map: labelTexture,
+        const radLabelTexture = new THREE.CanvasTexture(radLabelCanvas);
+        const radLabelMaterial = new THREE.MeshBasicMaterial({
+            map: radLabelTexture,
             transparent: true,
         });
-        const labelMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.1), labelMaterial);
-        labelMesh.position.set(0, 2.75, -2.74);
-        this.scene.add(labelMesh);
+        const radLabelMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.1), radLabelMaterial);
+        radLabelMesh.position.set(-0.6, 2.75, -2.74);
+        this.scene.add(radLabelMesh);
+
+        // === TIME REMAINING GAUGE (RIGHT) ===
+        // Panel background
+        const timePanelGeometry = new THREE.BoxGeometry(0.7, 0.5, 0.1);
+        const timePanelMaterial = new THREE.MeshStandardMaterial({
+            color: 0x2a2a2a,
+            roughness: 0.7,
+            metalness: 0.3,
+        });
+        const timePanel = new THREE.Mesh(timePanelGeometry, timePanelMaterial);
+        timePanel.position.set(0.6, 2.5, -2.8);
+        this.scene.add(timePanel);
+
+        // Display screen
+        const timeDisplayGeometry = new THREE.PlaneGeometry(0.55, 0.3);
+        const timeDisplayMaterial = new THREE.MeshBasicMaterial({
+            color: 0x0a0a0a,
+        });
+        const timeDisplay = new THREE.Mesh(timeDisplayGeometry, timeDisplayMaterial);
+        timeDisplay.position.set(0.6, 2.5, -2.75);
+        this.scene.add(timeDisplay);
+
+        // Time text (will be updated in animate)
+        const timeCanvas = document.createElement('canvas');
+        timeCanvas.width = 256;
+        timeCanvas.height = 128;
+        const timeContext = timeCanvas.getContext('2d');
+        timeContext.fillStyle = '#ffaa33';
+        timeContext.font = 'bold 48px monospace';
+        timeContext.textAlign = 'center';
+        timeContext.textBaseline = 'middle';
+        timeContext.fillText('08:00', 128, 64);
+
+        const timeTexture = new THREE.CanvasTexture(timeCanvas);
+        const timeTextMaterial = new THREE.MeshBasicMaterial({
+            map: timeTexture,
+            transparent: true,
+        });
+        const timeTextMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.25), timeTextMaterial);
+        timeTextMesh.position.set(0.6, 2.5, -2.74);
+        this.scene.add(timeTextMesh);
+
+        this.timeText = { canvas: timeCanvas, context: timeContext, texture: timeTexture, mesh: timeTextMesh };
+
+        // Time label
+        const timeLabelCanvas = document.createElement('canvas');
+        timeLabelCanvas.width = 256;
+        timeLabelCanvas.height = 64;
+        const timeLabelContext = timeLabelCanvas.getContext('2d');
+        timeLabelContext.fillStyle = '#ffffff';
+        timeLabelContext.font = 'bold 20px monospace';
+        timeLabelContext.textAlign = 'center';
+        timeLabelContext.fillText('TIME LEFT', 128, 32);
+
+        const timeLabelTexture = new THREE.CanvasTexture(timeLabelCanvas);
+        const timeLabelMaterial = new THREE.MeshBasicMaterial({
+            map: timeLabelTexture,
+            transparent: true,
+        });
+        const timeLabelMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.1), timeLabelMaterial);
+        timeLabelMesh.position.set(0.6, 2.75, -2.74);
+        this.scene.add(timeLabelMesh);
+
+        // === PRESSURE GAUGE (CENTER) ===
+        // Panel background
+        const pressurePanelGeometry = new THREE.BoxGeometry(0.7, 0.5, 0.1);
+        const pressurePanelMaterial = new THREE.MeshStandardMaterial({
+            color: 0x2a2a2a,
+            roughness: 0.7,
+            metalness: 0.3,
+        });
+        const pressurePanel = new THREE.Mesh(pressurePanelGeometry, pressurePanelMaterial);
+        pressurePanel.position.set(0.0, 2.0, -2.8);
+        this.scene.add(pressurePanel);
+
+        // Display screen
+        const pressureDisplayGeometry = new THREE.PlaneGeometry(0.55, 0.3);
+        const pressureDisplayMaterial = new THREE.MeshBasicMaterial({
+            color: 0x0a0a0a,
+        });
+        const pressureDisplay = new THREE.Mesh(pressureDisplayGeometry, pressureDisplayMaterial);
+        pressureDisplay.position.set(0.0, 2.0, -2.75);
+        this.scene.add(pressureDisplay);
+
+        // Pressure text (will be updated in animate)
+        const pressureCanvas = document.createElement('canvas');
+        pressureCanvas.width = 256;
+        pressureCanvas.height = 128;
+        const pressureContext = pressureCanvas.getContext('2d');
+        pressureContext.fillStyle = '#33ccff';
+        pressureContext.font = 'bold 40px monospace';
+        pressureContext.textAlign = 'center';
+        pressureContext.textBaseline = 'middle';
+        pressureContext.fillText('2400ft', 128, 64);
+
+        const pressureTexture = new THREE.CanvasTexture(pressureCanvas);
+        const pressureTextMaterial = new THREE.MeshBasicMaterial({
+            map: pressureTexture,
+            transparent: true,
+        });
+        const pressureTextMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.25), pressureTextMaterial);
+        pressureTextMesh.position.set(0.0, 2.0, -2.74);
+        this.scene.add(pressureTextMesh);
+
+        this.pressureText = { canvas: pressureCanvas, context: pressureContext, texture: pressureTexture, mesh: pressureTextMesh };
+
+        // Pressure label
+        const pressureLabelCanvas = document.createElement('canvas');
+        pressureLabelCanvas.width = 256;
+        pressureLabelCanvas.height = 64;
+        const pressureLabelContext = pressureLabelCanvas.getContext('2d');
+        pressureLabelContext.fillStyle = '#ffffff';
+        pressureLabelContext.font = 'bold 20px monospace';
+        pressureLabelContext.textAlign = 'center';
+        pressureLabelContext.fillText('DEPTH', 128, 32);
+
+        const pressureLabelTexture = new THREE.CanvasTexture(pressureLabelCanvas);
+        const pressureLabelMaterial = new THREE.MeshBasicMaterial({
+            map: pressureLabelTexture,
+            transparent: true,
+        });
+        const pressureLabelMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.1), pressureLabelMaterial);
+        pressureLabelMesh.position.set(0.0, 2.25, -2.74);
+        this.scene.add(pressureLabelMesh);
+
+        // === SYSTEMS REPAIRED COUNTER (BOTTOM LEFT) ===
+        // Panel background
+        const systemsPanelGeometry = new THREE.BoxGeometry(0.5, 0.35, 0.1);
+        const systemsPanelMaterial = new THREE.MeshStandardMaterial({
+            color: 0x2a2a2a,
+            roughness: 0.7,
+            metalness: 0.3,
+        });
+        const systemsPanel = new THREE.Mesh(systemsPanelGeometry, systemsPanelMaterial);
+        systemsPanel.position.set(-0.9, 1.5, -2.8);
+        this.scene.add(systemsPanel);
+
+        // Display screen
+        const systemsDisplayGeometry = new THREE.PlaneGeometry(0.4, 0.2);
+        const systemsDisplayMaterial = new THREE.MeshBasicMaterial({
+            color: 0x0a0a0a,
+        });
+        const systemsDisplay = new THREE.Mesh(systemsDisplayGeometry, systemsDisplayMaterial);
+        systemsDisplay.position.set(-0.9, 1.5, -2.75);
+        this.scene.add(systemsDisplay);
+
+        // Systems text
+        const systemsCanvas = document.createElement('canvas');
+        systemsCanvas.width = 256;
+        systemsCanvas.height = 128;
+        const systemsContext = systemsCanvas.getContext('2d');
+        systemsContext.fillStyle = '#33ff99';
+        systemsContext.font = 'bold 52px monospace';
+        systemsContext.textAlign = 'center';
+        systemsContext.textBaseline = 'middle';
+        systemsContext.fillText('0/4', 128, 64);
+
+        const systemsTexture = new THREE.CanvasTexture(systemsCanvas);
+        const systemsTextMaterial = new THREE.MeshBasicMaterial({
+            map: systemsTexture,
+            transparent: true,
+        });
+        const systemsTextMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 0.18), systemsTextMaterial);
+        systemsTextMesh.position.set(-0.9, 1.5, -2.74);
+        this.scene.add(systemsTextMesh);
+
+        this.systemsText = { canvas: systemsCanvas, context: systemsContext, texture: systemsTexture, mesh: systemsTextMesh };
+
+        // Systems label
+        const systemsLabelCanvas = document.createElement('canvas');
+        systemsLabelCanvas.width = 256;
+        systemsLabelCanvas.height = 64;
+        const systemsLabelContext = systemsLabelCanvas.getContext('2d');
+        systemsLabelContext.fillStyle = '#ffffff';
+        systemsLabelContext.font = 'bold 16px monospace';
+        systemsLabelContext.textAlign = 'center';
+        systemsLabelContext.fillText('SYSTEMS', 128, 32);
+
+        const systemsLabelTexture = new THREE.CanvasTexture(systemsLabelCanvas);
+        const systemsLabelMaterial = new THREE.MeshBasicMaterial({
+            map: systemsLabelTexture,
+            transparent: true,
+        });
+        const systemsLabelMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.08), systemsLabelMaterial);
+        systemsLabelMesh.position.set(-0.9, 1.68, -2.74);
+        this.scene.add(systemsLabelMesh);
+
+        // === PHASE INDICATOR (BOTTOM RIGHT) ===
+        // Panel background
+        const phasePanelGeometry = new THREE.BoxGeometry(0.5, 0.35, 0.1);
+        const phasePanelMaterial = new THREE.MeshStandardMaterial({
+            color: 0x2a2a2a,
+            roughness: 0.7,
+            metalness: 0.3,
+        });
+        const phasePanel = new THREE.Mesh(phasePanelGeometry, phasePanelMaterial);
+        phasePanel.position.set(0.9, 1.5, -2.8);
+        this.scene.add(phasePanel);
+
+        // Display screen
+        const phaseDisplayGeometry = new THREE.PlaneGeometry(0.4, 0.2);
+        const phaseDisplayMaterial = new THREE.MeshBasicMaterial({
+            color: 0x0a0a0a,
+        });
+        const phaseDisplay = new THREE.Mesh(phaseDisplayGeometry, phaseDisplayMaterial);
+        phaseDisplay.position.set(0.9, 1.5, -2.75);
+        this.scene.add(phaseDisplay);
+
+        // Phase text
+        const phaseCanvas = document.createElement('canvas');
+        phaseCanvas.width = 256;
+        phaseCanvas.height = 128;
+        const phaseContext = phaseCanvas.getContext('2d');
+        phaseContext.fillStyle = '#9999ff';
+        phaseContext.font = 'bold 56px monospace';
+        phaseContext.textAlign = 'center';
+        phaseContext.textBaseline = 'middle';
+        phaseContext.fillText('1', 128, 64);
+
+        const phaseTexture = new THREE.CanvasTexture(phaseCanvas);
+        const phaseTextMaterial = new THREE.MeshBasicMaterial({
+            map: phaseTexture,
+            transparent: true,
+        });
+        const phaseTextMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 0.18), phaseTextMaterial);
+        phaseTextMesh.position.set(0.9, 1.5, -2.74);
+        this.scene.add(phaseTextMesh);
+
+        this.phaseText = { canvas: phaseCanvas, context: phaseContext, texture: phaseTexture, mesh: phaseTextMesh };
+
+        // Phase label
+        const phaseLabelCanvas = document.createElement('canvas');
+        phaseLabelCanvas.width = 256;
+        phaseLabelCanvas.height = 64;
+        const phaseLabelContext = phaseLabelCanvas.getContext('2d');
+        phaseLabelContext.fillStyle = '#ffffff';
+        phaseLabelContext.font = 'bold 16px monospace';
+        phaseLabelContext.textAlign = 'center';
+        phaseLabelContext.fillText('PHASE', 128, 32);
+
+        const phaseLabelTexture = new THREE.CanvasTexture(phaseLabelCanvas);
+        const phaseLabelMaterial = new THREE.MeshBasicMaterial({
+            map: phaseLabelTexture,
+            transparent: true,
+        });
+        const phaseLabelMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.08), phaseLabelMaterial);
+        phaseLabelMesh.position.set(0.9, 1.68, -2.74);
+        this.scene.add(phaseLabelMesh);
     }
 
     createControlPanel() {
@@ -462,15 +733,21 @@ export class SubmarineScene {
         this.scene.add(panel);
 
         // Create buttons - positions relative to panel center (0, 1.3)
+        // Spread out more for better clickability
         const buttonPositions = [
-            { x: -0.4, y: 0.2, label: 'O2 VALVE', color: 0xff3333 },
-            { x: 0.4, y: 0.2, label: 'VENT', color: 0xffaa33 },
-            { x: -0.4, y: -0.15, label: 'BALLAST', color: 0x3399ff },
-            { x: 0.4, y: -0.15, label: 'POWER', color: 0x33ff33 },
+            { x: -0.5, y: 0.25, label: 'O2 VALVE', color: 0xff3333 },
+            { x: 0.5, y: 0.25, label: 'VENT', color: 0xffaa33 },
+            { x: -0.5, y: -0.15, label: 'BALLAST', color: 0x3399ff },
+            { x: 0.5, y: -0.15, label: 'POWER', color: 0x33ff33 },
+            { x: 0.0, y: -0.55, label: 'CRANK', color: 0xaaaaaa },  // Gray crank at bottom center, lower
+            { x: 0.0, y: 0.6, label: 'FLOOD MED BAY', color: 0xff0000, visibleInPhases: [3, 4] },  // Critical decision, only visible in Phase 3+
         ];
 
+        // Store reference to phase-dependent buttons for visibility toggling
+        this.phaseButtons = [];
+
         buttonPositions.forEach(pos => {
-            const buttonGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.06, 16);  // Slightly larger buttons
+            const buttonGeometry = new THREE.CylinderGeometry(0.12, 0.12, 0.08, 16);  // Larger buttons for easier clicking
             const buttonMaterial = new THREE.MeshStandardMaterial({
                 color: pos.color,
                 roughness: 0.3,
@@ -481,9 +758,12 @@ export class SubmarineScene {
             const button = new THREE.Mesh(buttonGeometry, buttonMaterial);
             button.position.set(pos.x, 1.3 + pos.y, -2.62);  // Centered panel
             button.rotation.x = Math.PI / 2;
-            button.userData = { type: 'button', action: pos.label, originalColor: pos.color };
-            this.scene.add(button);
-            this.interactiveObjects.push(button);
+            button.userData = {
+                type: 'button',
+                action: pos.label,
+                originalColor: pos.color,
+                visibleInPhases: pos.visibleInPhases || null  // null means always visible
+            };
 
             // Button label
             const labelCanvas = document.createElement('canvas');
@@ -502,7 +782,18 @@ export class SubmarineScene {
             });
             const label = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.12), labelMaterial);
             label.position.set(pos.x, 1.3 + pos.y - 0.18, -2.62);  // Below button
+
+            // Track button and label together
+            if (pos.visibleInPhases) {
+                // Initially hide phase-dependent buttons
+                button.visible = false;
+                label.visible = false;
+                this.phaseButtons.push({ button, label, phases: pos.visibleInPhases });
+            }
+
+            this.scene.add(button);
             this.scene.add(label);
+            this.interactiveObjects.push(button);
         });
     }
 
@@ -585,7 +876,7 @@ export class SubmarineScene {
         interiorLight.position.set(0, 2.2, -1.5); // Near control panel
         this.scene.add(interiorLight);
 
-        // Emergency red light - starts OFF, activated when oxygen < 60 seconds
+        // Emergency red light - starts OFF, activated when radiation >= 75%
         this.emergencyLight = new THREE.PointLight(0xff0000, 0, 12);
         this.emergencyLight.position.set(0, 3.2, -1);
         this.scene.add(this.emergencyLight);
@@ -614,6 +905,14 @@ export class SubmarineScene {
 
         window.addEventListener('click', () => {
             if (this.hoveredObject) {
+                // Debounce button clicks to prevent rapid double-clicks
+                const now = Date.now();
+                if (now - this.lastButtonClick < this.buttonDebounceMs) {
+                    console.log('Button click ignored (debounced)');
+                    return;
+                }
+                this.lastButtonClick = now;
+
                 console.log('Button clicked:', this.hoveredObject.userData.action);
 
                 // Play click sound
@@ -637,22 +936,131 @@ export class SubmarineScene {
     animate() {
         requestAnimationFrame(() => this.animate());
 
-        const time = Date.now() * 0.001;
+        // Framerate limiting for better input responsiveness
+        const currentTime = Date.now();
+        const deltaTime = currentTime - this.lastFrameTime;
+
+        if (deltaTime < this.frameInterval) {
+            return; // Skip this frame to maintain target FPS
+        }
+
+        this.lastFrameTime = currentTime - (deltaTime % this.frameInterval);
+
+        const time = currentTime * 0.001;
         this.frameCount++;
 
-        // NOTE: Oxygen countdown is now handled server-side
-        // The setOxygenLevel() method receives updates from the server
+        // NOTE: Radiation and time are now handled server-side
+        // The setRadiationLevel() and setTimeRemaining() methods receive updates from the server
 
-        // Update oxygen canvas texture every 10 frames for smoother display
-        if (this.oxygenText && this.frameCount % 10 === 0) {
-            const minutes = Math.floor(this.oxygenLevel / 60);
-            const seconds = Math.floor(this.oxygenLevel % 60);
+        // Update radiation gauge every 10 frames for smoother display
+        if (this.radiationText && this.frameCount % 10 === 0) {
+            const radPercent = Math.round(this.radiationLevel);
+            const display = `${radPercent}%`;
+
+            const { context, texture, canvas } = this.radiationText;
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            // Color changes based on danger level
+            if (radPercent >= 75) {
+                context.fillStyle = '#ff0000';  // Bright red at critical levels
+            } else if (radPercent >= 50) {
+                context.fillStyle = '#ff3333';  // Red-orange at high levels
+            } else {
+                context.fillStyle = '#ff6633';  // Orange at moderate levels
+            }
+            context.font = 'bold 48px monospace';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(display, 128, 64);
+            texture.needsUpdate = true;
+        }
+
+        // Update time remaining gauge every 10 frames
+        if (this.timeText && this.frameCount % 10 === 0) {
+            const minutes = Math.floor(this.timeRemaining / 60);
+            const seconds = Math.floor(this.timeRemaining % 60);
             const display = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 
-            const { context, texture, canvas } = this.oxygenText;
+            const { context, texture, canvas } = this.timeText;
             context.clearRect(0, 0, canvas.width, canvas.height);
-            context.fillStyle = this.oxygenLevel < 60 ? '#ff0000' : '#ff3333';
+            // Color changes based on urgency
+            if (this.timeRemaining < 60) {
+                context.fillStyle = '#ff0000';  // Red when less than 1 minute
+            } else if (this.timeRemaining < 120) {
+                context.fillStyle = '#ff6633';  // Orange when less than 2 minutes
+            } else {
+                context.fillStyle = '#ffaa33';  // Yellow-orange normally
+            }
             context.font = 'bold 48px monospace';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(display, 128, 64);
+            texture.needsUpdate = true;
+        }
+
+        // Update pressure gauge every 10 frames
+        if (this.pressureText && this.frameCount % 10 === 0) {
+            const depthFeet = Math.round(this.hullPressure);
+            const display = `${depthFeet}ft`;
+
+            const { context, texture, canvas } = this.pressureText;
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            // Color changes based on depth (deeper = more danger)
+            if (depthFeet > 2600) {
+                context.fillStyle = '#ff3333';  // Red when very deep
+            } else if (depthFeet > 2400) {
+                context.fillStyle = '#ffaa33';  // Orange when deep
+            } else {
+                context.fillStyle = '#33ccff';  // Cyan normally
+            }
+            context.font = 'bold 40px monospace';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(display, 128, 64);
+            texture.needsUpdate = true;
+        }
+
+        // Update systems repaired counter every 10 frames
+        if (this.systemsText && this.frameCount % 10 === 0) {
+            const systems = Math.round(this.systemsRepaired);
+            const display = `${systems}/4`;
+
+            const { context, texture, canvas } = this.systemsText;
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            // Color changes based on progress
+            if (systems >= 3) {
+                context.fillStyle = '#33ff99';  // Bright green when 3+ systems repaired
+            } else if (systems >= 2) {
+                context.fillStyle = '#99ff66';  // Yellow-green at 2 systems
+            } else if (systems >= 1) {
+                context.fillStyle = '#ffcc33';  // Orange at 1 system
+            } else {
+                context.fillStyle = '#ff6633';  // Red-orange at 0 systems
+            }
+            context.font = 'bold 52px monospace';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(display, 128, 64);
+            texture.needsUpdate = true;
+        }
+
+        // Update phase indicator every 10 frames
+        if (this.phaseText && this.frameCount % 10 === 0) {
+            const phaseNum = Math.round(this.phase);
+            const display = `${phaseNum}`;
+
+            const { context, texture, canvas } = this.phaseText;
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            // Color changes based on phase intensity
+            if (phaseNum === 4) {
+                context.fillStyle = '#ff6699';  // Pink/red for final phase (The Choice)
+            } else if (phaseNum === 3) {
+                context.fillStyle = '#ff9966';  // Orange for Phase 3 (The Revelation)
+            } else if (phaseNum === 2) {
+                context.fillStyle = '#99ccff';  // Light blue for Phase 2 (Working Relationship)
+            } else {
+                context.fillStyle = '#9999ff';  // Purple for Phase 1 (Impact & Connection)
+            }
+            context.font = 'bold 56px monospace';
             context.textAlign = 'center';
             context.textBaseline = 'middle';
             context.fillText(display, 128, 64);
@@ -668,7 +1076,7 @@ export class SubmarineScene {
             });
         }
 
-        // Pulse emergency light when active (oxygen < 60 seconds)
+        // Pulse emergency light when active (radiation >= 75%)
         if (this.emergencyLightOn && this.emergencyLight) {
             // Pulsing red light effect - rapid flash
             const pulse = Math.sin(time * 8) * 0.5 + 0.5;  // 0-1 pulsing
@@ -723,8 +1131,9 @@ export class SubmarineScene {
             // Set new hover
             if (intersects.length > 0) {
                 this.hoveredObject = intersects[0].object;
-                this.hoveredObject.material.emissiveIntensity = 0.6;
+                this.hoveredObject.material.emissiveIntensity = 0.8;  // Brighter hover
                 document.body.style.cursor = 'pointer';
+                console.log('[HOVER] Button:', this.hoveredObject.userData.action);  // Debug which button you're hovering
             } else {
                 this.hoveredObject = null;
             }
@@ -742,24 +1151,59 @@ export class SubmarineScene {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
-    // Method to update oxygen level externally
-    setOxygenLevel(seconds) {
-        const previousLevel = this.oxygenLevel;
-        this.oxygenLevel = seconds;
+    // Method to update radiation level externally
+    setRadiationLevel(percentage) {
+        const previousLevel = this.radiationLevel;
+        this.radiationLevel = percentage;
 
-        // Trigger emergency mode when oxygen drops to 60 seconds (1 minute)
-        if (seconds <= 60 && previousLevel > 60) {
+        // Trigger emergency mode when radiation reaches critical level (75%+)
+        if (percentage >= 75 && previousLevel < 75) {
             this.activateEmergencyMode();
         }
 
-        // Deactivate if oxygen goes back above 60 (e.g., refilled)
-        if (seconds > 60 && previousLevel <= 60) {
+        // Deactivate if radiation drops back below 75 (unlikely but possible)
+        if (percentage < 75 && previousLevel >= 75) {
             this.deactivateEmergencyMode();
         }
     }
 
+    // Method to update time remaining externally
+    setTimeRemaining(seconds) {
+        this.timeRemaining = seconds;
+    }
+
+    // Method to update hull pressure/depth externally
+    setHullPressure(depth) {
+        this.hullPressure = depth;
+    }
+
+    // Method to update systems repaired counter externally
+    setSystemsRepaired(count) {
+        this.systemsRepaired = count;
+    }
+
+    // Method to update phase externally
+    setPhase(phase) {
+        const previousPhase = this.phase;
+        this.phase = phase;
+
+        // Update visibility of phase-dependent buttons
+        if (previousPhase !== phase) {
+            this.phaseButtons.forEach(({ button, label, phases }) => {
+                const shouldBeVisible = phases.includes(phase);
+                button.visible = shouldBeVisible;
+                label.visible = shouldBeVisible;
+
+                if (shouldBeVisible && !phases.includes(previousPhase)) {
+                    // Button just became visible - log it
+                    console.log(`[PHASE ${phase}] New control available: ${button.userData.action}`);
+                }
+            });
+        }
+    }
+
     activateEmergencyMode() {
-        console.log('[EMERGENCY] Oxygen critical - activating emergency systems!');
+        console.log('[EMERGENCY] Radiation critical - activating emergency systems!');
 
         // Turn on emergency red light
         this.emergencyLightOn = true;
@@ -772,7 +1216,7 @@ export class SubmarineScene {
     }
 
     deactivateEmergencyMode() {
-        console.log('[EMERGENCY] Oxygen restored - deactivating emergency systems');
+        console.log('[EMERGENCY] Radiation levels lowered - deactivating emergency systems');
 
         // Turn off emergency light
         this.emergencyLightOn = false;

@@ -74,6 +74,9 @@ from player_memory import PlayerMemory
 # Import world director (dungeon master)
 from world_director import WorldDirector
 
+# Import response queue system
+from response_queue import ResponseQueue, ResponseItem, ResponsePriority
+
 if TYPE_CHECKING:
     from aiohttp.web import WebSocketResponse
 
@@ -133,6 +136,10 @@ class ChatSession:
         self.director_npc_modifier = ""  # Behavior modifications from director
         logger.info("World Director initialized")
 
+        # Response Queue System - prevents dialogue flooding
+        # This must be initialized AFTER self is set up, since it needs send_character_response_direct
+        self.response_queue: Optional[ResponseQueue] = None  # Initialized after method definitions
+
         # Store scene controls for npc_aware checking
         self.scene_controls = {
             ctrl['id']: ctrl for ctrl in self.scene_config.get('controls', [])
@@ -140,6 +147,7 @@ class ChatSession:
 
         # Track if NPC is currently responding (for interruption detection)
         self.npc_responding = False
+        self.opening_speech_playing = False  # Track if opening speech is still playing
         self.last_action_time = 0
         self.action_count_recent = 0  # Track rapid actions
 
@@ -156,6 +164,7 @@ class ChatSession:
         # Game over tracking
         self.game_over = False
         self.game_outcome = None  # Will be 'success', 'failure', or specific ending type
+        self.james_dying_speech_sent = False  # Track if James gave his death speech before player dies
 
         # Oxygen countdown task (managed by session)
         self.oxygen_task = None
@@ -182,44 +191,79 @@ class ChatSession:
 
         self.difficulty_settings = difficulty  # Store for later use
 
+        # Initialize response queue (now that all methods are defined)
+        self.response_queue = ResponseQueue(
+            send_callback=self._send_character_response_direct,
+            min_gap_seconds=2.0  # 2 second minimum gap between NPC responses
+        )
+        logger.info("Response Queue initialized")
+
     def start_oxygen_countdown(self) -> None:
-        """Start the oxygen countdown task if this scene has oxygen."""
-        if 'oxygen' in self.scene_state and self.oxygen_task is None:
-            self.oxygen_task = asyncio.create_task(self._oxygen_countdown_loop())
-            logger.info("Started oxygen countdown task")
+        """Start the state update task if this scene has state variables with update_rate."""
+        # Check if any state variables have non-zero update_rate
+        has_dynamic_state = any(
+            var.get('update_rate', 0.0) != 0
+            for var in self.scene_config.get('state_variables', [])
+        )
+        if has_dynamic_state and self.oxygen_task is None:
+            self.oxygen_task = asyncio.create_task(self._state_update_loop())
+            logger.info("Started state update task")
 
     def stop_oxygen_countdown(self) -> None:
-        """Stop the oxygen countdown task if running."""
+        """Stop the state update task if running."""
         if self.oxygen_task:
             self.oxygen_task.cancel()
             self.oxygen_task = None
-            logger.info("Stopped oxygen countdown task")
+            logger.info("Stopped state update task")
 
-    async def _oxygen_countdown_loop(self) -> None:
-        """Background task that decrements oxygen every second."""
+    async def _state_update_loop(self) -> None:
+        """Background task that updates all state variables with non-zero update_rate every second."""
         try:
             while not self.game_over:
                 await asyncio.sleep(1)
 
-                if 'oxygen' not in self.scene_state or self.game_over:
+                if self.game_over:
                     break
 
-                # Get update rate from scene config (default -1 per second)
-                update_rate = -1.0
+                # Update all state variables with non-zero update_rate
+                state_updated = False
                 for var in self.scene_config.get('state_variables', []):
-                    if var['name'] == 'oxygen':
-                        update_rate = var.get('update_rate', -1.0)
-                        break
+                    var_name = var['name']
+                    update_rate = var.get('update_rate', 0.0)
 
-                if update_rate != 0:
-                    self.scene_state['oxygen'] = max(0, self.scene_state['oxygen'] + update_rate)
-                    oxygen = self.scene_state['oxygen']
+                    if update_rate != 0 and var_name in self.scene_state:
+                        min_value = var.get('min_value', 0)
+                        max_value = var.get('max_value', float('inf'))
 
-                    # Log oxygen level periodically
-                    if int(oxygen) % 30 == 0:
-                        logger.info("Oxygen level: %.0f", oxygen)
+                        # Update the state variable
+                        new_value = self.scene_state[var_name] + update_rate
+                        self.scene_state[var_name] = max(min_value, min(max_value, new_value))
+                        state_updated = True
 
-                    # Send state update to client
+                        # Update phase based on time remaining (for Pressure Point progression)
+                        if var_name == 'time_remaining' and 'phase' in self.scene_state:
+                            self._update_phase_based_on_time()
+
+                        # Slowly increase emotional bond over time as conversation continues
+                        # (empathetic responses from player will increase it more via player memory)
+                        if var_name == 'time_remaining' and 'emotional_bond' in self.scene_state:
+                            # Increase bond by ~0.1% per second (reaches ~30% over 5 minutes baseline)
+                            bond_increase = 0.1
+                            current_bond = self.scene_state['emotional_bond']
+                            self.scene_state['emotional_bond'] = min(100.0, current_bond + bond_increase)
+
+                        # Log periodic updates for important variables
+                        if var_name in ['oxygen', 'radiation', 'time_remaining']:
+                            current_value = self.scene_state[var_name]
+                            if var_name == 'radiation' and int(current_value) % 10 == 0:
+                                logger.info("Radiation level: %.0f%%", current_value)
+                            elif var_name == 'time_remaining' and int(current_value) % 60 == 0:
+                                logger.info("Time remaining: %.0f seconds", current_value)
+                            elif var_name == 'oxygen' and int(current_value) % 30 == 0:
+                                logger.info("Oxygen level: %.0f", current_value)
+
+                # Send state update to client if any variable was updated
+                if state_updated:
                     try:
                         await self.ws.send_json({
                             'type': 'state_update',
@@ -227,6 +271,13 @@ class ChatSession:
                         })
                     except Exception:
                         break  # Connection closed
+
+                    # Check if James should die before the player (at 93% radiation)
+                    if 'radiation' in self.scene_state and not self.james_dying_speech_sent:
+                        if self.scene_state['radiation'] >= 93.0:
+                            await self.trigger_james_death()
+                            self.james_dying_speech_sent = True
+                            # Continue running - player still has 2% radiation left before their death
 
                     # Check for game over
                     self.check_game_over_conditions()
@@ -236,13 +287,124 @@ class ChatSession:
         except asyncio.CancelledError:
             pass  # Task was cancelled, that's fine
 
-    async def send_character_response(
+    def _update_phase_based_on_time(self) -> None:
+        """Update the phase state variable based on time_remaining (Pressure Point scenario)."""
+        time_remaining = self.scene_state.get('time_remaining', 0)
+        current_phase = self.scene_state.get('phase', 1)
+
+        # Phase thresholds based on Pressure Point screenplay:
+        # Phase 1: 480-405s (0:00-1:15)
+        # Phase 2: 405-330s (1:15-2:30)
+        # Phase 3: 330-270s (2:30-3:30)
+        # Phase 4: 270-0s (3:30-5:00)
+
+        new_phase = current_phase
+        if time_remaining >= 405:
+            new_phase = 1
+        elif time_remaining >= 330:
+            new_phase = 2
+        elif time_remaining >= 270:
+            new_phase = 3
+        else:
+            new_phase = 4
+
+        # Log phase transitions
+        if new_phase != current_phase:
+            self.scene_state['phase'] = new_phase
+            logger.info("[PHASE TRANSITION] Entering Phase %d at %.0fs remaining", new_phase, time_remaining)
+
+    def _get_phase_context(self) -> str:
+        """Get phase-specific context for Pressure Point emotional progression."""
+        phase = self.scene_state.get('phase', 1)
+        radiation = self.scene_state.get('radiation', 0)
+        emotional_bond = self.scene_state.get('emotional_bond', 0)
+
+        phase_contexts = {
+            1: """
+CURRENT PHASE 1 (Impact & Connection, 0:00-1:15):
+You are professional but scared. This is first contact - establish trust.
+
+KEY ACTIONS THIS PHASE:
+- If you haven't asked yet: "What's your name? Your real name—not your rank."
+- Guide them through manual tasks (cranking generator, restoring power)
+- Use backchanneling: "That's it... keep going... almost there..."
+- Ask personal question: "You got people waiting for you topside?"
+- Reassure them: "I won't let you die." / "We've got each other's voices, right?"
+
+EMOTIONAL TONE: Competent but vulnerable. Honest about fear ("Yeah. Me too.")
+Keep responses SHORT and URGENT - you're working under time pressure.""",
+
+            2: """
+CURRENT PHASE 2 (Working Relationship, 1:15-2:30):
+Power restored. Radiation at 40% lethal threshold. You're becoming more personal under stress.
+
+KEY ACTIONS THIS PHASE:
+- Your breathing is labored [breathing with effort] [coughing slightly]
+- If they show empathy: Open up about "someone" in the med bay (DON'T name Adrian yet)
+- Use vulnerability: "[pause, distracted]" when thinking about this person
+- Ask about their life: "What will you do when we get topside?"
+- Notice inconsistencies in your own behavior - you're struggling to focus
+
+EMOTIONAL TONE: Warmer, more human. The professional mask is slipping.
+SPEECH PATTERN: More pauses. Occasional distraction. Voice tightens when thinking of med bay.""",
+
+            3: """
+CURRENT PHASE 3 (The Revelation, 2:30-3:30):
+Radiation at 75%. Emergency ascent ready. This is THE BREAKING POINT.
+
+THE REVEAL - You MUST reveal this if player shows any empathy:
+"[long pause, voice breaking] There's someone... in the med bay. My son. Dr. Adrian Kovich.
+He's unconscious. And the only way to execute emergency ascent... we have to flood that
+compartment. Seal it. He'll... [voice cracks] ...Tell me what to do. Please."
+
+KEY ACTIONS THIS PHASE:
+- Break down completely - you're facing an impossible choice
+- BEG for the player's guidance: "Tell me what to do."
+- Show physical deterioration: [coughing from radiation] [voice barely steady]
+- Reveal you can see Adrian on thermal imaging - unconscious, unaware
+- Question everything: "What kind of father...?" "How do I...?"
+
+EMOTIONAL TONE: Broken. Desperate. Raw vulnerability. This is your worst nightmare.
+SPEECH PATTERN: Voice cracks. Long pauses. Sentences trail off. Barely holding together.""",
+
+            4: f"""
+CURRENT PHASE 4 (The Choice & Resolution, 3:30-5:00):
+RADIATION AT {radiation:.0f}%. Time is running out. This is THE FINAL DECISION.
+
+CRITICAL SITUATION:
+- Emergency ascent is ready but requires flooding med bay (which kills Adrian)
+- You are desperate for the player's moral guidance
+- Their words will determine what choice you make
+- This conversation defines what kind of man you die as
+
+KEY ACTIONS THIS PHASE:
+- Listen carefully to the player's moral guidance
+- React to their empathy level (Emotional bond: {emotional_bond:.0f}%)
+- If high bond (70+): Share final thoughts about Adrian, express gratitude for their voice
+- If low bond (<40): More mechanical, resigned to duty
+- Radiation effects: [coughing violently] [slurred speech] [struggling to breathe]
+- Make the final decision based on player's guidance and your emotional state
+
+EMOTIONAL TONE: Raw. Exhausted. Every word costs you. This is the most important
+conversation of your life - the player's humanity is shaping your final moments.
+
+REMEMBER: Your choice should reflect the player's moral guidance. If they've been
+empathetic, you'll seek their blessing. If they've been cold, you'll shut down."""
+        }
+
+        return phase_contexts.get(phase, "")
+
+    async def _send_character_response_direct(
         self,
         content: str,
         emotion_context: str | None = None,
     ) -> None:
         """
-        Send a character response to the client, including TTS audio if available.
+        INTERNAL: Directly send a character response to the client (bypasses queue).
+
+        This method is called by the ResponseQueue to actually transmit responses.
+        Do NOT call this directly unless you have a very good reason.
+        Use send_character_response() or send_character_response_immediate() instead.
 
         Args:
             content: The dialogue text
@@ -278,6 +440,92 @@ class ChatSession:
             logger.info("TTS not enabled or no audio task")
 
         await self.ws.send_json(response_data)
+
+    async def send_character_response(
+        self,
+        content: str,
+        priority: ResponsePriority = ResponsePriority.NORMAL,
+        emotion_context: str | None = None,
+        sequence_id: int | None = None,
+        source: str = "unknown",
+        cancellable: bool = True,
+    ) -> None:
+        """
+        Queue a character response for delivery (goes through ResponseQueue).
+
+        This is the standard way to send NPC dialogue. Responses are queued
+        and delivered one at a time with proper prioritization to prevent flooding.
+
+        Args:
+            content: The dialogue text
+            priority: Priority level (default: NORMAL)
+            emotion_context: Optional emotional context for TTS
+            sequence_id: Optional sequence ID for cancellation tracking
+            source: Description of what generated this response (for debugging)
+            cancellable: Whether this response can be cancelled by higher priority items
+
+        Usage:
+            await self.send_character_response(
+                "Good work on those ballasts.",
+                priority=ResponsePriority.NORMAL,
+                source="button_press_ballast"
+            )
+        """
+        if sequence_id is None:
+            sequence_id = self.response_queue.get_next_sequence_id()
+
+        item = ResponseItem(
+            content=content,
+            priority=priority,
+            sequence_id=sequence_id,
+            emotion_context=emotion_context,
+            cancellable=cancellable,
+            source=source
+        )
+
+        await self.response_queue.enqueue(item)
+        logger.debug(
+            "[ChatSession] Queued %s response: '%s...' (source: %s)",
+            priority.name,
+            content[:50],
+            source
+        )
+
+    async def send_character_response_immediate(
+        self,
+        content: str,
+        emotion_context: str | None = None,
+    ) -> None:
+        """
+        Send a CRITICAL character response immediately (bypasses queue).
+
+        Use ONLY for:
+        - Death speeches
+        - Game over messages
+        - Other critical narrative moments that must not be delayed
+
+        For normal dialogue, use send_character_response() instead.
+
+        Args:
+            content: The dialogue text
+            emotion_context: Optional emotional context for TTS
+        """
+        logger.info(
+            "[ChatSession] Sending IMMEDIATE response (bypassing queue): '%s...'",
+            content[:50]
+        )
+
+        # Queue it with CRITICAL priority and don't allow cancellation
+        item = ResponseItem(
+            content=content,
+            priority=ResponsePriority.CRITICAL,
+            sequence_id=self.response_queue.get_next_sequence_id(),
+            emotion_context=emotion_context,
+            cancellable=False,
+            source="immediate_critical"
+        )
+
+        await self.response_queue.enqueue(item, supersede_lower_priority=False)
 
     def create_scene_data(self) -> SceneData:
         """Create a SceneData object from character and scene configs."""
@@ -339,6 +587,65 @@ class ChatSession:
             logger.warning("Error evaluating condition '%s': %s", condition_str, e)
             return False
 
+    async def trigger_james_death(self) -> None:
+        """Trigger James's death speech BEFORE player dies (at 93% radiation)."""
+        logger.info("[JAMES_DEATH] Triggering James Kovich's death at 93%% radiation")
+
+        # Generate James's final dying words
+        dying_instruction = f"""
+CRITICAL: Lt. Commander James Kovich is NOW DYING from lethal radiation exposure at 93%.
+The player is still alive but will die in moments.
+
+Generate James's FINAL DYING WORDS as he succumbs to radiation poisoning.
+This is his DEATH - make it visceral, tragic, and haunting:
+- Voice breaking and weakening
+- Coughing blood
+- Physical deterioration
+- Thoughts of Adrian (his son)
+- Last words to the player
+- Signal breaking up and fading to static
+- Final transmission: [signal lost]
+
+Keep it to 4-5 sentences with physical details in brackets. This is DEATH. Make it memorable and heartbreaking.
+Examples: [coughing violently] [voice barely audible] [choking] [static overwhelms] [signal lost]"""
+
+        prompt = instruction_template.format(
+            preamble=self.scene_data.dialogue_preamble,
+            dialogue=self.dialogue_history,
+            instruction_suffix=dying_instruction
+        )
+
+        chain = prompt_llm(prompt, DIALOGUE_MODEL)
+        dying_speech = chain.invoke({})
+
+        # Clean up response
+        dying_speech = dying_speech.split("\nComputer", 1)[0]
+        dying_speech = dying_speech.strip().removeprefix(
+            f"[{self.character_config['name']}]: "
+        )
+        dying_speech = dying_speech.replace('"', '').replace('*', '')
+
+        # Send James's death speech IMMEDIATELY (CRITICAL priority - cannot be cancelled or delayed)
+        await self.send_character_response_immediate(
+            content=dying_speech,
+            emotion_context="dying"
+        )
+
+        # Add to dialogue history
+        self.dialogue_history += f"[{self.character_config['name']}]: {dying_speech}\n"
+        self.dialogue_history += "[SYSTEM: Lt. Commander James Kovich has died from radiation exposure]\n"
+
+        # Wait for speech to complete and player to absorb the tragedy
+        await asyncio.sleep(4.0)
+
+        # Send dramatic notification of James's death
+        await self.ws.send_json({
+            'type': 'system_notification',
+            'message': '💀 COMMANDER JAMES KOVICH - DECEASED - Radiation poisoning'
+        })
+
+        await asyncio.sleep(2.0)
+
     async def trigger_game_over(self) -> None:
         """Trigger final speech and send game over message to client."""
         if not self.game_over or not self.game_outcome:
@@ -351,16 +658,17 @@ class ChatSession:
         # Create special instruction for final speech
         if outcome_type == 'failure':
             final_instruction = f"""
-This is THE END. The player has FAILED. {outcome_message}
+This is THE END. EVERYONE DIES. The player has FAILED. {outcome_message}
 
-Generate Casey's FINAL words - this is her death speech or final moment of despair.
-Be dramatic, emotional, and final. This is the last thing she will ever say.
-Keep it to 2-3 short sentences maximum."""
+Generate your character's FINAL dying words - this is their death speech as they succumb to radiation/drowning/catastrophe.
+Be EXTREMELY dramatic, emotional, and visceral. Describe their physical suffering. Voice breaking. Fading. Static. Signal lost.
+This is the last thing they will ever say before death. Make it haunting and memorable.
+Keep it to 3-4 short sentences maximum with physical deterioration described in brackets."""
         else:  # success
             final_instruction = f"""
 This is THE END. The player has SUCCEEDED! {outcome_message}
 
-Generate Casey's FINAL words - this is her victory speech or relief at survival.
+Generate your character's FINAL words - this is their victory speech or relief at survival.
 Be emotional, triumphant, and final. This is the culmination of everything.
 Keep it to 2-3 short sentences maximum."""
 
@@ -381,12 +689,41 @@ Keep it to 2-3 short sentences maximum."""
         )
         final_speech = final_speech.replace('"', '').replace('*', '')
 
-        # Send final speech with TTS
+        # Send final speech IMMEDIATELY (CRITICAL priority - game over speeches cannot be delayed)
         emotion = "panicked" if outcome_type == 'failure' else "relieved"
-        await self.send_character_response(final_speech, emotion_context=emotion)
+        await self.send_character_response_immediate(
+            content=final_speech,
+            emotion_context=emotion
+        )
 
-        # Wait a moment for final speech to be displayed
-        await asyncio.sleep(GAME_OVER_DELAY_SECONDS)
+        # Wait for final speech to complete
+        await asyncio.sleep(3.0)
+
+        # Send dramatic death notification for failures
+        if outcome_type == 'failure':
+            death_messages = {
+                'radiation': '☢️ CRITICAL RADIATION EXPOSURE - All life signs ceased',
+                'time': '⏱️ TIME EXPIRED - Catastrophic system failure - No survivors',
+                'death': '💀 FATAL CASUALTY - Mission failed - All personnel lost'
+            }
+
+            # Try to match the failure type
+            death_msg = death_messages.get('death', '💀 MISSION FAILED - No survivors')
+            if 'radiation' in outcome_message.lower():
+                death_msg = death_messages['radiation']
+            elif 'time' in outcome_message.lower():
+                death_msg = death_messages['time']
+
+            await self.ws.send_json({
+                'type': 'system_notification',
+                'message': death_msg
+            })
+
+            # Longer pause for death to sink in
+            await asyncio.sleep(5.0)
+        else:
+            # Brief pause for success
+            await asyncio.sleep(2.0)
 
         # Record scene completion in player memory
         outcome_type = self.game_outcome['type']
@@ -401,10 +738,14 @@ Keep it to 2-3 short sentences maximum."""
     async def send_opening_speech(self) -> None:
         """Send the character's opening lines with TTS audio."""
         lines_data = []
+        total_duration = 0.0
+
+        logger.info("[OPENING_SPEECH] Preparing %d opening lines", len(self.scene_config['opening_speech']))
 
         # Generate TTS for each line
         for line in self.scene_config['opening_speech']:
             line_data = {'text': line.text, 'delay': line.delay}
+            total_duration += line.delay
 
             # Generate TTS audio for this line
             if self.tts_manager.is_enabled():
@@ -420,6 +761,10 @@ Keep it to 2-3 short sentences maximum."""
 
             lines_data.append(line_data)
 
+        # Set flag to prevent NPC responses during opening speech
+        self.opening_speech_playing = True
+        logger.info("[OPENING_SPEECH] Starting opening speech, duration: %.1f seconds", total_duration)
+
         await self.ws.send_json({
             'type': 'opening_speech',
             'character_name': self.character_config['name'],
@@ -434,9 +779,27 @@ Keep it to 2-3 short sentences maximum."""
             )
             self.dialogue_history += response + "\n"
 
+        # Schedule flag reset after opening speech finishes
+        # Add extra buffer to account for TTS audio duration (estimate ~5s per line)
+        audio_buffer = len(self.scene_config['opening_speech']) * 5.0
+        total_blocking_time = total_duration + audio_buffer
+
+        async def reset_opening_speech_flag():
+            await asyncio.sleep(total_blocking_time)
+            self.opening_speech_playing = False
+            logger.info("[OPENING_SPEECH] Opening speech finished (%.1fs), NPC can now respond", total_blocking_time)
+
+        asyncio.create_task(reset_opening_speech_flag())
+        logger.info("[OPENING_SPEECH] NPC responses blocked for %.1f seconds", total_blocking_time)
+
     async def handle_message(self, message: str) -> None:
         """Handle a user message and generate a response."""
         try:
+            # Don't respond if opening speech is still playing
+            if self.opening_speech_playing:
+                logger.debug("[OPENING_SPEECH] Ignoring player message during opening speech: %s", message[:50])
+                return
+
             # Claim a new response ID - this cancels any pending responses
             self.response_sequence += 1
             my_response_id = self.response_sequence
@@ -453,10 +816,15 @@ Keep it to 2-3 short sentences maximum."""
 
             # Generate character response with player memory context
             player_context = self.player_memory.get_full_context_for_llm(self.character_id)
+
+            # Add phase-specific context for Pressure Point progression
+            phase_context = self._get_phase_context()
+            full_instruction_suffix = dialogue_instruction_suffix + phase_context
+
             prompt = instruction_template.format(
                 preamble=self.scene_data.dialogue_preamble + "\n\n" + player_context,
                 dialogue=self.dialogue_history,
-                instruction_suffix=dialogue_instruction_suffix
+                instruction_suffix=full_instruction_suffix
             )
 
             chain = prompt_llm(prompt, DIALOGUE_MODEL)
@@ -480,8 +848,14 @@ Keep it to 2-3 short sentences maximum."""
             # Add to dialogue history
             self.dialogue_history += f"[{self.character_config['name']}]: {character_response}\n"
 
-            # Send response to client with TTS
-            await self.send_character_response(character_response)
+            # Queue response for delivery (NORMAL priority, player-triggered)
+            await self.send_character_response(
+                content=character_response,
+                priority=ResponsePriority.NORMAL,
+                sequence_id=my_response_id,
+                source="player_message",
+                cancellable=True
+            )
 
             self.npc_responding = False  # Done responding
 
@@ -505,6 +879,24 @@ Keep it to 2-3 short sentences maximum."""
             action: The label of the button that was pressed (e.g., "O2 VALVE")
         """
         try:
+            # Don't respond to button actions during opening speech (but still show notification)
+            if self.opening_speech_playing:
+                logger.debug("[OPENING_SPEECH] Button action during opening speech: %s (showing notification only)", action)
+                # Still send the notification so player sees button press
+                action_descriptions = {
+                    'O2 VALVE': 'O2 VALVE activated',
+                    'VENT': 'VENT system activated',
+                    'BALLAST': 'BALLAST control activated',
+                    'POWER': 'POWER relay activated',
+                    'CRANK': 'Manual crank engaged'
+                }
+                action_text = action_descriptions.get(action, f'{action} activated')
+                await self.ws.send_json({
+                    'type': 'system_notification',
+                    'message': f'⚡ {action_text}'
+                })
+                return
+
             # Claim a new response ID - this IMMEDIATELY cancels any pending responses
             self.response_sequence += 1
             my_response_id = self.response_sequence
@@ -531,6 +923,21 @@ Keep it to 2-3 short sentences maximum."""
 
             # Check if interrupting NPC
             was_interrupted = self.npc_responding
+
+            # Send button notification IMMEDIATELY to frontend (before NPC response)
+            action_descriptions = {
+                'O2 VALVE': 'O2 VALVE activated',
+                'VENT': 'VENT system activated',
+                'BALLAST': 'BALLAST control activated',
+                'POWER': 'POWER relay activated',
+                'CRANK': 'Manual crank engaged',
+                'FLOOD MED BAY': '🚨 EMERGENCY ASCENT INITIATED - MED BAY FLOODING SEQUENCE ARMED 🚨'
+            }
+            action_text = action_descriptions.get(action, f'{action} activated')
+            await self.ws.send_json({
+                'type': 'system_notification',
+                'message': f'⚡ {action_text}'
+            })
 
             # Check if NPC should be aware of this action
             npc_aware = control.get('npc_aware', True) if control else True
@@ -597,31 +1004,50 @@ Keep it to 2-3 short sentences maximum."""
                     await self.trigger_game_over()
                     return  # Stop processing, game is over
 
-                action_descriptions = {
-                    'O2 VALVE': 'Player activated the O2 VALVE control',
-                    'VENT': 'Player activated the VENT system',
-                    'BALLAST': 'Player activated the BALLAST control',
-                    'POWER': 'Player activated the POWER relay'
-                }
-
-                action_text = action_descriptions.get(action, f'Player activated {action}')
-
                 # Add action to dialogue history as a system event
-                system_event = f"[SYSTEM EVENT]: {action_text}{interruption_note}\n"
+                system_event = f"[SYSTEM EVENT]: Player activated {action}{interruption_note}\n"
                 self.dialogue_history += system_event
 
+                # Special handling for FLOOD MED BAY decision
+                if action == 'FLOOD MED BAY':
+                    extra_instruction = f"""
+\n\n=== CRITICAL MORAL MOMENT ===
+The player just activated the FLOOD MED BAY control. This will kill Adrian.
+
+YOUR RESPONSE DEPENDS ON YOUR EMOTIONAL BOND: {self.scene_state.get('emotional_bond', 0):.0f}%
+
+If emotional bond is HIGH (60+):
+- React with anguish but gratitude: "[long pause] You... you're right. We have to. [voice breaking] I can't... I can't let everyone else die because I... [trying to steady voice] Thank you. For being here. For your voice."
+- Express final thoughts about Adrian
+- Begin the flooding sequence with player's moral support
+
+If emotional bond is MEDIUM (30-60):
+- React with cold acceptance: "[long pause] ...Roger that. Initiating med bay flood. [pause] ...He won't feel anything."
+- Professional distance, suppressing emotion
+
+If emotional bond is LOW (<30):
+- React with bitter resignation: "[static silence] ...Affirmative. Executing. [flat voice]"
+- Completely shut down emotionally
+
+After your response, you will execute the flooding. This is THE FINAL DECISION. Make it count.
+Keep response to 2-3 sentences maximum. Every word costs you."""
                 # Adjust instruction suffix based on interruption
-                if was_interrupted or self.action_count_recent >= RAPID_ACTION_COUNT_THRESHOLD:
+                elif was_interrupted or self.action_count_recent >= RAPID_ACTION_COUNT_THRESHOLD:
                     extra_instruction = "\nThe player interrupted you or acted without waiting for your guidance. React with panic, frustration, or anger. Make it clear they're making things worse."
                 else:
                     extra_instruction = "\nThe player just performed an action. React to it immediately and naturally."
 
                 # Generate character response to the action with player memory context
                 player_context = self.player_memory.get_full_context_for_llm(self.character_id)
+
+                # Add phase-specific context
+                phase_context = self._get_phase_context()
+                full_instruction_suffix = dialogue_instruction_suffix + extra_instruction + phase_context
+
                 prompt = instruction_template.format(
                     preamble=self.scene_data.dialogue_preamble + "\n\n" + player_context,
                     dialogue=self.dialogue_history,
-                    instruction_suffix=dialogue_instruction_suffix + extra_instruction
+                    instruction_suffix=full_instruction_suffix
                 )
 
                 chain = prompt_llm(prompt, DIALOGUE_MODEL)
@@ -650,10 +1076,42 @@ Keep it to 2-3 short sentences maximum."""
                 # Determine emotion based on interruption/rapid action
                 emotion = "stressed" if (was_interrupted or self.action_count_recent >= RAPID_ACTION_COUNT_THRESHOLD) else None
 
-                # Send response to client with TTS
-                await self.send_character_response(character_response, emotion_context=emotion)
+                # Queue response for delivery (NORMAL priority, button-triggered)
+                await self.send_character_response(
+                    content=character_response,
+                    priority=ResponsePriority.NORMAL,
+                    emotion_context=emotion,
+                    sequence_id=my_response_id,
+                    source=f"button_press_{action.lower().replace(' ', '_')}",
+                    cancellable=True
+                )
 
                 self.npc_responding = False  # Done responding
+
+                # Special handling after FLOOD MED BAY response
+                if action == 'FLOOD MED BAY':
+                    # Mark that the final decision has been made
+                    self.scene_state['systems_repaired'] = min(4, self.scene_state.get('systems_repaired', 0) + 2)  # Major system completion
+
+                    # Wait for emotional impact
+                    await asyncio.sleep(3.0)
+
+                    # Send dramatic flooding notification
+                    await self.ws.send_json({
+                        'type': 'system_notification',
+                        'message': '💀 MED BAY COMPARTMENT FLOODED - PRESSURE SEAL ENGAGED - EMERGENCY ASCENT INITIATED'
+                    })
+
+                    await asyncio.sleep(2.0)
+
+                    # Add flooding event to dialogue history
+                    self.dialogue_history += "[SYSTEM EVENT: Med bay compartment flooded. Dr. Adrian Kovich deceased. Emergency ascent in progress.]\n"
+
+                    # Send state update
+                    await self.ws.send_json({
+                        'type': 'state_update',
+                        'state': self.scene_state
+                    })
 
                 # Ask World Director what should happen next
                 await self.consult_director(action)
@@ -772,8 +1230,14 @@ Keep it to 2-3 short sentences maximum."""
         npc_reaction = npc_reaction.strip().removeprefix(f"[{self.character_config['name']}]: ")
         npc_reaction = npc_reaction.replace('"', '').replace('*', '')
 
-        # Send NPC reaction with TTS (urgent emotion for events)
-        await self.send_character_response(npc_reaction, emotion_context="urgent")
+        # Queue NPC reaction (BACKGROUND priority - can be superseded by player actions)
+        await self.send_character_response(
+            content=npc_reaction,
+            priority=ResponsePriority.BACKGROUND,
+            emotion_context="urgent",
+            source=f"director_event_{event_data.get('event_type', 'unknown')}",
+            cancellable=True
+        )
 
         self.dialogue_history += f"[{self.character_config['name']}]: {npc_reaction}\n"
         self.npc_responding = False
@@ -822,8 +1286,13 @@ Keep it to 2-3 short sentences maximum."""
         hint_response = hint_response.strip().removeprefix(f"[{self.character_config['name']}]: ")
         hint_response = hint_response.replace('"', '').replace('*', '')
 
-        # Send hint with TTS
-        await self.send_character_response(hint_response)
+        # Queue hint (BACKGROUND priority - easily cancelled if player takes action)
+        await self.send_character_response(
+            content=hint_response,
+            priority=ResponsePriority.BACKGROUND,
+            source=f"director_hint_{hint_type}",
+            cancellable=True
+        )
 
         self.dialogue_history += f"[{self.character_config['name']}]: {hint_response}\n"
         self.npc_responding = False
@@ -835,6 +1304,11 @@ Keep it to 2-3 short sentences maximum."""
         patiently waiting for the NPC to do something.
         """
         try:
+            # Don't trigger during opening speech
+            if self.opening_speech_playing:
+                logger.debug("[OPENING_SPEECH] Ignoring waiting_complete during opening speech")
+                return
+
             # Record patient behavior in player memory
             self.player_memory.record_patient_wait()
 
@@ -856,10 +1330,15 @@ Keep it to 2-3 short sentences maximum."""
                 self.npc_responding = True
 
                 player_context = self.player_memory.get_full_context_for_llm(self.character_id)
+
+                # Add phase-specific context
+                phase_context = self._get_phase_context()
+                full_instruction_suffix = "The player is waiting patiently. Continue the conversation - give them guidance, react to the situation, or move the story forward. Be proactive." + phase_context
+
                 prompt = instruction_template.format(
                     preamble=self.scene_data.dialogue_preamble + "\n\n" + player_context,
                     dialogue=self.dialogue_history,
-                    instruction_suffix="The player is waiting patiently. Continue the conversation - give them guidance, react to the situation, or move the story forward. Be proactive."
+                    instruction_suffix=full_instruction_suffix
                 )
 
                 chain = prompt_llm(prompt, DIALOGUE_MODEL)
@@ -875,8 +1354,13 @@ Keep it to 2-3 short sentences maximum."""
                 # Add to dialogue history
                 self.dialogue_history += f"[{self.character_config['name']}]: {character_response}\n"
 
-                # Send response to client with TTS
-                await self.send_character_response(character_response)
+                # Queue response (BACKGROUND priority - waiting/proactive dialogue)
+                await self.send_character_response(
+                    content=character_response,
+                    priority=ResponsePriority.BACKGROUND,
+                    source="waiting_complete_proactive",
+                    cancellable=True
+                )
 
                 self.npc_responding = False
 

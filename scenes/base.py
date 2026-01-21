@@ -25,6 +25,8 @@ class SceneControl:
         npc_aware: Whether the NPC can see/hear/sense this action
             True: NPC is notified and can react (e.g., Casey hears button press in sub)
             False: Action is hidden from NPC (e.g., player secretly examining evidence)
+        visible_in_phases: List of phase numbers when this control should be visible
+            If None, control is always visible. If specified, only visible in those phases.
     """
     id: str
     label: str
@@ -34,6 +36,7 @@ class SceneControl:
     description: str = ""
     action_type: str = "normal"
     npc_aware: bool = True  # Default: NPC is aware of actions
+    visible_in_phases: Optional[List[int]] = None  # None means always visible
 
 
 @dataclass

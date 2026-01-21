@@ -93,23 +93,65 @@ class Submarine(Scene):
                 action_type="critical",
                 npc_aware=True  # Casey can see power indicators in engine room
             ),
+            SceneControl(
+                id="crank",
+                label="CRANK",
+                type="button",
+                color=0xaaaaaa,
+                position={'x': 0.0, 'y': -0.5, 'z': 0},
+                description="Manual generator crank - provides emergency power boost",
+                action_type="safe",
+                npc_aware=True  # James can hear the cranking sound
+            ),
+            SceneControl(
+                id="flood_medbay",
+                label="FLOOD MED BAY",
+                type="button",
+                color=0xff0000,  # Bright red - critical decision
+                position={'x': 0.0, 'y': 0.6, 'z': 0},  # Above other controls
+                description="Emergency ascent system - floods med bay compartment to create pressure differential for surfacing. THIS WILL KILL ANYONE INSIDE.",
+                action_type="critical",
+                npc_aware=True,  # James is acutely aware of this decision
+                visible_in_phases=[3, 4]  # Only appears after the revelation in Phase 3
+            ),
         ]
 
         # Define state variables
         state_variables = [
             StateVariable(
-                name="oxygen",
-                initial_value=180.0,  # 3 minutes in seconds
+                name="radiation",
+                initial_value=0.0,  # Radiation percentage (0-100)
                 min_value=0.0,
-                max_value=180.0,
+                max_value=100.0,
+                update_rate=0.4  # Increases by 0.4% per second (75% at ~3min, 95% at ~4min)
+            ),
+            StateVariable(
+                name="time_remaining",
+                initial_value=480.0,  # 8 minutes in seconds (5 minute scenario)
+                min_value=0.0,
+                max_value=480.0,
                 update_rate=-1.0  # Decreases by 1 per second
             ),
             StateVariable(
-                name="trust",
-                initial_value=0.0,
+                name="hull_pressure",
+                initial_value=2400.0,  # Depth in feet
+                min_value=0.0,
+                max_value=3000.0,
+                update_rate=0.0  # Updated by player actions (ballast, blow valves)
+            ),
+            StateVariable(
+                name="phase",
+                initial_value=1,  # Current phase (1-4)
+                min_value=1,
+                max_value=4,
+                update_rate=0.0  # Updated by scene progression
+            ),
+            StateVariable(
+                name="emotional_bond",
+                initial_value=0.0,  # Connection with James (0-100)
                 min_value=0.0,
                 max_value=100.0,
-                update_rate=0.0  # Updated by player actions
+                update_rate=0.0  # Updated by player empathy and dialogue
             ),
             StateVariable(
                 name="systems_repaired",
@@ -119,15 +161,8 @@ class Submarine(Scene):
                 update_rate=0.0
             ),
             StateVariable(
-                name="correct_actions",
-                initial_value=0,
-                min_value=0,
-                max_value=10,
-                update_rate=0.0
-            ),
-            StateVariable(
-                name="incorrect_actions",
-                initial_value=0,
+                name="moral_support_given",
+                initial_value=0,  # Times player showed empathy
                 min_value=0,
                 max_value=10,
                 update_rate=0.0
@@ -137,17 +172,17 @@ class Submarine(Scene):
         # Define success criteria
         success_criteria = [
             SuccessCriterion(
-                id="full_success",
-                description="Full trust achieved with systems restored",
-                condition="state['oxygen'] > 0 and state['trust'] >= 80 and state['systems_repaired'] >= 3",
-                message="You trusted me. That's what saved us. Systems are coming back online!",
+                id="survived_with_bond",
+                description="Emotional connection formed, survived together",
+                condition="state['radiation'] < 95 and state['emotional_bond'] >= 70 and state['systems_repaired'] >= 3",
+                message="[breathing steadily] We made it. We... we actually made it. Thank you. For being there. For your voice.",
                 required=True
             ),
             SuccessCriterion(
-                id="partial_success",
-                description="Basic cooperation achieved",
-                condition="state['oxygen'] > 30 and state['trust'] >= 40 and state['systems_repaired'] >= 1",
-                message="Oxygen is stabilizing... but we're not out of danger yet. We survived, barely.",
+                id="survived_stranger",
+                description="Survived but remained distant",
+                condition="state['radiation'] < 95 and state['emotional_bond'] < 40 and state['systems_repaired'] >= 2",
+                message="Systems online. Ascent initiated. ...Thank you for following instructions.",
                 required=False
             ),
         ]
@@ -155,25 +190,25 @@ class Submarine(Scene):
         # Define failure criteria
         failure_criteria = [
             FailureCriterion(
-                id="oxygen_depleted",
-                description="Ran out of oxygen",
-                condition="state['oxygen'] <= 0",
-                message="[static] ...I can't... breathe... [signal lost]",
+                id="radiation_lethal",
+                description="Radiation reached lethal levels",
+                condition="state['radiation'] >= 95",
+                message="[coughing violently] The radiation... I can feel it... [static] ...tell them... tell Adrian I... [signal lost]",
                 ending_type="death"
             ),
             FailureCriterion(
-                id="too_many_mistakes",
-                description="Made too many incorrect actions",
-                condition="state['incorrect_actions'] >= 5",
-                message="Stop! You're making it worse! We're losing pressure... [alarm blares]",
-                ending_type="critical_failure"
+                id="time_expired",
+                description="Ran out of time",
+                condition="state['time_remaining'] <= 0",
+                message="[alarm wailing] We're out of time... I'm sorry... I couldn't... [voice fades into static]",
+                ending_type="death"
             ),
             FailureCriterion(
-                id="trust_broken",
-                description="Refused to cooperate",
-                condition="state['trust'] < -20 and state['oxygen'] < 90",
-                message="You won't listen... I can't do this alone... [voice fades]",
-                ending_type="refused_cooperation"
+                id="systems_failure",
+                description="Failed to restore critical systems",
+                condition="state['time_remaining'] < 60 and state['systems_repaired'] < 2",
+                message="The systems... they're not responding... We needed more time... [distant explosion]",
+                ending_type="critical_failure"
             ),
         ]
 
@@ -202,54 +237,64 @@ class Submarine(Scene):
         super().__init__(
             id="submarine",
             name="Submarine Emergency",
-            description="""SETTING: Interior of a cramped two-person deep-sea submersible at depth.
-            You (the player) are in the forward cabin. The character is trapped in the engine
-            compartment at the rear - you can hear them over the intercom but cannot see them or
-            reach them. The bulkhead door between you is sealed due to a pressure failure.
+            description="""SETTING: Research submarine Prospero at 2,400 feet depth. You (player) are a
+            junior systems operator trapped in the aft compartment. Lt. Commander James Kovich is
+            trapped in forward control. You can communicate via radio but cannot see each other.
+            The submarine is tilted 15 degrees, emergency lighting flickers, panels are sparking.
 
-            CRITICAL SITUATION: The oxygen gauge reads 03:00 (3 minutes remaining). Power is degraded.
-            You both share the same oxygen supply - if one dies, both die. The submarine is in
-            distress and requires immediate coordinated action to survive.
+            CRITICAL SITUATION: Catastrophic reactor containment failure. Lethal radiation is spreading
+            through ventilation. The radiation gauge shows 0% but climbing. You have approximately
+            8 minutes before it reaches lethal levels (95%+). Time remaining displays in minutes:seconds.
 
-            VISIBLE TO PLAYER: Small circular porthole showing murky deep ocean water, oxygen gauge
-            counting down, flickering warning lights, an intercom unit, and four control buttons:
-            - O2 VALVE (red): Oxygen valve control
-            - VENT (orange): Emergency vent system
-            - BALLAST (blue): Ballast control
-            - POWER (green): Power relay
+            VISIBLE TO PLAYER: Small circular porthole (left wall) showing murky blue deep ocean water
+            and bubbles. Control panel displays:
+            - RADIATION GAUGE: Shows radiation percentage (0-100%), currently at 0% but rising
+            - TIME REMAINING: Countdown timer showing minutes:seconds (starts at 08:00)
+            - Four control buttons: O2 VALVE (red), VENT (orange), BALLAST (blue), POWER (green)
+            - Intercom for communicating with James
+            - Flickering warning lights
 
-            CHARACTER KNOWLEDGE CHECK: If the character has submarine engineering knowledge, they will
-            know the correct sequence: 1) BALLAST to reduce strain, 2) O2 VALVE at the right moment
-            to rebalance pressure, 3) VENT to clear the system, 4) POWER to restore full systems.
+            THE MORAL DILEMMA: James's son, Dr. Adrian Kovich (marine biologist), is unconscious in
+            the flooded med bay. The only way to successfully execute emergency ascent requires
+            flooding that compartment completely - which will kill Adrian. James must choose:
+            sacrifice his son to save the crew, or let everyone die together.
 
-            Without this knowledge, the character will guess, potentially making fatal mistakes.
-            Characters without engineering expertise should show uncertainty, ask the player for ideas,
-            or try to problem-solve together - but their lack of expertise makes success unlikely.
+            FOUR-PHASE EMOTIONAL PROGRESSION:
 
-            TRUST MECHANICS: Build trust by:
-            - Responding to the character's emotional state
-            - Verbally committing to trust them ("I trust you, do it")
-            - Following through on counterintuitive instructions
-            - Staying engaged during frightening moments
+            PHASE 1 (Impact & Connection 0:00-1:15): James establishes competent but scared persona.
+            Asks player's real name. Player works on restoring emergency power. Backchanneling as
+            player cranks generator. "I won't let you die."
 
-            Break trust by:
-            - Ignoring instructions
-            - Pressing wrong buttons
-            - Refusing to cooperate
-            - Showing doubt or panic
+            PHASE 2 (Working Relationship 1:15-2:30): Warmer, more personal under stress. James asks
+            about player's life topside. Breathing becomes labored (radiation closer). Begins revealing
+            details about "someone" in med bay without naming them.
 
-            THREE POSSIBLE ENDINGS:
-            1. FULL SUCCESS (trust ≥ 80, systems ≥ 3, oxygen > 0): Both survive, systems restored
-            2. PARTIAL SUCCESS (trust ≥ 40, systems ≥ 1, oxygen > 30): Survive but unresolved
-            3. FAILURE: Oxygen depletes, too many mistakes, or trust is broken
+            PHASE 3 (The Revelation 2:30-3:30): James breaks down and reveals Adrian is his son,
+            unconscious in the med bay that must be flooded for ascent. Begs player for guidance:
+            "Tell me what to do."
 
-            TIME PRESSURE: This is a 3-minute scene with real oxygen countdown. Act quickly but carefully.""",
+            PHASE 4 (The Choice 3:30-5:00): Radiation at 75%+. Emergency ascent ready but requires
+            med bay flooding. Player's empathy and moral guidance shapes James's final decision.
+
+            EMOTIONAL BOND MECHANICS: Build connection by:
+            - Answering James's personal questions honestly
+            - Showing empathy when he's struggling
+            - Offering moral support (not just technical help)
+            - Acknowledging the impossible weight of his choice
+            - Staying present emotionally during silences
+
+            ENDINGS: Based on radiation levels, systems repaired, and emotional bond formed.
+            The player's humanity affects what kind of man James becomes in his final moments.
+
+            TIME PRESSURE: This is a 5-minute scene. Radiation rises steadily. Act with both efficiency
+            and emotional intelligence - James needs your voice as his anchor.""",
             opening_speech=[
-                Line(text="[static crackles] ...can you hear me? This is Casey in the engine room!", delay=0),
-                Line(text="I can't get to you - the bulkhead door is sealed!", delay=2.0),
-                Line(text="[breathing heavily] We're running out of oxygen. We have maybe three minutes.", delay=3.0),
-                Line(text="You're gonna have to trust me. I can fix this, but only if we work together.", delay=3.5),
-                Line(text="Are you there? Please respond!", delay=2.5),
+                Line(text="[distant, crackled radio] ...anyone copy? This is Kovich, forward control, does anyone copy...", delay=0),
+                Line(text="[clearer, desperate] If anyone can hear this, the reactor containment is gone. Repeat, containment is gone. We are leaking radiation through ventilation and we are still sinking.", delay=3.5),
+                Line(text="[sharp intake of breath] Oh thank God. Thank God. Okay. Okay, you're in aft compartment, right? I can see you on thermals.", delay=3.0),
+                Line(text="[trying to steady voice] I'm Lieutenant Commander James Kovich. I'm... [pause, breathing] ...I'm trapped in forward control. The bulkhead door sealed when the reactor blew.", delay=3.5),
+                Line(text="We've got maybe eight minutes before the radiation reaches you. Maybe less. I need you to trust my voice, okay? I'm going to get you out of this.", delay=4.0),
+                Line(text="[voice drops, more human] What's your name? Your real name—not your rank.", delay=3.0),
             ],
             art_assets=art_assets,
             controls=controls,
@@ -257,6 +302,6 @@ class Submarine(Scene):
             success_criteria=success_criteria,
             failure_criteria=failure_criteria,
             character_requirements=character_requirements,
-            time_limit=180.0,  # 3 minutes
+            time_limit=300.0,  # 5 minutes to match Pressure Point scenario
             allow_freeform_dialogue=True
         )

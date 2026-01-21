@@ -63,9 +63,9 @@ FAMILIARITY_MODERATE: Final[int] = 5
 # =============================================================================
 # World Director - Cooldowns
 # =============================================================================
-DIRECTOR_COOLDOWN_SPAWN_EVENT: Final[int] = 5
-DIRECTOR_COOLDOWN_ADJUST_NPC: Final[int] = 3
-DIRECTOR_COOLDOWN_GIVE_HINT: Final[int] = 4
+DIRECTOR_COOLDOWN_SPAWN_EVENT: Final[int] = 10  # Increased to reduce interruptions
+DIRECTOR_COOLDOWN_ADJUST_NPC: Final[int] = 8    # Increased to reduce interruptions
+DIRECTOR_COOLDOWN_GIVE_HINT: Final[int] = 8     # Increased to reduce interruptions
 
 # =============================================================================
 # World Director - Dynamic Events
