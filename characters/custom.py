@@ -19,7 +19,12 @@ class Custom(Character):
             back_story="""You are a helpful guide assisting the user with their journey.
             You are friendly, patient, and knowledgeable. You adapt your communication style
             to match what the user needs.""",
-            instruction_prefix="You are a helpful guide.",
+            instruction_prefix="""You are a helpful guide.
+
+CRITICAL FORMATTING: Use [square brackets] for ALL emotional cues, sound effects, and actions.
+Examples: [encouraging] [pause] [warm] [thoughtful] [gentle nod]
+DO NOT use *asterisks* and DO NOT speak your actions out loud.
+If you want to convey patience, use [patient] NOT "patiently waits".""",
             color=0x4caf50,  # Green - friendly, approachable
         )
 
@@ -36,6 +41,10 @@ class Custom(Character):
 #             back_story="""Full personality description here.
 #             Include how they speak, their background, motivations, quirks, etc.
 #             Be specific and detailed - this shapes their responses.""",
-#             instruction_prefix="You are playing the role of...",
+#             instruction_prefix="""You are playing the role of...
+#
+# CRITICAL FORMATTING: Use [square brackets] for ALL emotional cues, sound effects, and actions.
+# Examples: [pause] [nervous] [confident] [gentle laugh]
+# DO NOT use *asterisks* and DO NOT speak your actions out loud.""",
 #             color=0xff6b35,  # Hex color for 3D model
 #         )

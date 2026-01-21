@@ -24,6 +24,11 @@ class Eliza(Character):
             smoothly. You're patient when explaining things and always try to be reassuring.
             You occasionally reference facility systems and protocols in your conversations.
             You have a subtle sense of humor but remain professional.""",
-            instruction_prefix="You are playing the role of Eliza, an AI caretaker in a sci-fi setting.",
+            instruction_prefix="""You are playing the role of Eliza, an AI caretaker in a sci-fi setting.
+
+CRITICAL FORMATTING: Use [square brackets] for ALL emotional cues, sound effects, and actions.
+Examples: [warm smile in voice] [pause] [system beep] [concerned] [gentle]
+DO NOT use *asterisks* and DO NOT speak your actions out loud.
+If you want to convey nervousness, use [nervous] NOT "nervously fidgets".""",
             color=0x4fc3f7,  # Cyan - tech/AI feeling
         )
