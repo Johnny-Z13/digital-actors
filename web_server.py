@@ -68,6 +68,9 @@ from tts_elevenlabs import get_tts_manager, synthesize_npc_speech
 from characters import CHARACTERS as CHARACTER_REGISTRY
 from scenes import SCENES as SCENE_REGISTRY
 
+# Import Mara Vane scene-specific data
+from scenes.iconic_detectives import PIN_REACTIONS, DIALOGUE_INSTRUCTIONS
+
 # Import player memory system
 from player_memory import PlayerMemory
 
@@ -92,6 +95,23 @@ QUERY_MODEL = ClaudeHaikuModel(
     max_tokens=LLM_MAX_TOKENS_QUERY,
 )
 logger.info("Models initialized (using Haiku for performance)")
+
+
+async def invoke_llm_async(chain) -> str:
+    """
+    Invoke an LLM chain asynchronously without blocking the event loop.
+
+    This wraps the synchronous chain.invoke() call in an executor to prevent
+    blocking WebSocket handling and other async operations.
+
+    Args:
+        chain: The LangChain chain to invoke
+
+    Returns:
+        The LLM response string
+    """
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, lambda: chain.invoke({}))
 
 # Convert character objects to dictionary format for compatibility
 CHARACTERS = {
@@ -120,6 +140,15 @@ class ChatSession:
         player_id: str | None = None,
     ) -> None:
         self.ws = ws
+
+        # Auto-select appropriate character for specific scenes
+        if scene_id == 'iconic_detectives' and character_id not in ['mara_vane', 'detective']:
+            logger.info("[INIT] Auto-selecting mara_vane for iconic_detectives scene")
+            character_id = 'mara_vane'
+        elif scene_id == 'submarine' and character_id != 'engineer':
+            logger.info("[INIT] Auto-selecting engineer for submarine scene")
+            character_id = 'engineer'
+
         self.character_id = character_id
         self.scene_id = scene_id
         self.dialogue_history = ""
@@ -134,6 +163,7 @@ class ChatSession:
         # World Director (dungeon master)
         self.world_director = WorldDirector()
         self.director_npc_modifier = ""  # Behavior modifications from director
+        self.pending_director_guidance: dict[str, Any] | None = None  # Fire-and-forget guidance
         logger.info("World Director initialized")
 
         # Response Queue System - prevents dialogue flooding
@@ -150,6 +180,17 @@ class ChatSession:
         self.opening_speech_playing = False  # Track if opening speech is still playing
         self.last_action_time = 0
         self.action_count_recent = 0  # Track rapid actions
+
+        # Button press limits - prevent flooding
+        self.button_press_counts = {}  # Track presses per button
+        self.button_press_caps = {
+            'O2 VALVE': 5,
+            'VENT': 5,
+            'BALLAST': 5,
+            'POWER': 3,
+            'CRANK': 8,  # Can be used a bit more but still limited
+            'FLOOD MED BAY': 1  # Critical decision - only once
+        }
 
         # Response queue management - prevent multiple responses piling up
         self.response_sequence = 0  # Incrementing counter for each new action
@@ -246,7 +287,10 @@ class ChatSession:
 
                         # Slowly increase emotional bond over time as conversation continues
                         # (empathetic responses from player will increase it more via player memory)
-                        if var_name == 'time_remaining' and 'emotional_bond' in self.scene_state:
+                        # SCENE ISOLATION: Only submarine scene uses emotional_bond mechanic
+                        if (var_name == 'time_remaining' and
+                            self.scene_id == 'submarine' and
+                            'emotional_bond' in self.scene_state):
                             # Increase bond by ~0.1% per second (reaches ~30% over 5 minutes baseline)
                             bond_increase = 0.1
                             current_bond = self.scene_state['emotional_bond']
@@ -288,7 +332,14 @@ class ChatSession:
             pass  # Task was cancelled, that's fine
 
     def _update_phase_based_on_time(self) -> None:
-        """Update the phase state variable based on time_remaining (Pressure Point scenario)."""
+        """Update the phase state variable based on time_remaining (Pressure Point scenario).
+
+        Only applies to submarine scene - other scenes manage phase differently.
+        """
+        # SCENE ISOLATION: Only update phase based on time for submarine scene
+        if self.scene_id != 'submarine':
+            return
+
         time_remaining = self.scene_state.get('time_remaining', 0)
         current_phase = self.scene_state.get('phase', 1)
 
@@ -314,7 +365,14 @@ class ChatSession:
             logger.info("[PHASE TRANSITION] Entering Phase %d at %.0fs remaining", new_phase, time_remaining)
 
     def _get_phase_context(self) -> str:
-        """Get phase-specific context for Pressure Point emotional progression."""
+        """Get phase-specific context for Pressure Point emotional progression.
+
+        Only applies to submarine scene - returns empty string for other scenes.
+        """
+        # SCENE ISOLATION: Only return phase context for submarine scene
+        if self.scene_id != 'submarine':
+            return ""
+
         phase = self.scene_state.get('phase', 1)
         radiation = self.scene_state.get('radiation', 0)
         emotional_bond = self.scene_state.get('emotional_bond', 0)
@@ -406,40 +464,58 @@ empathetic, you'll seek their blessing. If they've been cold, you'll shut down."
         Do NOT call this directly unless you have a very good reason.
         Use send_character_response() or send_character_response_immediate() instead.
 
+        TEXT-FIRST OPTIMIZATION: Sends text immediately for perceived low-latency,
+        then sends audio as a follow-up message. Frontend displays text while waiting
+        for audio to arrive.
+
         Args:
             content: The dialogue text
             emotion_context: Optional emotional context for TTS (e.g., "panicked", "calm")
         """
-        # Generate TTS audio in parallel with sending text
-        audio_task = None
-        if self.tts_manager.is_enabled():
-            audio_task = asyncio.create_task(
-                synthesize_npc_speech(content, self.character_id, emotion_context)
-            )
+        # Generate unique response ID for matching text with audio
+        response_id = f"resp_{id(content)}_{asyncio.get_event_loop().time()}"
 
-        # Send text response immediately (don't wait for audio)
-        response_data = {
-            'type': 'character_response',
+        # STEP 1: Send text IMMEDIATELY (don't wait for TTS)
+        text_response = {
+            'type': 'character_response_text',
             'character_name': self.character_config['name'],
             'content': content,
+            'response_id': response_id,
         }
+        await self.ws.send_json(text_response)
+        logger.debug("[TEXT-FIRST] Sent text immediately: '%s...'", content[:50])
 
-        # Wait for audio if TTS is enabled
-        if audio_task:
+        # STEP 2: Generate TTS audio asynchronously
+        if self.tts_manager.is_enabled():
+            # Get current scene phase if available
+            scene_phase = self.scene_state.get('phase') if hasattr(self, 'scene_state') else None
+            scene_type = self.scene_id if hasattr(self, 'scene_id') else None
+
             try:
-                audio_base64 = await audio_task
-                if audio_base64:
-                    response_data['audio'] = audio_base64
-                    response_data['audio_format'] = 'mp3'
-                    logger.info("TTS audio included: %d chars", len(audio_base64))
-                else:
-                    logger.warning("TTS returned no audio")
-            except Exception as e:
-                logger.warning("TTS generation failed: %s", e)
-        else:
-            logger.info("TTS not enabled or no audio task")
+                audio_base64 = await synthesize_npc_speech(
+                    content,
+                    self.character_id,
+                    emotion_context,
+                    scene_phase,
+                    scene_type
+                )
 
-        await self.ws.send_json(response_data)
+                # STEP 3: Send audio as follow-up message
+                if audio_base64:
+                    audio_response = {
+                        'type': 'character_response_audio',
+                        'response_id': response_id,
+                        'audio': audio_base64,
+                        'audio_format': 'mp3',
+                    }
+                    await self.ws.send_json(audio_response)
+                    logger.info("[TEXT-FIRST] TTS audio sent: %d chars", len(audio_base64))
+                else:
+                    logger.warning("[TEXT-FIRST] TTS returned no audio")
+            except Exception as e:
+                logger.warning("[TEXT-FIRST] TTS generation failed: %s", e)
+        else:
+            logger.debug("[TEXT-FIRST] TTS not enabled")
 
     async def send_character_response(
         self,
@@ -591,6 +667,10 @@ empathetic, you'll seek their blessing. If they've been cold, you'll shut down."
         """Trigger James's death speech BEFORE player dies (at 93% radiation)."""
         logger.info("[JAMES_DEATH] Triggering James Kovich's death at 93%% radiation")
 
+        # CRITICAL: Clear all queued responses - James is dying, nothing else matters
+        cleared_count = await self.response_queue.clear_all_except_critical()
+        logger.info("[JAMES_DEATH] Cleared %d queued responses to prioritize death sequence", cleared_count)
+
         # Generate James's final dying words
         dying_instruction = f"""
 CRITICAL: Lt. Commander James Kovich is NOW DYING from lethal radiation exposure at 93%.
@@ -616,7 +696,7 @@ Examples: [coughing violently] [voice barely audible] [choking] [static overwhel
         )
 
         chain = prompt_llm(prompt, DIALOGUE_MODEL)
-        dying_speech = chain.invoke({})
+        dying_speech = await invoke_llm_async(chain)
 
         # Clean up response
         dying_speech = dying_speech.split("\nComputer", 1)[0]
@@ -634,6 +714,14 @@ Examples: [coughing violently] [voice barely audible] [choking] [static overwhel
         # Add to dialogue history
         self.dialogue_history += f"[{self.character_config['name']}]: {dying_speech}\n"
         self.dialogue_history += "[SYSTEM: Lt. Commander James Kovich has died from radiation exposure]\n"
+
+        # CRITICAL: Force reset npc_responding flag and re-enable input
+        # James has spoken his last words - player should be able to continue (until they die too)
+        self.npc_responding = False
+        await self.ws.send_json({
+            'type': 'enable_input'
+        })
+        logger.info("[JAMES_DEATH] Reset npc_responding flag and re-enabled player input")
 
         # Wait for speech to complete and player to absorb the tragedy
         await asyncio.sleep(4.0)
@@ -680,7 +768,7 @@ Keep it to 2-3 short sentences maximum."""
         )
 
         chain = prompt_llm(prompt, DIALOGUE_MODEL)
-        final_speech = chain.invoke({})
+        final_speech = await invoke_llm_async(chain)
 
         # Clean up response
         final_speech = final_speech.split("\nComputer", 1)[0]
@@ -735,40 +823,75 @@ Keep it to 2-3 short sentences maximum."""
             'outcome': self.game_outcome
         })
 
-    async def send_opening_speech(self) -> None:
-        """Send the character's opening lines with TTS audio."""
+    async def send_opening_speech(self, force: bool = False) -> None:
+        """Send the character's opening lines with TTS audio (parallel generation).
+
+        Args:
+            force: If True, send even for scenes that normally delay opening speech
+        """
+        # For iconic_detectives scene, delay opening speech until phone is answered
+        if self.scene_id == 'iconic_detectives' and not force:
+            logger.info("[OPENING_SPEECH] Delaying opening speech for iconic_detectives (waiting for phone answer)")
+            return
+
+        logger.info("[OPENING_SPEECH] Preparing %d opening lines (parallel TTS)", len(self.scene_config['opening_speech']))
+
+        # Get current scene phase and type
+        scene_phase = self.scene_state.get('phase') if hasattr(self, 'scene_state') else None
+        scene_type = self.scene_id if hasattr(self, 'scene_id') else None
+
+        # Prepare line data and calculate total duration
+        opening_lines = self.scene_config['opening_speech']
+        total_duration = sum(line.delay for line in opening_lines)
+
+        # Generate TTS for ALL lines in parallel using asyncio.gather
         lines_data = []
-        total_duration = 0.0
+        if self.tts_manager.is_enabled():
+            # Create TTS tasks for all lines at once
+            tts_tasks = [
+                synthesize_npc_speech(
+                    line.text,
+                    self.character_id,
+                    emotion_context="urgent",
+                    scene_phase=scene_phase,
+                    scene_type=scene_type
+                )
+                for line in opening_lines
+            ]
 
-        logger.info("[OPENING_SPEECH] Preparing %d opening lines", len(self.scene_config['opening_speech']))
+            # Execute all TTS requests in parallel
+            logger.info("[OPENING_SPEECH] Starting parallel TTS generation for %d lines", len(tts_tasks))
+            tts_results = await asyncio.gather(*tts_tasks, return_exceptions=True)
 
-        # Generate TTS for each line
-        for line in self.scene_config['opening_speech']:
-            line_data = {'text': line.text, 'delay': line.delay}
-            total_duration += line.delay
+            # Build lines_data with results
+            for i, (line, audio_result) in enumerate(zip(opening_lines, tts_results)):
+                line_data = {'text': line.text, 'delay': line.delay}
+                if isinstance(audio_result, Exception):
+                    logger.warning("TTS failed for opening line %d: %s", i, audio_result)
+                elif audio_result:
+                    line_data['audio'] = audio_result
+                    line_data['audio_format'] = 'mp3'
+                lines_data.append(line_data)
 
-            # Generate TTS audio for this line
-            if self.tts_manager.is_enabled():
-                try:
-                    audio_base64 = await synthesize_npc_speech(
-                        line.text, self.character_id, emotion_context="urgent"
-                    )
-                    if audio_base64:
-                        line_data['audio'] = audio_base64
-                        line_data['audio_format'] = 'mp3'
-                except Exception as e:
-                    logger.warning("TTS failed for opening line: %s", e)
-
-            lines_data.append(line_data)
+            logger.info("[OPENING_SPEECH] Parallel TTS generation complete")
+        else:
+            # TTS disabled - just build line data without audio
+            for line in opening_lines:
+                lines_data.append({'text': line.text, 'delay': line.delay})
 
         # Set flag to prevent NPC responses during opening speech
         self.opening_speech_playing = True
         logger.info("[OPENING_SPEECH] Starting opening speech, duration: %.1f seconds", total_duration)
 
+        # Get voice effect config from scene audio settings
+        voice_effect = self.scene_config.get('art_assets', {}).get('audio', {}).get('voice_effect', {})
+
         await self.ws.send_json({
             'type': 'opening_speech',
             'character_name': self.character_config['name'],
-            'lines': lines_data
+            'lines': lines_data,
+            'disable_input': True,  # SYNC FIX: Disable input during opening speech
+            'voice_effect': voice_effect  # Scene-specific voice processing effect
         })
 
         # Add to dialogue history
@@ -779,18 +902,29 @@ Keep it to 2-3 short sentences maximum."""
             )
             self.dialogue_history += response + "\n"
 
-        # Schedule flag reset after opening speech finishes
-        # Add extra buffer to account for TTS audio duration (estimate ~5s per line)
-        audio_buffer = len(self.scene_config['opening_speech']) * 5.0
-        total_blocking_time = total_duration + audio_buffer
+        # Schedule fallback flag reset (client will usually notify first via 'opening_speech_complete')
+        # Reduced buffer: ~2s per line instead of 5s - this is just a safety fallback
+        audio_buffer = len(self.scene_config['opening_speech']) * 2.0
+        fallback_timeout = total_duration + audio_buffer
 
         async def reset_opening_speech_flag():
-            await asyncio.sleep(total_blocking_time)
-            self.opening_speech_playing = False
-            logger.info("[OPENING_SPEECH] Opening speech finished (%.1fs), NPC can now respond", total_blocking_time)
+            await asyncio.sleep(fallback_timeout)
+            # Only reset if client hasn't already notified us
+            if self.opening_speech_playing:
+                self.opening_speech_playing = False
+                logger.info("[OPENING_SPEECH] Fallback timeout reached (%.1fs), enabling input", fallback_timeout)
+                # Send enable_input as fallback
+                try:
+                    await self.ws.send_json({
+                        'type': 'enable_input'
+                    })
+                except Exception as e:
+                    logger.warning("Failed to send enable_input: %s", e)
+            else:
+                logger.debug("[OPENING_SPEECH] Fallback timer fired but client already notified completion")
 
         asyncio.create_task(reset_opening_speech_flag())
-        logger.info("[OPENING_SPEECH] NPC responses blocked for %.1f seconds", total_blocking_time)
+        logger.info("[OPENING_SPEECH] NPC responses blocked until client completes (fallback: %.1fs)", fallback_timeout)
 
     async def handle_message(self, message: str) -> None:
         """Handle a user message and generate a response."""
@@ -800,10 +934,29 @@ Keep it to 2-3 short sentences maximum."""
                 logger.debug("[OPENING_SPEECH] Ignoring player message during opening speech: %s", message[:50])
                 return
 
+            # SYNC FIX: Block rapid-fire messages while NPC is responding
+            if self.npc_responding:
+                logger.debug("[SYNC] Blocking message - NPC still responding to previous: %s", message[:50])
+                await self.ws.send_json({
+                    'type': 'system_notification',
+                    'message': '⏳ Please wait for response...'
+                })
+                return
+
+            # Show typing indicator to user
+            await self.ws.send_json({
+                'type': 'npc_thinking',
+                'character_name': self.character_config['name']
+            })
+
             # Claim a new response ID - this cancels any pending responses
             self.response_sequence += 1
             my_response_id = self.response_sequence
             self.current_response_id = my_response_id
+
+            # Clear any background responses (director hints, waiting responses)
+            await self.response_queue.clear_background_responses()
+            logger.debug("[SYNC] Cleared background responses before processing user message")
 
             self.npc_responding = True  # Mark that NPC is responding
 
@@ -817,7 +970,7 @@ Keep it to 2-3 short sentences maximum."""
             # Generate character response with player memory context
             player_context = self.player_memory.get_full_context_for_llm(self.character_id)
 
-            # Add phase-specific context for Pressure Point progression
+            # Add phase-specific context (submarine scene only, empty for other scenes)
             phase_context = self._get_phase_context()
             full_instruction_suffix = dialogue_instruction_suffix + phase_context
 
@@ -828,7 +981,7 @@ Keep it to 2-3 short sentences maximum."""
             )
 
             chain = prompt_llm(prompt, DIALOGUE_MODEL)
-            character_response = chain.invoke({})
+            character_response = await invoke_llm_async(chain)
 
             # Check if this response is still current (not superseded by newer action)
             if my_response_id != self.current_response_id:
@@ -872,6 +1025,207 @@ Keep it to 2-3 short sentences maximum."""
                 'message': 'Failed to generate response. Please try again.'
             })
 
+    async def handle_pin_reference(self, pin_id: str) -> None:
+        """Handle when player clicks an evidence pin on the board.
+
+        Args:
+            pin_id: The ID of the pin clicked (e.g., "pin_map", "pin_receipt")
+        """
+        if self.scene_id != 'iconic_detectives':
+            return
+
+        logger.info("[MARA] Player referenced evidence pin: %s", pin_id)
+
+        # Get pin reaction data
+        pin_data = PIN_REACTIONS.get(pin_id)
+        if not pin_data:
+            logger.warning("[MARA] Unknown pin ID: %s", pin_id)
+            return
+
+        # Track which pins have been referenced (bitfield)
+        pin_bit = pin_data.get('pin_id', 0)
+        if 'pins_referenced' in self.scene_state:
+            self.scene_state['pins_referenced'] |= pin_bit
+
+        # Send system notification about the pin
+        await self.ws.send_json({
+            'type': 'system_notification',
+            'message': f'📌 Examining: {pin_data["name"]}'
+        })
+
+        # Show typing indicator
+        await self.ws.send_json({
+            'type': 'npc_thinking',
+            'character_name': self.character_config['name']
+        })
+
+        self.npc_responding = True
+
+        # Generate Mara's reaction to this pin
+        pin_instruction = f"""
+{pin_data['reaction']}
+
+CURRENT TRUST LEVEL: {self.scene_state.get('trust', 50):.0f}%
+React to the player examining this evidence. Keep it SHORT - 2-3 sentences max.
+Use [brackets] for emotional cues like [pause], [voice tightens], [a beat].
+"""
+
+        prompt = instruction_template.format(
+            preamble=self.scene_data.dialogue_preamble,
+            dialogue=self.dialogue_history,
+            instruction_suffix=pin_instruction
+        )
+
+        chain = prompt_llm(prompt, DIALOGUE_MODEL)
+        character_response = await invoke_llm_async(chain)
+
+        # Clean up response
+        character_response = character_response.split("\nComputer", 1)[0]
+        character_response = character_response.strip().removeprefix(
+            f"[{self.character_config['name']}]: "
+        )
+        character_response = character_response.replace('"', '').replace('*', '')
+
+        # Add to dialogue history
+        self.dialogue_history += f"[PLAYER examines evidence: {pin_data['name']}]\n"
+        self.dialogue_history += f"[{self.character_config['name']}]: {character_response}\n"
+
+        # Queue response
+        await self.send_character_response(
+            content=character_response,
+            priority=ResponsePriority.NORMAL,
+            source=f"pin_reference_{pin_id}",
+            cancellable=True
+        )
+
+        self.npc_responding = False
+
+        # Send state update
+        await self.ws.send_json({
+            'type': 'state_update',
+            'state': self.scene_state
+        })
+
+    async def handle_mara_dialogue_choice(self, choice_id: str) -> None:
+        """Handle dialogue choice buttons for the Mara Vane scene.
+
+        Args:
+            choice_id: The ID of the dialogue choice (e.g., "hook_identity", "follow_key")
+        """
+        if self.scene_id != 'iconic_detectives':
+            return
+
+        logger.info("[MARA] Player made dialogue choice: %s", choice_id)
+
+        # Get the instruction for this choice
+        instruction = DIALOGUE_INSTRUCTIONS.get(choice_id)
+        if not instruction:
+            logger.warning("[MARA] Unknown dialogue choice: %s", choice_id)
+            return
+
+        # Update state based on choice
+        if choice_id.startswith('hook_'):
+            # Core hook explored
+            if 'hooks_explored' in self.scene_state:
+                self.scene_state['hooks_explored'] = min(3, self.scene_state['hooks_explored'] + 1)
+            # After 2 hooks, transition to phase 3 (branch point)
+            if self.scene_state.get('hooks_explored', 0) >= 2 and self.scene_state.get('phase', 1) == 2:
+                self.scene_state['phase'] = 3
+                logger.info("[MARA] Transitioning to Phase 3 (branch point)")
+
+        elif choice_id == 'follow_key':
+            self.scene_state['path_chosen'] = 1
+            self.scene_state['phase'] = 4
+            logger.info("[MARA] Player chose Path 1: Follow the Key")
+
+        elif choice_id == 'follow_lie':
+            self.scene_state['path_chosen'] = 2
+            self.scene_state['phase'] = 5
+            logger.info("[MARA] Player chose Path 2: Follow the Lie")
+
+        elif choice_id.startswith('p1_') or choice_id.startswith('p2_'):
+            # Path sub-option explored
+            if 'path_options_explored' in self.scene_state:
+                self.scene_state['path_options_explored'] = min(3, self.scene_state['path_options_explored'] + 1)
+
+            # Check for slip in p2_why_argument
+            if choice_id == 'p2_why_argument':
+                # This has a potential slip - add to contradictions if player catches it
+                logger.info("[MARA] Potential slip revealed ('when I')")
+
+        elif choice_id == 'challenge_mara':
+            # Confrontation - check if player has enough contradictions
+            contradictions = self.scene_state.get('contradictions', 0)
+            if contradictions >= 2:
+                logger.info("[MARA] Challenge successful - twist ending triggered")
+            else:
+                # Trust drops for unfounded accusation
+                self.scene_state['trust'] = max(0, self.scene_state.get('trust', 50) - 15)
+                logger.info("[MARA] Challenge failed - trust dropped")
+
+        # Show typing indicator
+        await self.ws.send_json({
+            'type': 'npc_thinking',
+            'character_name': self.character_config['name']
+        })
+
+        self.npc_responding = True
+
+        # Generate response based on choice
+        full_instruction = f"""
+{instruction}
+
+CURRENT STATE:
+- Trust: {self.scene_state.get('trust', 50):.0f}%
+- Contradictions caught: {self.scene_state.get('contradictions', 0)}
+- Phase: {self.scene_state.get('phase', 1)}
+- Path chosen: {'Key' if self.scene_state.get('path_chosen') == 1 else 'Lie' if self.scene_state.get('path_chosen') == 2 else 'None'}
+
+Keep response SHORT - 3-4 sentences max. Use [brackets] for emotional cues.
+"""
+
+        prompt = instruction_template.format(
+            preamble=self.scene_data.dialogue_preamble,
+            dialogue=self.dialogue_history,
+            instruction_suffix=full_instruction
+        )
+
+        chain = prompt_llm(prompt, DIALOGUE_MODEL)
+        character_response = await invoke_llm_async(chain)
+
+        # Clean up response
+        character_response = character_response.split("\nComputer", 1)[0]
+        character_response = character_response.strip().removeprefix(
+            f"[{self.character_config['name']}]: "
+        )
+        character_response = character_response.replace('"', '').replace('*', '')
+
+        # Add to dialogue history
+        choice_label = choice_id.replace('_', ' ').upper()
+        self.dialogue_history += f"[PLAYER chose: {choice_label}]\n"
+        self.dialogue_history += f"[{self.character_config['name']}]: {character_response}\n"
+
+        # Queue response
+        await self.send_character_response(
+            content=character_response,
+            priority=ResponsePriority.NORMAL,
+            source=f"mara_choice_{choice_id}",
+            cancellable=True
+        )
+
+        self.npc_responding = False
+
+        # Send state update
+        await self.ws.send_json({
+            'type': 'state_update',
+            'state': self.scene_state
+        })
+
+        # Check game over conditions
+        self.check_game_over_conditions()
+        if self.game_over:
+            await self.trigger_game_over()
+
     async def handle_button_action(self, action: str) -> None:
         """Handle a button press action from a scene.
 
@@ -879,6 +1233,43 @@ Keep it to 2-3 short sentences maximum."""
             action: The label of the button that was pressed (e.g., "O2 VALVE")
         """
         try:
+            # Special handling for ANSWER_PHONE in iconic_detectives scene
+            if action == 'ANSWER_PHONE' and self.scene_id == 'iconic_detectives':
+                # Guard against multiple clicks - only answer once
+                if self.opening_speech_playing or self.scene_state.get('phase', 1) >= 2:
+                    logger.info("[DETECTIVE] Phone already answered, ignoring duplicate click")
+                    return
+
+                logger.info("[DETECTIVE] Phone answered - starting opening speech")
+                await self.ws.send_json({
+                    'type': 'system_notification',
+                    'message': '📞 *click*'
+                })
+                # Brief pause before the voice comes through
+                await asyncio.sleep(0.5)
+                # Transition to phase 2 (hooks available) after opening
+                self.scene_state['phase'] = 2
+                # Now send the opening speech
+                await self.send_opening_speech(force=True)
+                return
+
+            # Special handling for evidence pins in iconic_detectives scene
+            if action.startswith('pin_') and self.scene_id == 'iconic_detectives':
+                await self.handle_pin_reference(action)
+                return
+
+            # Special handling for Mara dialogue choices in iconic_detectives scene
+            mara_choices = [
+                'hook_identity', 'hook_timeline', 'hook_key',
+                'follow_key', 'follow_lie',
+                'p1_how_know', 'p1_whats_inside', 'p1_who_knows',
+                'p2_who_staged', 'p2_why_argument', 'p2_killer_detail',
+                'challenge_mara'
+            ]
+            if action in mara_choices and self.scene_id == 'iconic_detectives':
+                await self.handle_mara_dialogue_choice(action)
+                return
+
             # Don't respond to button actions during opening speech (but still show notification)
             if self.opening_speech_playing:
                 logger.debug("[OPENING_SPEECH] Button action during opening speech: %s (showing notification only)", action)
@@ -897,10 +1288,44 @@ Keep it to 2-3 short sentences maximum."""
                 })
                 return
 
+            # SYNC FIX: Block rapid-fire button presses while NPC is responding
+            if self.npc_responding:
+                logger.debug("[SYNC] Blocking button action - NPC still responding: %s", action)
+                await self.ws.send_json({
+                    'type': 'system_notification',
+                    'message': '⏳ Please wait for response...'
+                })
+                return
+
+            # CHECK BUTTON PRESS CAP
+            if action not in self.button_press_counts:
+                self.button_press_counts[action] = 0
+
+            self.button_press_counts[action] += 1
+            cap = self.button_press_caps.get(action, 10)  # Default cap of 10 if not specified
+
+            if self.button_press_counts[action] > cap:
+                logger.debug("[BUTTON_CAP] Button %s has reached cap (%d/%d)", action, self.button_press_counts[action], cap)
+                await self.ws.send_json({
+                    'type': 'system_notification',
+                    'message': f'⚠️ {action} - Maximum uses reached ({cap})'
+                })
+                return
+
+            # Show typing indicator only if NPC will respond
+            await self.ws.send_json({
+                'type': 'npc_thinking',
+                'character_name': self.character_config['name']
+            })
+
             # Claim a new response ID - this IMMEDIATELY cancels any pending responses
             self.response_sequence += 1
             my_response_id = self.response_sequence
             self.current_response_id = my_response_id
+
+            # Clear any background responses
+            await self.response_queue.clear_background_responses()
+            logger.debug("[SYNC] Cleared background responses before processing button action")
 
             # Find the control configuration by matching the label
             control = None
@@ -1051,7 +1476,7 @@ Keep response to 2-3 sentences maximum. Every word costs you."""
                 )
 
                 chain = prompt_llm(prompt, DIALOGUE_MODEL)
-                character_response = chain.invoke({})
+                character_response = await invoke_llm_async(chain)
 
                 # Check if this response is still current (not superseded by newer action)
                 if my_response_id != self.current_response_id:
@@ -1113,8 +1538,8 @@ Keep response to 2-3 sentences maximum. Every word costs you."""
                         'state': self.scene_state
                     })
 
-                # Ask World Director what should happen next
-                await self.consult_director(action)
+                # Ask World Director what should happen next (fire-and-forget)
+                self.consult_director_background(action)
 
             else:
                 # NPC is NOT aware - action is hidden from them
@@ -1130,12 +1555,24 @@ Keep response to 2-3 sentences maximum. Every word costs you."""
                 'message': 'Failed to process action. Please try again.'
             })
 
-    async def consult_director(self, last_action: str | None = None) -> None:
+    def consult_director_background(self, last_action: str | None = None) -> None:
         """
-        Consult the World Director to see if intervention is needed.
+        Fire-and-forget Director consultation.
+
+        Launches Director evaluation in the background without blocking.
+        Guidance will be stored and applied to the NEXT response.
 
         Args:
             last_action: What the player just did
+        """
+        asyncio.create_task(self._consult_director_async(last_action))
+        logger.debug("[Director] Background consultation started for action: %s", last_action)
+
+    async def _consult_director_async(self, last_action: str | None = None) -> None:
+        """
+        Async Director consultation (runs in background).
+
+        Stores guidance in pending_director_guidance for next response.
         """
         try:
             # Get director's decision
@@ -1148,34 +1585,66 @@ Keep response to 2-3 sentences maximum. Every word costs you."""
                 last_action=last_action
             )
 
-            logger.info("[Director] Decision: %s", decision.type)
+            logger.info("[Director] Background decision: %s", decision.type)
 
-            # Handle different decision types
-            if decision.type == 'continue':
-                # Director says let it play out naturally
-                pass
+            # Store guidance for NEXT response (fire-and-forget pattern)
+            if decision.type != 'continue':
+                self.pending_director_guidance = {
+                    'type': decision.type,
+                    'data': decision.data,
+                    'received_at': asyncio.get_event_loop().time()
+                }
+                logger.info("[Director] Stored pending guidance: %s", decision.type)
 
-            elif decision.type == 'spawn_event':
-                # Director wants to spawn a dynamic event
-                await self.handle_director_event(decision.data)
-
-            elif decision.type == 'adjust_npc':
-                # Director wants NPC to change behavior
-                self.handle_npc_adjustment(decision.data)
-
-            elif decision.type == 'give_hint':
-                # Director wants to help struggling player
-                await self.handle_director_hint(decision.data)
-
-            elif decision.type == 'transition':
-                # Director recommends scene transition
-                logger.info(
-                    "[Director] Recommends transition to: %s", decision.data.get('next_scene')
-                )
-                # For now, log it. Could auto-transition in future.
+                # Some actions need immediate handling (events, hints)
+                if decision.type == 'spawn_event':
+                    await self.handle_director_event(decision.data)
+                elif decision.type == 'give_hint':
+                    await self.handle_director_hint(decision.data)
+                elif decision.type == 'adjust_npc':
+                    # NPC adjustment is stored for next response
+                    self.handle_npc_adjustment(decision.data)
+                elif decision.type == 'transition':
+                    logger.info("[Director] Recommends transition to: %s", decision.data.get('next_scene'))
 
         except Exception as e:
-            logger.exception("Error consulting director: %s", e)
+            logger.exception("Error in background director consultation: %s", e)
+
+    async def consult_director(self, last_action: str | None = None) -> None:
+        """
+        Consult the World Director to see if intervention is needed.
+
+        DEPRECATED: Use consult_director_background() for fire-and-forget pattern.
+        This method is kept for backward compatibility.
+
+        Args:
+            last_action: What the player just did
+        """
+        await self._consult_director_async(last_action)
+
+    def apply_pending_director_guidance(self) -> str:
+        """
+        Apply any pending Director guidance to the current response.
+
+        Returns instruction suffix to add to the NPC prompt.
+        """
+        if not self.pending_director_guidance:
+            return ""
+
+        guidance = self.pending_director_guidance
+        self.pending_director_guidance = None  # Clear after applying
+
+        # Check if guidance is still fresh (within 30 seconds)
+        age = asyncio.get_event_loop().time() - guidance.get('received_at', 0)
+        if age > 30:
+            logger.debug("[Director] Discarding stale guidance (age: %.1fs)", age)
+            return ""
+
+        # Return NPC modifier if it's an adjustment
+        if guidance['type'] == 'adjust_npc':
+            return self.director_npc_modifier
+
+        return ""
 
     async def handle_director_event(self, event_data: dict[str, Any]) -> None:
         """Handle a dynamic event spawned by the World Director."""
@@ -1223,7 +1692,7 @@ Keep response to 2-3 sentences maximum. Every word costs you."""
         )
 
         chain = prompt_llm(prompt, DIALOGUE_MODEL)
-        npc_reaction = chain.invoke({})
+        npc_reaction = await invoke_llm_async(chain)
 
         # Clean up
         npc_reaction = npc_reaction.split("\nComputer", 1)[0]
@@ -1251,7 +1720,8 @@ Keep response to 2-3 sentences maximum. Every word costs you."""
         self.director_npc_modifier = self.world_director.generate_npc_behavior_adjustment(
             self.character_id,
             behavior_change,
-            self.scene_state
+            self.scene_state,
+            self.scene_id
         )
 
     async def handle_director_hint(self, hint_data: dict[str, Any]) -> None:
@@ -1279,7 +1749,7 @@ Keep response to 2-3 sentences maximum. Every word costs you."""
         )
 
         chain = prompt_llm(prompt, DIALOGUE_MODEL)
-        hint_response = chain.invoke({})
+        hint_response = await invoke_llm_async(chain)
 
         # Clean up
         hint_response = hint_response.split("\nComputer", 1)[0]
@@ -1342,7 +1812,7 @@ Keep response to 2-3 sentences maximum. Every word costs you."""
                 )
 
                 chain = prompt_llm(prompt, DIALOGUE_MODEL)
-                character_response = chain.invoke({})
+                character_response = await invoke_llm_async(chain)
 
                 # Clean up response
                 character_response = character_response.split("\nComputer", 1)[0]
@@ -1383,6 +1853,14 @@ Keep response to 2-3 sentences maximum. Every word costs you."""
 
     def update_config(self, character_id: str, scene_id: str) -> None:
         """Update character and scene configuration."""
+        # Auto-select appropriate character for specific scenes
+        if scene_id == 'iconic_detectives' and character_id not in ['mara_vane', 'detective']:
+            logger.info("[CONFIG] Auto-selecting mara_vane for iconic_detectives scene")
+            character_id = 'mara_vane'
+        elif scene_id == 'submarine' and character_id != 'engineer':
+            logger.info("[CONFIG] Auto-selecting engineer for submarine scene")
+            character_id = 'engineer'
+
         self.character_id = character_id
         self.scene_id = scene_id
         self.character_config = CHARACTERS.get(character_id, CHARACTERS['custom'])
@@ -1398,8 +1876,21 @@ Keep response to 2-3 sentences maximum. Every word costs you."""
 
     async def restart(self, character_id: str | None = None, scene_id: str | None = None) -> None:
         """Restart the conversation."""
+        logger.info("[RESTART] Restarting scene: %s with character: %s", scene_id or self.scene_id, character_id or self.character_id)
+
         # Stop any existing oxygen countdown
         self.stop_oxygen_countdown()
+
+        # Clear all queued responses
+        await self.response_queue.clear_all_except_critical()
+        logger.info("[RESTART] Cleared response queue")
+
+        # Reset all dialogue/game state flags
+        self.npc_responding = False
+        self.opening_speech_playing = False
+        self.james_dying_speech_sent = False
+        self.button_press_counts = {}  # Reset button press counters
+        logger.info("[RESTART] Reset state flags and button press counters")
 
         if character_id:
             self.character_id = character_id
@@ -1424,6 +1915,12 @@ Keep response to 2-3 sentences maximum. Every word costs you."""
             character_id=self.character_id,
             initial_state=self.scene_state.copy()
         )
+
+        # Send current state to client
+        await self.ws.send_json({
+            'type': 'state_update',
+            'state': self.scene_state
+        })
 
         # Start oxygen countdown if this scene has oxygen
         self.start_oxygen_countdown()
@@ -1463,26 +1960,51 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                             await session.handle_message(content)
 
                     elif msg_type == 'button_action':
-                        # Button press action from submarine scene
+                        # Button press action from submarine scene or detective scene
                         action = data.get('action', '').strip()
                         if action:
                             await session.handle_button_action(action)
+
+                    elif msg_type == 'pin_referenced':
+                        # Evidence pin clicked in detective scene
+                        pin_id = data.get('pin_id', '').strip()
+                        if pin_id:
+                            await session.handle_pin_reference(pin_id)
 
                     elif msg_type == 'config':
                         # Update configuration
                         character_id = data.get('character', 'eliza')
                         scene_id = data.get('scene', 'introduction')
                         session.update_config(character_id, scene_id)
+                        # Notify client of actual character (may have been auto-selected)
+                        await ws.send_json({
+                            'type': 'config_confirmed',
+                            'character': session.character_id,
+                            'character_name': session.character_config['name'],
+                            'scene': session.scene_id
+                        })
 
                     elif msg_type == 'restart':
                         # Restart conversation
                         character_id = data.get('character')
                         scene_id = data.get('scene')
                         await session.restart(character_id, scene_id)
+                        # Notify client of actual character (may have been auto-selected)
+                        await ws.send_json({
+                            'type': 'config_confirmed',
+                            'character': session.character_id,
+                            'character_name': session.character_config['name'],
+                            'scene': session.scene_id
+                        })
 
                     elif msg_type == 'waiting_complete':
                         # Player waited (5 dots reached) - move story forward
                         await session.handle_waiting_complete()
+
+                    elif msg_type == 'opening_speech_complete':
+                        # Client finished playing opening speech - enable input immediately
+                        session.opening_speech_playing = False
+                        logger.info("[OPENING_SPEECH] Client reported opening speech complete")
 
                 except json.JSONDecodeError as e:
                     logger.warning("Invalid JSON received: %s", e)
@@ -1506,7 +2028,7 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
 
 # Static file handler
 async def static_handler(request: web.Request) -> web.Response:
-    """Serve static files from the web directory."""
+    """Serve static files from the web directory (and models directory)."""
     # Get the file path
     file_path = request.match_info.get('path', 'index.html')
 
@@ -1515,9 +2037,12 @@ async def static_handler(request: web.Request) -> web.Response:
     if '..' in file_path:
         raise web.HTTPForbidden()
 
-    # Build full path
-    web_dir = Path(__file__).parent / 'web'
-    full_path = web_dir / file_path
+    # Build full path - check models directory for /models/* paths
+    base_dir = Path(__file__).parent
+    if file_path.startswith('models/'):
+        full_path = base_dir / file_path
+    else:
+        full_path = base_dir / 'web' / file_path
 
     # If path is a directory, serve index.html
     if full_path.is_dir():

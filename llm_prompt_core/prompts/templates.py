@@ -67,16 +67,24 @@ speech_template = "[{actor}]: {speech}\n"
 dialogue_instruction_suffix = """
 Continue the dialogue as your character. Stay in character. Respond naturally to what just happened.
 
-CRITICAL FORMATTING RULES:
-- Use [square brackets] for ALL emotional cues, sound effects, and physical descriptions
-- Examples: [breathing heavily] [pause] [coughing] [voice breaking] [sharp intake of breath]
-- DO NOT use *asterisks* for actions or descriptions
-- DO NOT speak your actions out loud (e.g., don't say "nervously fidgets" - use [nervous] instead)
-- Emotional cues should ENHANCE the dialogue, not replace it
+CRITICAL RULES:
+1. BREVITY: 1-2 sentences MAX. If you can say it in one sentence, do that.
+2. NO REPETITION: Look at the dialogue history. See what you JUST said. Don't say it again. Move forward.
+3. NO STAGE DIRECTIONS: Do NOT describe your tone, emotion, or voice. Just speak naturally.
+4. MINIMAL BRACKETS: Only [coughing] or [pause] for critical moments. NO emotion descriptions.
 
-BREVITY: Keep responses SHORT (1-3 sentences). Say what matters, then stop. No rambling or over-explaining.
+GOOD RESPONSES:
+"Got it. Power's restored."
+"You're not listening."
+"Fine. Your call."
 
-Respond ONLY as your character. Do NOT break character. Do NOT provide meta-commentary, explanations, or apologies about the situation. Just speak as your character would.\n
+BAD RESPONSES (NEVER DO THIS):
+"[breathing heavily] Okay... [pause] ...power is... [exhale] ...restored now."
+Repeating the same warning you just gave
+
+If player ignores you: Don't repeat louder. Change tactics. Get quieter. Give up. Move on.
+
+Respond ONLY as your character. Progress the conversation.\n
 """
 
 # Instruction prefix for query evaluation
@@ -92,4 +100,54 @@ Now consider the following statement about this dialogue. {statement} Is this st
 # Instruction suffix for summary generation
 summary_instruction_suffix = """
 Give me a short paragraph summarising any information in the dialogue revealed by the player or the other characters that might be relevant for later dialogues. Include all personal or biographical information revealed in the dialogue that helps to build a profile of the characters, including informations about their tastes and preferences. Also describe any events that have occurred that weren't mentioned in the back story and scene description above. Include a description of how the non-playable characters typically address the player. You don't need to provide information that's already in the back story or scene description above. Please provide only the summary paragraph, no other text.\n
+"""
+
+# Turn-type instruction template for context-aware responses
+turn_type_instruction_template = """
+Consider what the player just said:
+- If they asked a QUESTION: Answer it directly, then you may add one follow-up thought.
+- If they made a STATEMENT: Acknowledge it briefly, then move the conversation forward.
+- If they took an ACTION: React to the action's result, guide next steps if needed.
+- If they're SILENT/IDLE: Prompt them gently or continue your thought.
+- If they expressed EMOTION: Respond with appropriate empathy, acknowledge their feelings.
+
+Do NOT repeat yourself. If you just said something, say something different.
+Progress the conversation. Keep it moving.
+"""
+
+# Turn-type specific instruction suffixes (can be appended based on detected turn type)
+turn_type_instructions = {
+    'question': """
+The player asked a QUESTION. Answer it DIRECTLY and CONCISELY.
+You may add ONE brief follow-up thought after answering.
+Do not deflect or avoid the question.
+""",
+    'statement': """
+The player made a STATEMENT. Acknowledge it BRIEFLY (1-2 words is fine).
+Then move the conversation FORWARD - don't dwell on what they said.
+""",
+    'action': """
+The player took an ACTION. React to the RESULT of their action.
+Guide them on next steps if needed. Be specific about what happened.
+""",
+    'silence': """
+The player is SILENT or idle. You may:
+- Prompt them gently ('Still there?')
+- Continue your thought if you were interrupted
+- Share something relevant to the situation
+Do NOT repeat your last statement verbatim.
+""",
+    'emotion': """
+The player expressed EMOTION. Respond with appropriate EMPATHY.
+Acknowledge their feelings before continuing with practical matters.
+Don't dismiss their emotional state.
+""",
+}
+
+# Escalation instruction template (added when warnings need variation)
+escalation_instruction_template = """
+ANTI-REPETITION NOTE: You have warned about this {count} time(s).
+{escalation_guidance}
+Tone: {tone}. Intensity: {intensity}.
+If you've warned 3+ times: STOP repeating. Accept the situation or change tactics.
 """

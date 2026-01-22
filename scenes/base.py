@@ -114,6 +114,43 @@ class CharacterRequirement:
 
 
 @dataclass
+class VoiceEffect:
+    """
+    Defines audio processing effects applied to TTS voice output.
+
+    Attributes:
+        id: Unique identifier for this effect (e.g., "phone", "radio", "none")
+        enabled: Whether this effect is active
+        highpass_freq: High-pass filter cutoff frequency in Hz
+        lowpass_freq: Low-pass filter cutoff frequency in Hz
+        mid_boost_freq: Mid-range boost frequency in Hz (optional)
+        mid_boost_gain: Mid-range boost gain in dB (optional)
+        mid_boost_q: Mid-range boost Q factor (optional)
+        compressor_threshold: Compressor threshold in dB
+        compressor_ratio: Compressor ratio (e.g., 4.0 = 4:1)
+        compressor_attack: Attack time in seconds
+        compressor_release: Release time in seconds
+        distortion_amount: Waveshaper distortion amount (0=off, 20-50=mild-heavy)
+        noise_level: Background noise level in dB (optional, e.g., -35)
+        mono: Force mono output for authenticity
+    """
+    id: str = "none"
+    enabled: bool = False
+    highpass_freq: float = 300.0
+    lowpass_freq: float = 3200.0
+    mid_boost_freq: Optional[float] = None
+    mid_boost_gain: Optional[float] = None
+    mid_boost_q: Optional[float] = None
+    compressor_threshold: float = -24.0
+    compressor_ratio: float = 4.0
+    compressor_attack: float = 0.003
+    compressor_release: float = 0.25
+    distortion_amount: int = 0
+    noise_level: Optional[float] = None
+    mono: bool = True
+
+
+@dataclass
 class AudioAssets:
     """
     Defines audio files and sound effects for the scene.
@@ -122,6 +159,7 @@ class AudioAssets:
         background_music: Path to background music/ambient sound
         sfx_library: Dictionary mapping event names to sound effect file paths
         volume_levels: Dictionary of volume settings for different audio types
+        voice_effect: Voice processing effect configuration
     """
     background_music: Optional[str] = None
     sfx_library: Dict[str, str] = field(default_factory=dict)
@@ -130,6 +168,7 @@ class AudioAssets:
         'sfx': 0.8,
         'voice': 1.0
     })
+    voice_effect: VoiceEffect = field(default_factory=VoiceEffect)
 
 
 @dataclass
@@ -206,6 +245,22 @@ class Scene:
                     'background_music': self.art_assets.audio.background_music,
                     'sfx_library': self.art_assets.audio.sfx_library,
                     'volume_levels': self.art_assets.audio.volume_levels,
+                    'voice_effect': {
+                        'id': self.art_assets.audio.voice_effect.id,
+                        'enabled': self.art_assets.audio.voice_effect.enabled,
+                        'highpass_freq': self.art_assets.audio.voice_effect.highpass_freq,
+                        'lowpass_freq': self.art_assets.audio.voice_effect.lowpass_freq,
+                        'mid_boost_freq': self.art_assets.audio.voice_effect.mid_boost_freq,
+                        'mid_boost_gain': self.art_assets.audio.voice_effect.mid_boost_gain,
+                        'mid_boost_q': self.art_assets.audio.voice_effect.mid_boost_q,
+                        'compressor_threshold': self.art_assets.audio.voice_effect.compressor_threshold,
+                        'compressor_ratio': self.art_assets.audio.voice_effect.compressor_ratio,
+                        'compressor_attack': self.art_assets.audio.voice_effect.compressor_attack,
+                        'compressor_release': self.art_assets.audio.voice_effect.compressor_release,
+                        'distortion_amount': self.art_assets.audio.voice_effect.distortion_amount,
+                        'noise_level': self.art_assets.audio.voice_effect.noise_level,
+                        'mono': self.art_assets.audio.voice_effect.mono,
+                    },
                 },
             },
             'controls': [

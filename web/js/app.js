@@ -1,5 +1,7 @@
 import { CharacterScene } from './scene.js';
 import { SubmarineScene } from './submarine_scene.js';
+import { DetectiveScene } from './detective_scene.js';
+import { MerlinsRoomScene } from './merlins_room_scene.js';
 
 class ChatApp {
     constructor() {
@@ -31,9 +33,16 @@ class ChatApp {
         this.radioEffectsEnabled = false;
         this.staticNoise = null;
 
+        // Scene voice effect configuration (phone, radio, etc.)
+        this.voiceEffect = null;
+        this.phoneNoiseSource = null;
+
         // Dialogue lock - ensures only one dialogue at a time
         this.dialogueLocked = false;
         this.pendingResponses = [];
+
+        // TEXT-FIRST: Track pending responses waiting for audio
+        this.pendingAudioResponses = new Map(); // response_id -> {element, characterName, content}
 
         this.init();
     }
@@ -65,6 +74,12 @@ class ChatApp {
         if (sceneId === 'submarine') {
             this.sceneType = 'submarine';
             this.scene = new SubmarineScene(container, (action) => this.handleButtonClick(action));
+        } else if (sceneId === 'iconic_detectives') {
+            this.sceneType = 'detective';
+            this.scene = new DetectiveScene(container, (action) => this.handleButtonClick(action));
+        } else if (sceneId === 'merlins_room') {
+            this.sceneType = 'merlins_room';
+            this.scene = new MerlinsRoomScene(container, (action) => this.handleButtonClick(action));
         } else {
             this.sceneType = 'character';
             this.scene = new CharacterScene(container);
@@ -72,17 +87,25 @@ class ChatApp {
     }
 
     handleButtonClick(action) {
-        // Handle submarine button clicks
+        // Handle submarine button clicks or detective scene actions
         console.log('Button clicked:', action);
         // Don't add system message - let the NPC respond instead
         // This prevents overlapping messages
 
         // Send button action to server
         if (this.isConnected) {
-            this.ws.send(JSON.stringify({
-                type: 'button_action',
-                action: action
-            }));
+            // Check if this is an evidence pin click
+            if (action.startsWith('pin_')) {
+                this.ws.send(JSON.stringify({
+                    type: 'pin_referenced',
+                    pin_id: action
+                }));
+            } else {
+                this.ws.send(JSON.stringify({
+                    type: 'button_action',
+                    action: action
+                }));
+            }
         }
     }
 
@@ -93,6 +116,8 @@ class ChatApp {
 
         // Enter key in input
         const chatInput = document.getElementById('chat-input');
+        // Add pulse animation to input field
+        chatInput.classList.add('pulse');
         chatInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -121,10 +146,16 @@ class ChatApp {
         sceneSelect.addEventListener('change', (e) => {
             const newScene = e.target.value;
             if (newScene !== this.currentScene) {
+                const oldScene = this.currentScene;
                 this.currentScene = newScene;
 
-                // Recreate the 3D scene if switching to/from submarine
-                const needsSceneRecreate = (newScene === 'submarine' || this.currentScene === 'submarine');
+                // Reset voice effect when changing scenes (will be set by opening_speech)
+                this.voiceEffect = null;
+                this.stopPhoneNoise();
+
+                // Scenes that need custom 3D environments
+                const customScenes = ['submarine', 'iconic_detectives', 'merlins_room'];
+                const needsSceneRecreate = customScenes.includes(newScene) || customScenes.includes(oldScene);
                 if (needsSceneRecreate) {
                     const sceneContainer = document.getElementById('scene-container');
                     this.createScene(sceneContainer, newScene);
@@ -332,15 +363,45 @@ class ChatApp {
     handleServerMessage(data) {
         switch (data.type) {
             case 'character_response':
+                // Legacy combined text+audio response (backward compatible)
                 this.hideTypingIndicator();
                 // Queue the response to ensure one at a time
                 this.queueCharacterResponse(data);
+                break;
+
+            case 'character_response_text':
+                // TEXT-FIRST: Text arrives before audio for perceived low-latency
+                this.hideTypingIndicator();
+                this.handleTextFirstResponse(data);
+                break;
+
+            case 'character_response_audio':
+                // TEXT-FIRST: Audio arrives after text - play it
+                this.handleTextFirstAudio(data);
                 break;
 
             case 'scene_change':
                 this.currentScene = data.scene;
                 document.getElementById('current-scene').textContent = data.scene_name || data.scene;
                 this.addSystemMessage(`Scene changed: ${data.scene_name || data.scene}`);
+                break;
+
+            case 'config_confirmed':
+                // Server confirmed configuration (may have auto-selected character)
+                if (data.character !== this.currentCharacter) {
+                    console.log(`Character auto-selected: ${data.character} (${data.character_name})`);
+                    this.currentCharacter = data.character;
+                    // Update dropdown to reflect auto-selection
+                    const characterSelect = document.getElementById('character-select');
+                    if (characterSelect) {
+                        characterSelect.value = data.character;
+                    }
+                    // Update UI elements
+                    const charNameEl = document.getElementById('character-name');
+                    if (charNameEl) {
+                        charNameEl.textContent = data.character_name;
+                    }
+                }
                 break;
 
             case 'state_change':
@@ -371,6 +432,10 @@ class ChatApp {
                         this.scene.setPhase(data.state.phase);
                     }
                 }
+                // Handle detective scene state updates
+                if (data.state && this.sceneType === 'detective') {
+                    this.updateDetectiveUI(data.state);
+                }
                 break;
 
             case 'error':
@@ -381,7 +446,44 @@ class ChatApp {
             case 'opening_speech':
                 // Character's opening lines - queue them to display one at a time
                 console.log('[OPENING_SPEECH] Received opening_speech with', data.lines.length, 'lines');
+                // Store voice effect configuration from scene
+                if (data.voice_effect) {
+                    this.voiceEffect = data.voice_effect;
+                    console.log('[VOICE_EFFECT] Configured:', this.voiceEffect.id, 'enabled:', this.voiceEffect.enabled);
+                } else {
+                    this.voiceEffect = null;
+                }
+                // SYNC FIX: Disable input during opening speech
+                if (data.disable_input) {
+                    const chatInput = document.getElementById('chat-input');
+                    const sendButton = document.getElementById('send-button');
+                    chatInput.disabled = true;
+                    sendButton.disabled = true;
+                    chatInput.placeholder = 'Please wait...';
+                    chatInput.classList.remove('pulse');
+                    console.log('[SYNC] Input disabled during opening speech');
+                }
                 this.queueOpeningLines(data.lines, data.character_name || 'Character');
+                break;
+
+            case 'enable_input':
+                // SYNC FIX: Re-enable input after opening speech
+                const chatInput = document.getElementById('chat-input');
+                const sendButton = document.getElementById('send-button');
+                chatInput.disabled = false;
+                sendButton.disabled = false;
+                chatInput.placeholder = 'Type your message...';
+                chatInput.classList.add('pulse');
+                this.hideTypingIndicator();
+                console.log('[SYNC] Input enabled after opening speech');
+                break;
+
+            case 'npc_thinking':
+                // SYNC FIX: Show typing indicator when NPC is thinking
+                const thinkingInput = document.getElementById('chat-input');
+                thinkingInput.placeholder = 'Please wait...';
+                thinkingInput.classList.remove('pulse');
+                this.showTypingIndicator(data.character_name);
                 break;
 
             case 'game_over':
@@ -652,6 +754,89 @@ class ChatApp {
         }
     }
 
+    // ==================== TEXT-FIRST Response Handling ====================
+
+    /**
+     * Handle text-first response (text arrives before audio)
+     * Display text immediately for perceived low-latency
+     */
+    handleTextFirstResponse(data) {
+        const characterName = data.character_name || 'Character';
+        const content = data.content;
+        const responseId = data.response_id;
+
+        console.log('[TEXT-FIRST] Displaying text immediately:', content.substring(0, 50) + '...');
+
+        const messagesContainer = document.getElementById('chat-messages');
+        this.stopWaitingIndicator();
+
+        // Create message element
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message character';
+        messageDiv.dataset.responseId = responseId;
+
+        const senderDiv = document.createElement('div');
+        senderDiv.className = 'message-sender';
+        senderDiv.textContent = characterName;
+
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+
+        messageDiv.appendChild(senderDiv);
+        messageDiv.appendChild(contentDiv);
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        // Track this response for when audio arrives
+        this.pendingAudioResponses.set(responseId, {
+            element: messageDiv,
+            contentDiv: contentDiv,
+            characterName: characterName,
+            content: content,
+            typingComplete: false
+        });
+
+        // Start typing effect
+        this.typeMessage(contentDiv, content, 30, () => {
+            const pending = this.pendingAudioResponses.get(responseId);
+            if (pending) {
+                pending.typingComplete = true;
+                // If audio already arrived, it will play
+                // If not, we'll play it when it arrives
+            }
+        });
+    }
+
+    /**
+     * Handle audio that arrives after text (text-first pattern)
+     */
+    handleTextFirstAudio(data) {
+        const responseId = data.response_id;
+        const audioBase64 = data.audio;
+        const audioFormat = data.audio_format || 'mp3';
+
+        console.log('[TEXT-FIRST] Audio received for response:', responseId);
+
+        const pending = this.pendingAudioResponses.get(responseId);
+        if (!pending) {
+            console.warn('[TEXT-FIRST] No pending response found for audio:', responseId);
+            return;
+        }
+
+        // Play audio immediately (text is already displaying)
+        if (audioBase64 && this.audioEnabled) {
+            this.playAudioWithCallback(audioBase64, audioFormat, () => {
+                // Audio complete
+                console.log('[TEXT-FIRST] Audio playback complete for:', responseId);
+            });
+        }
+
+        // Clean up after a delay (allow time for typing to complete)
+        setTimeout(() => {
+            this.pendingAudioResponses.delete(responseId);
+        }, 10000); // Clean up after 10 seconds
+    }
+
     // ==================== Audio Playback (TTS) ====================
 
     /**
@@ -712,8 +897,19 @@ class ChatApp {
      */
     stopAudio() {
         if (this.currentAudio) {
-            this.currentAudio.pause();
-            this.currentAudio.currentTime = 0;
+            // Handle both HTMLAudioElement and AudioBufferSourceNode
+            if (this.currentAudio.pause) {
+                // HTMLAudioElement
+                this.currentAudio.pause();
+                this.currentAudio.currentTime = 0;
+            } else if (this.currentAudio.stop) {
+                // AudioBufferSourceNode (Web Audio API)
+                try {
+                    this.currentAudio.stop();
+                } catch (e) {
+                    // May already be stopped
+                }
+            }
             this.currentAudio = null;
         }
         this.audioCallback = null;
@@ -777,6 +973,166 @@ class ChatApp {
     }
 
     /**
+     * Create phone effect processing chain based on scene voice_effect config
+     * Simulates 80s landline phone receiver - narrow, midrangey, gritty
+     * @param {AudioBufferSourceNode} source - Audio source node
+     * @returns {AudioNode} - Final node in the chain to connect to destination
+     */
+    createPhoneEffectChain(source) {
+        if (!this.audioContext || !this.voiceEffect || !this.voiceEffect.enabled) {
+            return source;
+        }
+
+        const effect = this.voiceEffect;
+        console.log('[PHONE_EFFECT] Creating chain with params:', effect);
+
+        // 1. High-pass filter (removes bass - phone can't reproduce low frequencies)
+        const highpass = this.audioContext.createBiquadFilter();
+        highpass.type = 'highpass';
+        highpass.frequency.value = effect.highpass_freq || 400;
+        highpass.Q.value = 0.7;
+
+        // 2. Low-pass filter (removes treble - phone bandwidth is narrow)
+        const lowpass = this.audioContext.createBiquadFilter();
+        lowpass.type = 'lowpass';
+        lowpass.frequency.value = effect.lowpass_freq || 2800;
+        lowpass.Q.value = 0.7;
+
+        // 3. Mid-boost peaking filter (telephone presence, that "in your ear" quality)
+        let midBoost = null;
+        if (effect.mid_boost_freq && effect.mid_boost_gain) {
+            midBoost = this.audioContext.createBiquadFilter();
+            midBoost.type = 'peaking';
+            midBoost.frequency.value = effect.mid_boost_freq;
+            midBoost.gain.value = effect.mid_boost_gain;
+            midBoost.Q.value = effect.mid_boost_q || 1.0;
+        }
+
+        // 4. Compressor (tight dynamics like cheap phone circuitry)
+        const compressor = this.audioContext.createDynamicsCompressor();
+        compressor.threshold.value = effect.compressor_threshold || -20;
+        compressor.knee.value = 6;
+        compressor.ratio.value = effect.compressor_ratio || 6;
+        compressor.attack.value = effect.compressor_attack || 0.002;
+        compressor.release.value = effect.compressor_release || 0.2;
+
+        // 5. Waveshaper for distortion (analog grit from cheap speaker)
+        let distortion = null;
+        if (effect.distortion_amount && effect.distortion_amount > 0) {
+            distortion = this.audioContext.createWaveShaper();
+            distortion.curve = this.makeDistortionCurve(effect.distortion_amount);
+            distortion.oversample = '2x';
+        }
+
+        // 6. Output gain
+        const gainNode = this.audioContext.createGain();
+        gainNode.gain.value = this.audioVolume;
+
+        // Build the chain: source -> highpass -> lowpass -> (midBoost) -> compressor -> (distortion) -> gain
+        let currentNode = source;
+
+        currentNode.connect(highpass);
+        currentNode = highpass;
+
+        currentNode.connect(lowpass);
+        currentNode = lowpass;
+
+        if (midBoost) {
+            currentNode.connect(midBoost);
+            currentNode = midBoost;
+        }
+
+        currentNode.connect(compressor);
+        currentNode = compressor;
+
+        if (distortion) {
+            currentNode.connect(distortion);
+            currentNode = distortion;
+        }
+
+        currentNode.connect(gainNode);
+
+        console.log('[PHONE_EFFECT] Chain created: highpass(' + highpass.frequency.value +
+                    ') -> lowpass(' + lowpass.frequency.value +
+                    ') -> midBoost -> compressor -> distortion -> gain');
+
+        return gainNode;
+    }
+
+    /**
+     * Create distortion curve for waveshaper (soft clipping)
+     * @param {number} amount - Distortion intensity (higher = more distortion)
+     * @returns {Float32Array} - Distortion curve
+     */
+    makeDistortionCurve(amount) {
+        const k = typeof amount === 'number' ? amount : 35;
+        const n_samples = 44100;
+        const curve = new Float32Array(n_samples);
+        const deg = Math.PI / 180;
+
+        for (let i = 0; i < n_samples; ++i) {
+            const x = (i * 2) / n_samples - 1;
+            curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+        }
+
+        return curve;
+    }
+
+    /**
+     * Start phone line noise bed (optional background hum/static)
+     */
+    startPhoneNoise() {
+        if (!this.voiceEffect || !this.voiceEffect.noise_level || !this.audioContext) return;
+
+        // Create noise buffer (2 seconds, looping)
+        const sampleRate = this.audioContext.sampleRate;
+        const bufferSize = sampleRate * 2;
+        const noiseBuffer = this.audioContext.createBuffer(1, bufferSize, sampleRate);
+        const data = noiseBuffer.getChannelData(0);
+
+        // Generate pink-ish noise (filtered white noise)
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+
+        this.phoneNoiseSource = this.audioContext.createBufferSource();
+        this.phoneNoiseSource.buffer = noiseBuffer;
+        this.phoneNoiseSource.loop = true;
+
+        // Bandpass filter to make it sound like phone line noise
+        const noiseFilter = this.audioContext.createBiquadFilter();
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.value = 1000;
+        noiseFilter.Q.value = 0.5;
+
+        // Very quiet - convert dB to linear gain (-35 dB ≈ 0.018)
+        const noiseGain = this.audioContext.createGain();
+        noiseGain.gain.value = Math.pow(10, this.voiceEffect.noise_level / 20);
+
+        this.phoneNoiseSource.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(this.audioContext.destination);
+
+        this.phoneNoiseSource.start();
+        console.log('[PHONE_EFFECT] Line noise started at', this.voiceEffect.noise_level, 'dB');
+    }
+
+    /**
+     * Stop phone line noise
+     */
+    stopPhoneNoise() {
+        if (this.phoneNoiseSource) {
+            try {
+                this.phoneNoiseSource.stop();
+            } catch (e) {
+                // May already be stopped
+            }
+            this.phoneNoiseSource = null;
+            console.log('[PHONE_EFFECT] Line noise stopped');
+        }
+    }
+
+    /**
      * Play audio with a callback when finished
      * @param {string} audioBase64 - Base64 encoded audio data
      * @param {string} format - Audio format (default: 'mp3')
@@ -801,9 +1157,18 @@ class ChatApp {
             const audioBlob = this.base64ToBlob(audioBase64, `audio/${format}`);
             const audioUrl = URL.createObjectURL(audioBlob);
 
-            // Use Web Audio API with radio effects for submarine scene
-            if (this.sceneType === 'submarine') {
+            // Determine which effect to use
+            const useVoiceEffect = this.voiceEffect && this.voiceEffect.enabled;
+            const useRadioEffect = this.sceneType === 'submarine';
+
+            // Use Web Audio API for any scene with audio effects
+            if (useVoiceEffect || useRadioEffect) {
                 this.initRadioEffects();
+
+                // Start phone line noise if this is first audio with phone effect
+                if (useVoiceEffect && this.voiceEffect.noise_level && !this.phoneNoiseSource) {
+                    this.startPhoneNoise();
+                }
 
                 // Decode audio data
                 fetch(audioUrl)
@@ -814,13 +1179,20 @@ class ChatApp {
                         const source = this.audioContext.createBufferSource();
                         source.buffer = audioBuffer;
 
-                        // Apply radio effects
-                        const effectChain = this.createRadioEffectChain(source);
+                        // Apply appropriate effect chain
+                        let effectChain;
+                        if (useVoiceEffect) {
+                            effectChain = this.createPhoneEffectChain(source);
+                            console.log('[PHONE_EFFECT] Applying phone effect chain');
+                        } else {
+                            effectChain = this.createRadioEffectChain(source);
+                            console.log('[RADIO] Applying radio effect chain');
+                        }
                         effectChain.connect(this.audioContext.destination);
 
                         // Handle completion
                         source.onended = () => {
-                            console.log('[RADIO] Audio playback ended');
+                            console.log('[AUDIO_EFFECT] Audio playback ended');
                             URL.revokeObjectURL(audioUrl);
                             this.currentAudio = null;
                             if (this.audioCallback) {
@@ -833,10 +1205,10 @@ class ChatApp {
                         // Start playback
                         source.start(0);
                         this.currentAudio = source; // Store reference
-                        console.log('[RADIO] Radio-processed playback started');
+                        console.log('[AUDIO_EFFECT] Effect-processed playback started');
                     })
                     .catch(e => {
-                        console.error('[RADIO] Audio processing failed:', e);
+                        console.error('[AUDIO_EFFECT] Audio processing failed:', e);
                         URL.revokeObjectURL(audioUrl);
                         if (this.audioCallback) {
                             const cb = this.audioCallback;
@@ -1067,6 +1439,11 @@ class ChatApp {
     queueOpeningLines(lines, characterName) {
         console.log('[OPENING_SPEECH] queueOpeningLines called with', lines.length, 'lines. Current queue length:', this.messageQueue.length);
 
+        // Track that this is an opening speech queue
+        this.openingSpeechPending = true;
+        this.openingSpeechLineCount = lines.length;
+        this.openingSpeechLinesProcessed = 0;
+
         // Add all lines to the queue (including audio if available)
         lines.forEach((line, index) => {
             console.log('[OPENING_SPEECH] Adding line', index + 1, ':', line.text.substring(0, 50) + '...');
@@ -1076,7 +1453,8 @@ class ChatApp {
                 type: 'character',
                 delay: index === 0 ? 0 : (line.delay * 1000),
                 audio: line.audio || null,
-                audio_format: line.audio_format || 'mp3'
+                audio_format: line.audio_format || 'mp3',
+                isOpeningSpeech: true
             });
         });
 
@@ -1092,11 +1470,20 @@ class ChatApp {
      */
     processMessageQueue() {
         if (this.isProcessingQueue || this.messageQueue.length === 0) {
+            // Check if opening speech just finished
+            if (this.messageQueue.length === 0 && this.openingSpeechPending) {
+                this.onOpeningSpeechComplete();
+            }
             return;
         }
 
         this.isProcessingQueue = true;
         const message = this.messageQueue.shift();
+
+        // Track opening speech progress
+        if (message.isOpeningSpeech) {
+            this.openingSpeechLinesProcessed++;
+        }
 
         // Wait for the specified delay before showing the message
         setTimeout(() => {
@@ -1107,6 +1494,8 @@ class ChatApp {
                     this.isProcessingQueue = false;
                     if (this.messageQueue.length > 0) {
                         this.processMessageQueue();
+                    } else if (this.openingSpeechPending) {
+                        this.onOpeningSpeechComplete();
                     }
                 });
             }
@@ -1119,11 +1508,40 @@ class ChatApp {
                     this.isProcessingQueue = false;
                     if (this.messageQueue.length > 0) {
                         this.processMessageQueue();
+                    } else if (this.openingSpeechPending) {
+                        this.onOpeningSpeechComplete();
                     }
                 }
                 // If audio is playing, the audio callback will trigger next message
             });
         }, message.delay || 0);
+    }
+
+    /**
+     * Called when all opening speech lines have been processed
+     * Notifies the server to enable input immediately
+     */
+    onOpeningSpeechComplete() {
+        if (!this.openingSpeechPending) return;
+
+        this.openingSpeechPending = false;
+        console.log('[OPENING_SPEECH] All lines processed, notifying server');
+
+        // Immediately enable input on the client side
+        const chatInput = document.getElementById('chat-input');
+        const sendButton = document.getElementById('send-button');
+        chatInput.disabled = false;
+        sendButton.disabled = false;
+        chatInput.placeholder = 'Enter message...';
+        chatInput.classList.add('pulse');
+        this.hideTypingIndicator();
+
+        // Notify server that opening speech is complete
+        if (this.isConnected) {
+            this.ws.send(JSON.stringify({
+                type: 'opening_speech_complete'
+            }));
+        }
     }
 
     /**
@@ -1240,9 +1658,10 @@ class ChatApp {
         this.addMessage('System', content, 'system');
     }
 
-    showTypingIndicator() {
+    showTypingIndicator(characterName = null) {
         // Use the new waiting indicator with animated dots
-        this.startWaitingIndicator();
+        // If character name provided, use it in the indicator
+        this.startWaitingIndicator(characterName);
     }
 
     hideTypingIndicator() {
@@ -1276,6 +1695,8 @@ class ChatApp {
             'wizard': 'Merlin',
             'detective': 'Detective Stone',
             'engineer': 'Lt. Cmdr. James Kovich',
+            'judge': 'Judge Harriet Thorne',
+            'mara_vane': 'Mara Vane',
             'custom': 'Custom Character'
         };
 
@@ -1284,6 +1705,8 @@ class ChatApp {
             'wizard': 'Wise Wizard',
             'detective': 'Hard-boiled Detective',
             'engineer': 'Sub Commander',
+            'judge': 'Crown Court Judge',
+            'mara_vane': 'Mysterious Caller',
             'custom': 'Custom Character'
         };
 
@@ -1292,6 +1715,8 @@ class ChatApp {
             'wizard': 0x9c27b0,
             'detective': 0x795548,
             'engineer': 0xff6b35,
+            'judge': 0x8b4513,
+            'mara_vane': 0x6b4423,
             'custom': 0x4caf50
         };
 
@@ -1317,8 +1742,12 @@ class ChatApp {
         const messagesContainer = document.getElementById('chat-messages');
         messagesContainer.innerHTML = '';
 
-        // Recreate the scene if submarine
-        if (this.currentScene === 'submarine') {
+        // Clear detective dialogue buttons
+        this.clearDetectiveDialogueButtons();
+
+        // Recreate the scene if it's a custom 3D scene
+        const customScenes = ['submarine', 'iconic_detectives', 'merlins_room'];
+        if (customScenes.includes(this.currentScene)) {
             const sceneContainer = document.getElementById('scene-container');
             this.createScene(sceneContainer, this.currentScene);
         }
@@ -1333,6 +1762,198 @@ class ChatApp {
         }
 
         this.addSystemMessage('Conversation restarted. The character is ready to talk!');
+    }
+
+    // ==================== Detective Scene UI ====================
+
+    /**
+     * Update the detective scene UI based on current state
+     */
+    updateDetectiveUI(state) {
+        const phase = state.phase || 1;
+        const trust = state.trust || 50;
+        const contradictions = state.contradictions || 0;
+        const pathChosen = state.path_chosen || 0;
+
+        console.log('[DETECTIVE] State update - Phase:', phase, 'Trust:', trust, 'Contradictions:', contradictions);
+
+        // Update dialogue buttons based on phase
+        this.renderDetectiveDialogueButtons(phase, pathChosen, contradictions);
+
+        // Update any status display if present
+        this.updateDetectiveStatus(trust, contradictions, phase);
+    }
+
+    /**
+     * Render dialogue choice buttons based on current phase
+     */
+    renderDetectiveDialogueButtons(phase, pathChosen, contradictions) {
+        // Get or create the dialogue buttons container
+        let buttonContainer = document.getElementById('detective-dialogue-buttons');
+        if (!buttonContainer) {
+            buttonContainer = document.createElement('div');
+            buttonContainer.id = 'detective-dialogue-buttons';
+            buttonContainer.style.cssText = `
+                position: fixed;
+                bottom: 200px;
+                left: 20px;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                z-index: 1000;
+                max-width: 280px;
+            `;
+            document.body.appendChild(buttonContainer);
+        }
+
+        // Clear existing buttons
+        buttonContainer.innerHTML = '';
+
+        // Button configurations by phase
+        const buttonConfigs = {
+            2: [ // Core hooks
+                { id: 'hook_identity', label: 'WHO ARE YOU?', color: '#4682b4' },
+                { id: 'hook_timeline', label: "WHAT'S WRONG WITH THE TIMING?", color: '#4682b4' },
+                { id: 'hook_key', label: 'WHY STEAL A KEY?', color: '#4682b4' },
+            ],
+            3: [ // Branch choice
+                { id: 'follow_key', label: 'FOLLOW THE KEY', color: '#ffd700' },
+                { id: 'follow_lie', label: 'FOLLOW THE LIE', color: '#ff6347' },
+            ],
+            4: [ // Path 1 sub-options
+                { id: 'p1_how_know', label: 'HOW DO YOU KNOW SABLE STORAGE?', color: '#228b22' },
+                { id: 'p1_whats_inside', label: "WHAT'S IN THE BOX?", color: '#228b22' },
+                { id: 'p1_who_knows', label: 'WHO ELSE KNOWS?', color: '#228b22' },
+            ],
+            5: [ // Path 2 sub-options
+                { id: 'p2_who_staged', label: 'WHO STAGED IT?', color: '#800020' },
+                { id: 'p2_why_argument', label: 'WHY AN ARGUMENT?', color: '#800020' },
+                { id: 'p2_killer_detail', label: 'GIVE ME A KILLER DETAIL', color: '#800020' },
+            ],
+        };
+
+        // Get buttons for current phase
+        const buttons = buttonConfigs[phase] || [];
+
+        // Add challenge button if contradictions >= 1 and in path phases
+        if ((phase === 4 || phase === 5) && contradictions >= 1) {
+            buttons.push({
+                id: 'challenge_mara',
+                label: contradictions >= 2 ? 'YOU WERE THERE' : 'CHALLENGE HER',
+                color: '#ff0000'
+            });
+        }
+
+        // Create buttons
+        buttons.forEach(config => {
+            const button = document.createElement('button');
+            button.textContent = config.label;
+            button.style.cssText = `
+                padding: 10px 16px;
+                font-size: 12px;
+                font-weight: bold;
+                background: rgba(0, 0, 0, 0.8);
+                color: ${config.color};
+                border: 2px solid ${config.color};
+                border-radius: 4px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                text-align: left;
+            `;
+
+            button.onmouseover = () => {
+                button.style.background = config.color;
+                button.style.color = '#000';
+            };
+            button.onmouseout = () => {
+                button.style.background = 'rgba(0, 0, 0, 0.8)';
+                button.style.color = config.color;
+            };
+
+            button.onclick = () => {
+                this.handleButtonClick(config.id);
+            };
+
+            buttonContainer.appendChild(button);
+        });
+
+        // Show phase indicator
+        if (buttons.length > 0) {
+            const phaseLabel = document.createElement('div');
+            phaseLabel.style.cssText = `
+                font-size: 10px;
+                color: #666;
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+                margin-bottom: 4px;
+            `;
+            const phaseNames = {
+                2: 'Core Questions',
+                3: 'Choose Your Path',
+                4: 'Follow the Key',
+                5: 'Follow the Lie'
+            };
+            phaseLabel.textContent = phaseNames[phase] || '';
+            buttonContainer.insertBefore(phaseLabel, buttonContainer.firstChild);
+        }
+    }
+
+    /**
+     * Update detective status display
+     */
+    updateDetectiveStatus(trust, contradictions, phase) {
+        // Get or create status display
+        let statusDisplay = document.getElementById('detective-status');
+        if (!statusDisplay) {
+            statusDisplay = document.createElement('div');
+            statusDisplay.id = 'detective-status';
+            statusDisplay.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 20px;
+                padding: 12px 16px;
+                background: rgba(0, 0, 0, 0.8);
+                border: 1px solid #333;
+                border-radius: 4px;
+                font-size: 12px;
+                color: #ccc;
+                z-index: 1000;
+                font-family: monospace;
+            `;
+            document.body.appendChild(statusDisplay);
+        }
+
+        // Trust color based on level
+        let trustColor = '#4ade80'; // Green
+        if (trust < 40) trustColor = '#ef4444'; // Red
+        else if (trust < 60) trustColor = '#fbbf24'; // Yellow
+
+        statusDisplay.innerHTML = `
+            <div style="margin-bottom: 6px;">
+                <span style="color: #888;">TRUST:</span>
+                <span style="color: ${trustColor}; font-weight: bold;">${trust.toFixed(0)}%</span>
+            </div>
+            <div>
+                <span style="color: #888;">CONTRADICTIONS:</span>
+                <span style="color: ${contradictions >= 2 ? '#ef4444' : '#ccc'}; font-weight: bold;">${contradictions}</span>
+            </div>
+        `;
+    }
+
+    /**
+     * Clear detective dialogue buttons
+     */
+    clearDetectiveDialogueButtons() {
+        const buttonContainer = document.getElementById('detective-dialogue-buttons');
+        if (buttonContainer) {
+            buttonContainer.remove();
+        }
+        const statusDisplay = document.getElementById('detective-status');
+        if (statusDisplay) {
+            statusDisplay.remove();
+        }
     }
 }
 

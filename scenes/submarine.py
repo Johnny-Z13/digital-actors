@@ -14,6 +14,38 @@ from llm_prompt_core.types import Line
 class Submarine(Scene):
     """Submarine Emergency - Iron Lung scenario"""
 
+    # Milestone-based phase progression
+    # Each phase has required and optional milestones that can trigger advancement
+    # This allows phases to progress based on player actions, not just time
+    PHASE_MILESTONES = {
+        1: {
+            'required': ['power_restored'],  # Must restore power before phase 2
+            'optional': ['player_name_given', 'first_system_repaired'],
+            'min_time': 60,  # Don't rush even if milestones hit
+            'max_time': 90,  # Force advance after this time
+        },
+        2: {
+            'required': ['second_system_repaired'],  # Progress through systems
+            'optional': ['backstory_shared', 'emotional_moment'],
+            'min_time': 75,  # Allow relationship building
+            'max_time': 120,
+        },
+        3: {
+            'required': ['adrian_revealed'],  # Must reveal Adrian
+            'optional': ['player_showed_empathy'],
+            'min_time': 45,  # Quick emotional beat
+            'max_time': 75,
+            'trigger_condition': lambda s: s.get('radiation', 0) >= 60,  # Or radiation high
+        },
+        4: {
+            'required': ['final_choice_made'],  # Endgame
+            'optional': [],
+            'min_time': 30,  # Final moments
+            'max_time': 90,
+            'trigger_condition': lambda s: s.get('radiation', 0) >= 75,  # Or radiation critical
+        }
+    }
+
     def __init__(self):
         # Define audio assets
         audio = AudioAssets(
@@ -289,12 +321,8 @@ class Submarine(Scene):
             TIME PRESSURE: This is a 5-minute scene. Radiation rises steadily. Act with both efficiency
             and emotional intelligence - James needs your voice as his anchor.""",
             opening_speech=[
-                Line(text="[distant, crackled radio] ...anyone copy? This is Kovich, forward control, does anyone copy...", delay=0),
-                Line(text="[clearer, desperate] If anyone can hear this, the reactor containment is gone. Repeat, containment is gone. We are leaking radiation through ventilation and we are still sinking.", delay=3.5),
-                Line(text="[sharp intake of breath] Oh thank God. Thank God. Okay. Okay, you're in aft compartment, right? I can see you on thermals.", delay=3.0),
-                Line(text="[trying to steady voice] I'm Lieutenant Commander James Kovich. I'm... [pause, breathing] ...I'm trapped in forward control. The bulkhead door sealed when the reactor blew.", delay=3.5),
-                Line(text="We've got maybe eight minutes before the radiation reaches you. Maybe less. I need you to trust my voice, okay? I'm going to get you out of this.", delay=4.0),
-                Line(text="[voice drops, more human] What's your name? Your real name—not your rank.", delay=3.0),
+                Line(text="[static] Hello... is anyone there?", delay=0),
+                Line(text="This is Lieutenant James Kovich of the US submarine Prospero... is anyone there?", delay=2.0),
             ],
             art_assets=art_assets,
             controls=controls,
@@ -305,3 +333,98 @@ class Submarine(Scene):
             time_limit=300.0,  # 5 minutes to match Pressure Point scenario
             allow_freeform_dialogue=True
         )
+
+        # Track achieved milestones
+        self.achieved_milestones: set[str] = set()
+        self.phase_start_time: float = 0.0
+
+    def achieve_milestone(self, milestone: str) -> None:
+        """Record that a milestone has been achieved."""
+        if milestone not in self.achieved_milestones:
+            self.achieved_milestones.add(milestone)
+            import logging
+            logging.getLogger(__name__).info(
+                "[Submarine] Milestone achieved: %s", milestone
+            )
+
+    def check_phase_transition(
+        self,
+        current_phase: int,
+        state: dict,
+        elapsed_time: float,
+        phase_duration: float
+    ) -> tuple[bool, str]:
+        """
+        Check if the current phase should transition to the next.
+
+        Uses milestone-based progression with time bounds.
+
+        Args:
+            current_phase: Current phase (1-4)
+            state: Current scene state
+            elapsed_time: Total time since scene start
+            phase_duration: Time in current phase
+
+        Returns:
+            Tuple of (should_transition, reason)
+        """
+        if current_phase >= 4:
+            return False, "already_at_max_phase"
+
+        milestones = self.PHASE_MILESTONES.get(current_phase, {})
+        min_time = milestones.get('min_time', 0)
+        max_time = milestones.get('max_time', 120)
+        required = milestones.get('required', [])
+        trigger_condition = milestones.get('trigger_condition')
+
+        # Check minimum time requirement
+        if phase_duration < min_time:
+            return False, "below_min_time"
+
+        # Check if all required milestones are achieved
+        required_met = all(m in self.achieved_milestones for m in required)
+
+        # Check trigger condition (e.g., radiation threshold)
+        condition_met = trigger_condition(state) if trigger_condition else False
+
+        # Transition if: (required met) OR (max time reached) OR (condition met AND past min_time)
+        if required_met:
+            return True, "milestones_complete"
+        if phase_duration >= max_time:
+            return True, "max_time_reached"
+        if condition_met and phase_duration >= min_time:
+            return True, "trigger_condition_met"
+
+        return False, "waiting_for_milestones"
+
+    def get_phase_context(self, current_phase: int, state: dict) -> dict:
+        """
+        Get context about current phase for LLM prompts.
+
+        Args:
+            current_phase: Current phase
+            state: Current scene state
+
+        Returns:
+            Dict with phase context information
+        """
+        milestones = self.PHASE_MILESTONES.get(current_phase, {})
+        required = milestones.get('required', [])
+        optional = milestones.get('optional', [])
+
+        required_remaining = [m for m in required if m not in self.achieved_milestones]
+        achieved = list(self.achieved_milestones)
+
+        return {
+            'phase': current_phase,
+            'milestones_achieved': achieved,
+            'milestones_remaining': required_remaining,
+            'optional_milestones': [m for m in optional if m not in self.achieved_milestones],
+            'radiation': state.get('radiation', 0),
+            'time_remaining': state.get('time_remaining', 0),
+        }
+
+    def reset_milestones(self) -> None:
+        """Reset milestones for scene restart."""
+        self.achieved_milestones.clear()
+        self.phase_start_time = 0.0

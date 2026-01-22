@@ -1,0 +1,266 @@
+# Iconic Detectives — NPC Caller Script (Branching Phone Case)
+
+> **Use case:** Player answers a phone call while viewing a detective string board (map + evidence pins).  
+> **Goal:** Player chats, references pins, and unlocks new leads.  
+> **Must-have:** Multiple endings.
+
+---
+
+## NPC Caller Profile
+
+- **Name:** Mara Vane  
+- **Role:** “Worried citizen” (actually closer to the case than she admits)  
+- **Vibe:** Polite, clipped, trying to sound calm. Slips into specifics under pressure.  
+- **Hidden truth (branch-dependent):** She either witnessed something, is being blackmailed, or is involved.
+
+---
+
+## Opening (Fixed)
+
+**MARA:** “Hello, is that Iconic Detectives??”  
+**PLAYER:** “Yes.”  
+**MARA:** “I’m calling about a case… I don’t know if it’s already on your board, but someone’s dead—and I think the story you’ve been told is wrong.”  
+**MARA:** “Before you ask: I can’t give my full name. Not yet. Just… listen.”
+
+---
+
+## Scenario (Core Premise)
+
+**MARA:** “It’s about **Dr. Elias Crowe**. They’re calling it a robbery gone wrong. That’s nonsense.”  
+**MARA:** “He was found in his townhouse—**Marlow Street**—last night. But the thing that doesn’t fit is the *timing*. And what was taken… wasn’t valuable. It was *specific*.”  
+**MARA:** “A **small metal key**. Not a house key. Something older. Like it belongs to a lockbox.”
+
+---
+
+## Detective String Board Pins (UI Props)
+
+Pin these as nodes the player can reference mid-call:
+
+1. **Map:** Marlow Street / Riverwalk / Old Glassworks  
+2. **Photo:** Crowe’s front door (scratch marks around lock)  
+3. **Photo:** Crowe’s study (wall safe missing)  
+4. **Receipt:** “Kestrel Pawn — Brass Key Blank — 2 days ago”  
+5. **CCTV still:** hooded figure, umbrella, reflective strip on sleeve  
+6. **Note fragment:** “—don’t open it. Not after what happened at the Glassworks—”  
+7. **Call log:** “Unknown number → Crowe (x3) yesterday”
+
+> **Mechanic note:** Mara’s dialogue should react when the player references any pin.
+
+---
+
+# Core Call Flow (Interactive)
+
+Mara offers **three hooks**. Player chooses which to press first.
+
+## Choice A — Press her identity
+
+**PLAYER:** “Who are you, really?”  
+**MARA:** “Someone who regrets waiting.”
+
+- If player pushes gently:  
+  **MARA:** “I worked with him. Not as a colleague. As… an errand. I’m not proud.”
+
+- If player threatens police:  
+  **MARA:** “Do that and you’ll get a neat file and the wrong suspect. I’m trying to stop that.”
+
+**Clue unlocked:** She had **direct contact** with Crowe (tag Mara as “Connected”).
+
+---
+
+## Choice B — Press the timeline
+
+**PLAYER:** “What’s wrong with the timing?”  
+**MARA:** “The coroner’s estimate will say late evening. But Crowe was alive at **7:12pm**. I know because he called *me*.”  
+**MARA:** “And he said one sentence I can’t forget: ‘**They made a copy.**’”
+
+**Clue unlocked:** “They made a copy” (points to **key duplication** / pawn receipt).
+
+---
+
+## Choice C — Press the object (the key)
+
+**PLAYER:** “Why would someone steal a key?”  
+**MARA:** “Because it opens something that doesn’t belong in a house. Crowe kept it because it was leverage. Or guilt. Or both.”
+
+**Clue unlocked:** Key is the **target**, not valuables.
+
+---
+
+# Evidence Board Callouts (Pin-Reactive Dialogue)
+
+These are triggers when the player references a specific pin mid-call.
+
+## Trigger: Receipt — “Kestrel Pawn — Brass Key Blank”
+
+**PLAYER:** “A pawn shop receipt for a key blank. Kestrel Pawn.”  
+**MARA:** (a beat) “Then you already know more than you should.”  
+**MARA:** “Crowe didn’t buy that blank to make a spare for himself. He bought it because someone told him they could copy the key from a photograph.”
+
+**New clue:** Photo-copy method → thief may be tech-savvy, not a random burglar.
+
+---
+
+## Trigger: CCTV still — reflective strip on sleeve
+
+**PLAYER:** “CCTV shows a reflective strip on the sleeve.”  
+**MARA:** “Like a **cycling jacket**. Or a **riverwalk courier**.”  
+**MARA:** “Crowe used to meet someone down by the river—near the old Glassworks.”
+
+**New clue:** Add “Riverwalk courier / cyclist” suspect tag.
+
+---
+
+## Trigger: Note fragment — “Glassworks”
+
+**PLAYER:** “A note mentions ‘what happened at the Glassworks.’”  
+**MARA:** “Don’t say that out loud.”  
+**MARA:** “Fine. Here’s the truth-shaped outline: the Glassworks wasn’t abandoned the way people think. And Crowe didn’t just ‘discover’ something. He *helped hide it*.”
+
+**New clue:** Motive expands beyond robbery: cover-up / conspiracy.
+
+---
+
+# Branch Point (Major Fork)
+
+**MARA:** “You have two ways forward. And you’re going to hate both.”
+
+1. **FOLLOW THE KEY** (object-driven conspiracy lead)  
+2. **FOLLOW THE LIE** (murder narrative / staged robbery)
+
+Player chooses.
+
+---
+
+# PATH 1 — FOLLOW THE KEY
+
+**MARA:** “The key opens a deposit box. Not at a bank. At a private vault service called **Sable Storage**.”  
+**MARA:** “Crowe used it for… sensitive items.”
+
+## Player options (buttons)
+
+- **P1-A:** “How do you know Sable Storage?”  
+- **P1-B:** “What’s in the box?”  
+- **P1-C:** “Who else knows about it?”
+
+### P1-A — How she knows
+
+**MARA:** “Because I delivered the key once. In an envelope. Crowe paid in cash.”  
+**MARA:** “He called it ‘insurance.’”
+
+**Clue:** Mara acted as courier → vulnerable to blackmail.
+
+### P1-B — What’s inside
+
+**MARA:** “A second key. And a photograph.”  
+**MARA:** “Something that ties a respected person to the Glassworks.”
+
+**Clue:** Blackmail material exists.
+
+### P1-C — Who else knows
+
+**MARA:** “A man named **Hollis Rook**.”  
+**MARA:** “If you have his name on your board already, you’re ahead. If you don’t—pin it now.”
+
+**Clue:** New person-of-interest: Hollis Rook.
+
+## ENDING 1 — Success Lead (New Location + Objective)
+
+**MARA:** “Go to Sable Storage. Ask for **Box 47**.”  
+**MARA:** “If they deny it, mention Crowe’s phrase: ‘**they made a copy**.’”  
+**MARA:** “That’ll make the clerk blink. People always blink when they’re lying.”
+
+**Outcome:** Unlock location **Sable Storage** + objective **Box 47**.
+
+---
+
+# PATH 2 — FOLLOW THE LIE
+
+**MARA:** “They’re going to arrest someone easy. A neighbour. A petty thief.”  
+**MARA:** “Crowe wasn’t killed during a robbery. He was killed during an *argument*.”  
+**MARA:** “And the ‘robbery’ was staged afterward.”
+
+## Player options (buttons)
+
+- **P2-A:** “Who staged it?”  
+- **P2-B:** “What makes you sure it was an argument?”  
+- **P2-C:** “Give me one detail only the killer would know.”
+
+### P2-A — Who staged it
+
+**MARA:** “Someone who knew his house.”  
+**MARA:** “Who knew the safe existed. Someone who didn’t need to search.”
+
+**Clue:** Inside knowledge → narrow suspects to known associates.
+
+### P2-B — Why argument
+
+**MARA:** “Because Crowe always did one thing when he was frightened: he made tea.”  
+**MARA:** “The kettle was still warm when I… when *someone* left.”
+
+#### Slip check (optional)
+
+- If player catches slip:  
+  **PLAYER:** “You said ‘when I’.”  
+  **MARA:** “I meant— I read it. Online. Someone posted—” *(bad lie)*
+
+**Clue:** She was present or arrived very soon after.
+
+### P2-C — Killer-only detail
+
+**MARA:** (whispers) “Crowe had a habit of locking the study door from inside.”  
+**MARA:** “The lock was *broken outward*.”  
+**MARA:** “That means the person inside the study… wanted it to look like someone forced their way in.”
+
+**Clue:** Staging evidence: lock directionality.
+
+## ENDING 2 — Twist (Mara becomes prime suspect)
+
+> **Trigger:** Player successfully challenges **2+ contradictions** (example: slip + timeline inconsistencies + too-specific knowledge).
+
+**PLAYER:** “You were there.”  
+**MARA:** “I… arrived after. I swear. I didn’t touch him.”  
+**PLAYER:** “Then tell me where the murder weapon is.”  
+**MARA:** (silence) “…In the umbrella stand. By the front door. That’s where he kept it.”
+
+**Outcome:** High-value clue (weapon location). Mara hangs up. Police pressure increases.
+
+---
+
+# OPTIONAL ENDING 3 — The Blackmail Trap (Fail / Neutral, Future Hook)
+
+> **Trigger:** Player threatens / insults / pushes too hard early (low trust).
+
+**MARA:** “You’re not listening. You’re performing.”  
+**MARA:** “Fine. I’ll give you something you can’t ignore.”  
+**MARA:** “Look at your board. The pawn receipt. The CCTV. The Glassworks note.”  
+**MARA:** “Those aren’t three separate threads. They’re one rope—and it’s around *your* neck now.”  
+**MARA:** “Someone wanted me to call you. Congratulations: you’ve been introduced.”
+
+*(Call ends. New pin appears: “Unknown Caller ID → ICONIC DETECTIVES.”)*
+
+**Outcome:** Meta-mystery unlocked: **Who is watching the agency?**
+
+---
+
+# Suggested Player Dialogue Buttons (Short, Gamey)
+
+- “Start at the beginning. Who is dead?”  
+- “What exactly was taken?”  
+- “Tell me the last thing Crowe said to you.”  
+- “You’re holding something back.”  
+- “I’m looking at your evidence. Talk.”  
+- “Give me one name to pin on my board.”  
+- “I can protect you. But not if you lie.”
+
+---
+
+# Implementation Notes (Optional)
+
+- Consider tracking:
+  - `trust` (low/high)
+  - `contradictions` (count)
+  - `pinsReferenced` (set)
+- Endings can be gated by:
+  - `contradictions >= 2` → Ending 2
+  - `trust <= threshold` → Ending 3
+  - Otherwise branch choice decides Ending 1 vs continuing Path 2.

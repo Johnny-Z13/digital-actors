@@ -21,6 +21,11 @@ class Character:
         instruction_prefix: Instructions for the LLM role-play
         color: Hex color for 3D model (e.g., 0x4fc3f7)
         skills: List of skills/expertise this character has (matches scene requirements)
+        emotion_expression_style: Dictionary defining how this character expresses emotions
+            - expressiveness: 0.0 (monotone) to 1.0 (theatrical)
+            - stability_baseline: Default stability for this character (0.0-1.0)
+            - emotional_range: How much emotions affect voice (0.0-1.0)
+            - restraint: How much character suppresses emotion (0.0-1.0)
     """
 
     id: str = "default"
@@ -30,6 +35,12 @@ class Character:
     instruction_prefix: str = "You are playing a character role."
     color: int = 0x4fc3f7  # Cyan
     skills: list = field(default_factory=list)
+    emotion_expression_style: dict = field(default_factory=lambda: {
+        'expressiveness': 0.7,    # 0.0 (monotone) to 1.0 (theatrical)
+        'stability_baseline': 0.5, # Default stability for this character
+        'emotional_range': 0.8,   # How much emotions affect voice (0.0-1.0)
+        'restraint': 0.3          # How much character suppresses emotion (0.0-1.0)
+    })
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert character to dictionary format for web_server.py compatibility."""

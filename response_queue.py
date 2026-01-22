@@ -41,6 +41,16 @@ class ResponsePriority(IntEnum):
     BACKGROUND = 3  # Director events, hints, waiting responses - easily cancelled
 
 
+# Dynamic timing gaps based on priority (in seconds)
+# Lower priority = longer gap to allow more important responses through
+PRIORITY_TIMING_GAPS = {
+    ResponsePriority.CRITICAL: 0.3,   # Death sequences, emergencies - near instant
+    ResponsePriority.URGENT: 1.0,     # Important story beats - brief pause
+    ResponsePriority.NORMAL: 2.0,     # Standard dialogue - natural conversational gap
+    ResponsePriority.BACKGROUND: 3.0  # Ambient/flavor - longer gap, easily interrupted
+}
+
+
 @dataclass
 class ResponseItem:
     """
@@ -91,7 +101,8 @@ class ResponseQueue:
     def __init__(
         self,
         send_callback: Callable[[str, Optional[str]], Awaitable[None]],
-        min_gap_seconds: float = 2.0
+        min_gap_seconds: float = 2.0,
+        use_dynamic_timing: bool = True
     ) -> None:
         """
         Initialize the response queue.
@@ -99,25 +110,45 @@ class ResponseQueue:
         Args:
             send_callback: Async function to actually send responses to client.
                           Signature: async def send(content: str, emotion: str | None) -> None
-            min_gap_seconds: Minimum time gap between responses (seconds).
-                           Prevents rapid-fire dialogue.
+            min_gap_seconds: Default minimum time gap between responses (seconds).
+                           Used as fallback when dynamic timing is disabled.
+            use_dynamic_timing: If True, uses priority-based timing gaps.
+                              If False, uses fixed min_gap_seconds.
         """
         self._queue: list[ResponseItem] = []
         self._send_callback = send_callback
         self._min_gap_seconds = min_gap_seconds
+        self._use_dynamic_timing = use_dynamic_timing
 
         # Processing state
         self._is_processing = False
         self._lock = asyncio.Lock()  # Protects queue modifications
         self._last_send_time: float = 0.0
+        self._last_sent_priority: ResponsePriority = ResponsePriority.NORMAL
 
         # Sequence tracking
         self._global_sequence = 0
 
         logger.info(
-            "[ResponseQueue] Initialized with min_gap=%.1fs",
+            "[ResponseQueue] Initialized with dynamic_timing=%s (default_gap=%.1fs)",
+            use_dynamic_timing,
             min_gap_seconds
         )
+
+    def _get_timing_gap(self, priority: ResponsePriority) -> float:
+        """
+        Get the appropriate timing gap for a response based on its priority.
+
+        Args:
+            priority: The priority of the response to be sent
+
+        Returns:
+            Time gap in seconds before this response should be sent
+        """
+        if not self._use_dynamic_timing:
+            return self._min_gap_seconds
+
+        return PRIORITY_TIMING_GAPS.get(priority, self._min_gap_seconds)
 
     async def enqueue(
         self,
@@ -241,6 +272,33 @@ class ResponseQueue:
 
             return removed
 
+    async def clear_all_except_critical(self) -> int:
+        """
+        Remove all queued responses EXCEPT CRITICAL priority ones.
+
+        Use this for dramatic moments like death sequences where only
+        critical narrative moments should remain queued.
+
+        Returns:
+            Number of responses removed
+        """
+        async with self._lock:
+            original_size = len(self._queue)
+            self._queue = [
+                r for r in self._queue
+                if r.priority == ResponsePriority.CRITICAL
+            ]
+            removed = original_size - len(self._queue)
+
+            if removed > 0:
+                logger.info(
+                    "[ResponseQueue] Cleared %d non-critical responses (kept %d critical)",
+                    removed,
+                    len(self._queue)
+                )
+
+            return removed
+
     def get_next_sequence_id(self) -> int:
         """
         Get the next sequence ID for response tracking.
@@ -284,15 +342,17 @@ class ResponseQueue:
                         len(self._queue)
                     )
 
-                # Enforce minimum gap between responses
+                # Enforce timing gap based on priority (dynamic or fixed)
                 current_time = asyncio.get_event_loop().time()
                 time_since_last = current_time - self._last_send_time
+                required_gap = self._get_timing_gap(item.priority)
 
-                if time_since_last < self._min_gap_seconds:
-                    gap_needed = self._min_gap_seconds - time_since_last
+                if time_since_last < required_gap:
+                    gap_needed = required_gap - time_since_last
                     logger.debug(
-                        "[ResponseQueue] Waiting %.1fs before next response",
-                        gap_needed
+                        "[ResponseQueue] Waiting %.1fs before %s response (priority-based)",
+                        gap_needed,
+                        item.priority.name
                     )
                     await asyncio.sleep(gap_needed)
 
@@ -306,6 +366,7 @@ class ResponseQueue:
                 try:
                     await self._send_callback(item.content, item.emotion_context)
                     self._last_send_time = asyncio.get_event_loop().time()
+                    self._last_sent_priority = item.priority
                 except Exception as e:
                     logger.error(
                         "[ResponseQueue] Error sending response: %s",
@@ -327,11 +388,14 @@ class ResponseQueue:
         return {
             "size": len(self._queue),
             "is_processing": self._is_processing,
+            "dynamic_timing_enabled": self._use_dynamic_timing,
+            "last_sent_priority": self._last_sent_priority.name if self._last_sent_priority else None,
             "items": [
                 {
                     "priority": item.priority.name,
                     "sequence": item.sequence_id,
                     "source": item.source,
+                    "timing_gap": self._get_timing_gap(item.priority),
                     "preview": item.content[:50] + "..."
                 }
                 for item in self._queue

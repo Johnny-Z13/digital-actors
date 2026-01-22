@@ -11,6 +11,8 @@ from characters.wizard import Wizard
 from characters.detective import Detective
 from characters.custom import Custom
 from characters.engineer import Engineer
+from characters.judge import Judge
+from characters.mara_vane import MaraVane
 
 # Registry of all available characters
 CHARACTERS = {
@@ -19,6 +21,8 @@ CHARACTERS = {
     'detective': Detective(),
     'custom': Custom(),
     'engineer': Engineer(),
+    'judge': Judge(),
+    'mara_vane': MaraVane(),
 }
 
-__all__ = ['Character', 'CHARACTERS', 'Eliza', 'Wizard', 'Detective', 'Custom', 'Engineer']
+__all__ = ['Character', 'CHARACTERS', 'Eliza', 'Wizard', 'Detective', 'Custom', 'Engineer', 'Judge', 'MaraVane']

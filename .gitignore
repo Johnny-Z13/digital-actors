@@ -6,6 +6,9 @@ data/
 *.sqlite3
 *.db-journal
 
+# Large 3D model files (exceed GitHub 100MB limit)
+*.glb
+
 # Claude Code settings (user-specific)
 .claude/
 

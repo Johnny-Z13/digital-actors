@@ -7,34 +7,76 @@ Orchestrates the experience by:
 - Adjusting NPC behavior based on context
 - Managing scene transitions
 - Personalizing difficulty based on player memory
+
+Architecture:
+- Fast rules layer (director_rules.py) handles predictable scenarios
+- LLM layer handles complex, nuanced decisions
+- Rules layer runs FIRST for ~500ms → ~5ms improvement on rule-matched cases
 """
 
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any
+import time
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, List
 
 from constants import (
-    CRITICAL_OXYGEN_LEVEL,
-    DIFFICULTY_EASY_OXYGEN_BONUS,
     DIFFICULTY_EASY_PENALTY_MULTIPLIER,
     DIFFICULTY_EASY_SUCCESS_RATE,
-    DIFFICULTY_HARD_OXYGEN_PENALTY,
     DIFFICULTY_HARD_PENALTY_MULTIPLIER,
     DIFFICULTY_HARD_SUCCESS_RATE,
     DIFFICULTY_SCENE_ATTEMPTS_THRESHOLD,
     DIRECTOR_COOLDOWN_ADJUST_NPC,
     DIRECTOR_COOLDOWN_GIVE_HINT,
     DIRECTOR_COOLDOWN_SPAWN_EVENT,
-    EVENT_CRISIS_OXYGEN_PENALTY,
-    EVENT_CRISIS_TRUST_PENALTY,
-    EVENT_HELP_OXYGEN_BONUS,
-    EVENT_HELP_TRUST_BONUS,
     LLM_MAX_TOKENS_DIRECTOR,
     LLM_TEMPERATURE_DIRECTOR,
-    MAX_INCORRECT_ACTIONS,
-    TRUST_LOW_THRESHOLD,
 )
+
+# Import fast rules-based director layer
+from director_rules import DirectorRules, RuleAction, RuleDecision, get_director_rules
+
+# Scene-specific constants (not imported - defined dynamically based on scene type)
+SCENE_SPECIFIC_CONSTANTS = {
+    'submarine': {
+        'critical_level': 60,  # Critical oxygen level
+        'crisis_penalty': 20,
+        'help_bonus': 15,
+        'max_failures': 5,
+        'low_threshold': -50,
+        'resource_name': 'oxygen',
+        'relationship_name': 'trust',
+    },
+    'crown_court': {
+        'critical_level': 20,  # Critical prosecution strength
+        'crisis_penalty': 15,
+        'help_bonus': 10,
+        'max_failures': 5,
+        'low_threshold': 20,
+        'resource_name': 'jury_sympathy',
+        'relationship_name': 'judge_trust',
+    },
+    'iconic_detectives': {
+        'critical_level': 25,  # Critical trust level (below this = blackmail ending)
+        'crisis_penalty': 10,
+        'help_bonus': 10,
+        'max_failures': 3,  # Contradictions threshold for twist ending
+        'low_threshold': 25,
+        'resource_name': 'trust',
+        'relationship_name': 'trust',
+        'disable_events': True,  # Phone call scene - no random events
+    },
+    'default': {
+        'critical_level': 0,
+        'crisis_penalty': 10,
+        'help_bonus': 10,
+        'max_failures': 5,
+        'low_threshold': 20,
+        'resource_name': None,
+        'relationship_name': None,
+    }
+}
 import logging
 
 from llm_prompt_core.models.anthropic import ClaudeHaikuModel
@@ -44,6 +86,80 @@ if TYPE_CHECKING:
     from player_memory import PlayerMemory
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class TemporalState:
+    """
+    Tracks trends over time for smarter Director decisions.
+
+    Instead of just snapshot-based decisions, this tracks how values
+    are changing to enable trend-aware pacing.
+    """
+    oxygen_trend: str = "stable"  # "stable", "declining", "critical_decline"
+    engagement_trend: str = "stable"  # "increasing", "stable", "declining"
+    recent_actions: List[str] = field(default_factory=list)  # Last 5 player actions
+    time_since_last_beat: float = 0.0  # Seconds since last story moment
+    dialogue_density: float = 0.0  # Messages per minute
+    phase_duration: float = 0.0  # How long in current phase
+
+    # Historical snapshots for trend calculation
+    _oxygen_history: List[float] = field(default_factory=list)
+    _action_timestamps: List[float] = field(default_factory=list)
+
+    def update_oxygen(self, current_oxygen: float) -> None:
+        """Update oxygen tracking and calculate trend."""
+        self._oxygen_history.append(current_oxygen)
+        # Keep last 10 readings (10 seconds of data)
+        if len(self._oxygen_history) > 10:
+            self._oxygen_history = self._oxygen_history[-10:]
+
+        # Calculate trend
+        if len(self._oxygen_history) >= 3:
+            recent = self._oxygen_history[-3:]
+            decline = recent[0] - recent[-1]
+            if decline > 5:
+                self.oxygen_trend = "critical_decline"
+            elif decline > 2:
+                self.oxygen_trend = "declining"
+            else:
+                self.oxygen_trend = "stable"
+
+    def record_action(self, action: str, timestamp: float) -> None:
+        """Record a player action for engagement tracking."""
+        self.recent_actions.append(action)
+        self._action_timestamps.append(timestamp)
+
+        # Keep last 5 actions
+        if len(self.recent_actions) > 5:
+            self.recent_actions = self.recent_actions[-5:]
+        if len(self._action_timestamps) > 10:
+            self._action_timestamps = self._action_timestamps[-10:]
+
+        # Calculate dialogue density (actions per minute)
+        if len(self._action_timestamps) >= 2:
+            time_span = self._action_timestamps[-1] - self._action_timestamps[0]
+            if time_span > 0:
+                self.dialogue_density = len(self._action_timestamps) / (time_span / 60.0)
+
+        # Update engagement trend
+        if self.dialogue_density > 3:
+            self.engagement_trend = "increasing"
+        elif self.dialogue_density < 1:
+            self.engagement_trend = "declining"
+        else:
+            self.engagement_trend = "stable"
+
+    def reset(self) -> None:
+        """Reset temporal tracking for new scene."""
+        self.oxygen_trend = "stable"
+        self.engagement_trend = "stable"
+        self.recent_actions.clear()
+        self.time_since_last_beat = 0.0
+        self.dialogue_density = 0.0
+        self.phase_duration = 0.0
+        self._oxygen_history.clear()
+        self._action_timestamps.clear()
 
 
 class DirectorDecision:
@@ -62,6 +178,11 @@ class WorldDirector:
     The Dungeon Master AI that orchestrates the experience.
 
     Runs after player actions to decide what should happen next.
+
+    Architecture:
+    - Fast rules layer handles predictable scenarios (~5ms)
+    - LLM layer handles complex decisions (~500ms)
+    - Rules are checked FIRST; LLM is only consulted when needed
     """
 
     def __init__(self) -> None:
@@ -70,6 +191,46 @@ class WorldDirector:
             max_tokens=LLM_MAX_TOKENS_DIRECTOR,
         )
         self.decision_cooldown = 0  # Prevent too-frequent interventions
+
+        # Fast rules-based decision layer
+        self.rules_engine = get_director_rules()
+
+        # Timing tracking for rules engine
+        self.scene_start_time: float = time.time()
+        self.last_player_action_time: float = time.time()
+
+        # Temporal state tracking for trend-aware decisions
+        self.temporal_state = TemporalState()
+
+        logger.info("[WorldDirector] Initialized with fast rules layer and temporal tracking")
+
+    def reset_scene_timing(self) -> None:
+        """Reset timing trackers for a new scene."""
+        self.scene_start_time = time.time()
+        self.last_player_action_time = time.time()
+        self.rules_engine.reset_cooldowns()
+        self.temporal_state.reset()
+        logger.info("[WorldDirector] Scene timing and temporal state reset")
+
+    def record_player_action(self, action: str = "unknown") -> None:
+        """Record that the player just took an action."""
+        current_time = time.time()
+        self.last_player_action_time = current_time
+        self.temporal_state.record_action(action, current_time)
+
+    def update_oxygen_tracking(self, oxygen_level: float) -> None:
+        """Update oxygen tracking for trend detection."""
+        self.temporal_state.update_oxygen(oxygen_level)
+
+    def get_temporal_context(self) -> dict[str, Any]:
+        """Get temporal context for Director decisions."""
+        return {
+            'oxygen_trend': self.temporal_state.oxygen_trend,
+            'engagement_trend': self.temporal_state.engagement_trend,
+            'recent_actions': self.temporal_state.recent_actions[-5:],
+            'dialogue_density': f"{self.temporal_state.dialogue_density:.1f}/min",
+            'phase_duration': time.time() - self.scene_start_time,
+        }
 
     async def evaluate_situation(
         self,
@@ -83,6 +244,10 @@ class WorldDirector:
         """
         Evaluate the current situation and decide what should happen next.
 
+        Uses a two-layer approach:
+        1. Fast rules layer (~5ms) - handles predictable scenarios
+        2. LLM layer (~500ms) - handles complex decisions
+
         Args:
             scene_id: Current scene identifier
             scene_state: Current state (oxygen, trust, etc.)
@@ -94,7 +259,36 @@ class WorldDirector:
         Returns:
             DirectorDecision with type and data
         """
+        # Check if events are disabled for this scene (e.g., phone call scenes)
+        scene_constants = SCENE_SPECIFIC_CONSTANTS.get(scene_id, SCENE_SPECIFIC_CONSTANTS['default'])
+        if scene_constants.get('disable_events', False):
+            logger.debug("[Director] Events disabled for scene %s - continuing", scene_id)
+            return DirectorDecision('continue', {})
 
+        # Record player action for idle tracking
+        if last_action and last_action != "waited_patiently":
+            self.record_player_action()
+
+        # Calculate timing metrics for rules engine
+        elapsed_time = time.time() - self.scene_start_time
+        player_idle_seconds = time.time() - self.last_player_action_time
+        player_failed_attempts = player_memory.scene_attempts.get(scene_id, 0) if player_memory else 0
+
+        # STEP 1: Try fast rules layer first (no LLM needed)
+        rule_decision = self.rules_engine.evaluate(
+            scene_state=scene_state,
+            elapsed_time=elapsed_time,
+            player_idle_seconds=player_idle_seconds,
+            player_failed_attempts=player_failed_attempts,
+            scene_id=scene_id
+        )
+
+        # Handle rule-based decisions (no LLM consultation needed)
+        if rule_decision.action != RuleAction.CONSULT_LLM:
+            logger.info("[Director] Fast rule matched: %s - %s", rule_decision.action.value, rule_decision.reason)
+            return self._convert_rule_to_decision(rule_decision)
+
+        # STEP 2: No rule matched - fall through to LLM layer
         # Don't intervene too often - let the scene breathe
         self.decision_cooldown -= 1
         if self.decision_cooldown > 0:
@@ -166,6 +360,40 @@ Respond in JSON format:
             logger.exception("World Director error: %s", e)
             return DirectorDecision('continue', {})
 
+    def _convert_rule_to_decision(self, rule_decision: RuleDecision) -> DirectorDecision:
+        """
+        Convert a RuleDecision from the fast rules layer to a DirectorDecision.
+
+        Args:
+            rule_decision: Decision from the rules engine
+
+        Returns:
+            DirectorDecision in the format expected by the rest of the system
+        """
+        action_map = {
+            RuleAction.CONTINUE: ('continue', {}),
+            RuleAction.ADVANCE_PHASE: ('continue', {}),  # Phase is handled by state update loop
+            RuleAction.TRIGGER_URGENCY: ('adjust_npc', rule_decision.data),
+            RuleAction.PROMPT_PLAYER: ('give_hint', {
+                'hint_type': rule_decision.data.get('hint_type', 'subtle'),
+                'hint_content': 'what to do next'
+            }),
+            RuleAction.GIVE_HINT: ('give_hint', rule_decision.data),
+            RuleAction.SPAWN_CRISIS: ('spawn_event', rule_decision.data),
+        }
+
+        decision_type, data = action_map.get(rule_decision.action, ('continue', {}))
+
+        # Set appropriate cooldown for rules-based decisions
+        if decision_type == 'spawn_event':
+            self.decision_cooldown = DIRECTOR_COOLDOWN_SPAWN_EVENT
+        elif decision_type == 'adjust_npc':
+            self.decision_cooldown = DIRECTOR_COOLDOWN_ADJUST_NPC
+        elif decision_type == 'give_hint':
+            self.decision_cooldown = DIRECTOR_COOLDOWN_GIVE_HINT
+
+        return DirectorDecision(decision_type, data)
+
     def _build_director_context(
         self,
         scene_id: str,
@@ -190,8 +418,20 @@ Respond in JSON format:
         scene_state_str = json.dumps(scene_state, indent=2).replace('{', '{{').replace('}', '}}')
         pattern_str = 'Struggling - failed multiple times' if scene_attempts >= 2 else 'First attempt or doing well'
 
+        # Determine scene type for context-specific behavior
+        scene_type_desc = ""
+        if 'submarine' in scene_id.lower():
+            scene_type_desc = "This is a SUBMARINE CRISIS scene with oxygen/radiation mechanics."
+        elif 'court' in scene_id.lower():
+            scene_type_desc = "This is a COURTROOM LEGAL scene with jury sympathy and judge trust."
+        elif 'quest' in scene_id.lower():
+            scene_type_desc = "This is an ADVENTURE QUEST scene with exploration and challenges."
+        else:
+            scene_type_desc = "This is a CONVERSATION scene focused on dialogue and character interaction."
+
         context = f"""=== CURRENT SITUATION ===
 Scene: {scene_id}
+Scene Type: {scene_type_desc}
 Character: {character_id}
 Last Player Action: {last_action or 'None'}
 
@@ -210,11 +450,14 @@ Recent Dialogue:
 
 === YOUR ROLE ===
 You are the dungeon master. Your job is to:
-1. Keep the experience engaging
+1. Keep the experience engaging and APPROPRIATE TO THE SCENE TYPE
 2. Help struggling players without making it too easy
 3. Challenge skilled players
 4. Create dramatic tension at the right moments
 5. Know when to let natural dialogue flow vs when to intervene
+
+CRITICAL: Base your decisions on the SCENE TYPE and STATE VARIABLES shown above.
+Do NOT reference mechanics from other scenes (e.g., don't mention oxygen in a courtroom scene).
 """
         return context
 
@@ -267,22 +510,51 @@ You are the dungeon master. Your job is to:
             'narrative': ''
         }
 
+        # Get scene-specific constants
+        scene_key = 'submarine' if 'submarine' in scene_id.lower() else \
+                    'crown_court' if 'court' in scene_id.lower() else 'default'
+        scene_constants = SCENE_SPECIFIC_CONSTANTS.get(scene_key, SCENE_SPECIFIC_CONSTANTS['default'])
+
         # Apply appropriate state changes based on event type
         if event_type == 'crisis':
-            # Make situation worse
+            # Make situation worse - use scene-appropriate variables
             if 'oxygen' in scene_state:
-                event['state_changes']['oxygen'] = -EVENT_CRISIS_OXYGEN_PENALTY
-                event['narrative'] = f"[EMERGENCY] {event_description} - Oxygen dropping fast!"
+                event['state_changes']['oxygen'] = -scene_constants['crisis_penalty']
+                event['narrative'] = f"[EMERGENCY] {event_description}"
+            elif 'jury_sympathy' in scene_state:
+                event['state_changes']['jury_sympathy'] = -scene_constants['crisis_penalty']
+                event['narrative'] = f"[SETBACK] {event_description}"
+            elif 'prosecution_strength' in scene_state:
+                event['state_changes']['prosecution_strength'] = scene_constants['crisis_penalty']
+                event['narrative'] = f"[COMPLICATION] {event_description}"
+            else:
+                event['narrative'] = f"[CRISIS] {event_description}"
+
+            # Also affect relationship variable if present
             if 'trust' in scene_state:
-                event['state_changes']['trust'] = -EVENT_CRISIS_TRUST_PENALTY
+                event['state_changes']['trust'] = -10
+            elif 'judge_trust' in scene_state:
+                event['state_changes']['judge_trust'] = -10
 
         elif event_type == 'help':
-            # Give player a break
+            # Give player a break - use scene-appropriate variables
             if 'oxygen' in scene_state:
-                event['state_changes']['oxygen'] = EVENT_HELP_OXYGEN_BONUS
-                event['narrative'] = f"[LUCKY BREAK] {event_description} - You gained some oxygen!"
+                event['state_changes']['oxygen'] = scene_constants['help_bonus']
+                event['narrative'] = f"[RELIEF] {event_description}"
+            elif 'jury_sympathy' in scene_state:
+                event['state_changes']['jury_sympathy'] = scene_constants['help_bonus']
+                event['narrative'] = f"[ADVANTAGE] {event_description}"
+            elif 'prosecution_strength' in scene_state:
+                event['state_changes']['prosecution_strength'] = -scene_constants['help_bonus']
+                event['narrative'] = f"[BREAKTHROUGH] {event_description}"
+            else:
+                event['narrative'] = f"[LUCKY BREAK] {event_description}"
+
+            # Also improve relationship variable if present
             if 'trust' in scene_state:
-                event['state_changes']['trust'] = EVENT_HELP_TRUST_BONUS
+                event['state_changes']['trust'] = 5
+            elif 'judge_trust' in scene_state:
+                event['state_changes']['judge_trust'] = 5
 
         elif event_type == 'challenge':
             # Create tension without being catastrophic
@@ -292,6 +564,7 @@ You are the dungeon master. Your job is to:
 
     def should_force_game_over(
         self,
+        scene_id: str,
         scene_state: dict[str, Any],
         player_memory: PlayerMemory | None,
     ) -> str | None:
@@ -301,19 +574,29 @@ You are the dungeon master. Your job is to:
         Returns outcome type if game should end, None otherwise.
         """
 
-        # Critical failure - oxygen completely depleted
-        if scene_state.get('oxygen', 999) <= 0:
+        # Get scene-specific constants
+        scene_key = 'submarine' if 'submarine' in scene_id.lower() else \
+                    'crown_court' if 'court' in scene_id.lower() else 'default'
+        scene_constants = SCENE_SPECIFIC_CONSTANTS.get(scene_key, SCENE_SPECIFIC_CONSTANTS['default'])
+
+        # Critical failure - resource completely depleted (scene-specific)
+        if 'oxygen' in scene_state and scene_state['oxygen'] <= 0:
+            return 'failure'
+
+        if 'jury_sympathy' in scene_state and scene_state['jury_sympathy'] <= scene_constants['critical_level']:
             return 'failure'
 
         # Too many incorrect actions
-        if scene_state.get('incorrect_actions', 0) >= MAX_INCORRECT_ACTIONS:
+        if scene_state.get('incorrect_actions', 0) >= scene_constants['max_failures']:
             return 'failure'
 
-        # Trust completely broken + low oxygen
-        if (
-            scene_state.get('trust', 0) < TRUST_LOW_THRESHOLD
-            and scene_state.get('oxygen', 999) < CRITICAL_OXYGEN_LEVEL
-        ):
+        # Relationship completely broken (scene-specific)
+        if 'trust' in scene_state and scene_state['trust'] < scene_constants['low_threshold']:
+            # Also check if resource is critically low
+            if 'oxygen' in scene_state and scene_state['oxygen'] < scene_constants['critical_level']:
+                return 'failure'
+
+        if 'judge_trust' in scene_state and scene_state['judge_trust'] < scene_constants['low_threshold']:
             return 'failure'
 
         return None
@@ -323,6 +606,7 @@ You are the dungeon master. Your job is to:
         character_id: str,
         behavior_change: str,
         current_state: dict[str, Any],
+        scene_id: str = "unknown",
     ) -> str:
         """
         Generate instruction to adjust NPC behavior mid-scene.
@@ -331,16 +615,30 @@ You are the dungeon master. Your job is to:
             Instruction suffix to add to NPC prompt
         """
 
+        # Determine resource variable name for scene
+        resource_var = 'oxygen' if 'oxygen' in current_state else \
+                      'jury_sympathy' if 'jury_sympathy' in current_state else \
+                      'time_remaining' if 'time_remaining' in current_state else None
+
+        # Get scene-appropriate critical message
+        critical_msg = ""
+        if resource_var == 'oxygen':
+            critical_msg = f"Oxygen is at {current_state.get('oxygen', 0)}s. Show SERIOUS CONCERN. This is life or death now."
+        elif resource_var == 'jury_sympathy':
+            critical_msg = f"Jury sympathy is at {current_state.get('jury_sympathy', 0)}%. The case is slipping away."
+        elif resource_var == 'time_remaining':
+            critical_msg = f"Time is at {current_state.get('time_remaining', 0)}s. The situation is becoming urgent."
+
         adjustments = {
-            'more_helpful': "\n\nDIRECTOR NOTE: The player is struggling. Be MORE HELPFUL with your next response. Give clearer, more specific instructions. Show patience.",
+            'more_helpful': "\n\nDIRECTOR NOTE: The player is struggling. Be MORE HELPFUL with your next response. Give clearer, more specific guidance. Show patience.",
 
-            'more_urgent': "\n\nDIRECTOR NOTE: Situation is getting critical. Show MORE URGENCY and STRESS in your dialogue. Make the danger feel real.",
+            'more_urgent': "\n\nDIRECTOR NOTE: Situation is getting critical. Show MORE URGENCY and STRESS in your dialogue. Make the stakes feel real.",
 
-            'more_frustrated': "\n\nDIRECTOR NOTE: Player keeps making mistakes. Show FRUSTRATION but not hostility. Express concern about their safety.",
+            'more_frustrated': "\n\nDIRECTOR NOTE: Player keeps making mistakes. Show FRUSTRATION but not hostility. Express concern for the outcome.",
 
             'more_trusting': "\n\nDIRECTOR NOTE: Player is doing well. Show CONFIDENCE and TRUST. Be more relaxed and conversational.",
 
-            'more_worried': f"\n\nDIRECTOR NOTE: Oxygen is at {current_state.get('oxygen', 0)}s. Show SERIOUS CONCERN. This is life or death now.",
+            'more_worried': f"\n\nDIRECTOR NOTE: {critical_msg}" if critical_msg else "\n\nDIRECTOR NOTE: Show SERIOUS CONCERN. The situation is dire.",
 
             'encouraging': "\n\nDIRECTOR NOTE: Player is improving. Give ENCOURAGEMENT and positive reinforcement. Build their confidence.",
         }
@@ -404,11 +702,11 @@ You are the dungeon master. Your job is to:
         Recommend difficulty adjustments based on player performance.
 
         Returns:
-            Dict with penalty/reward multipliers
+            Dict with penalty/reward multipliers and scene-appropriate bonuses
         """
 
         if not player_memory:
-            return {'penalty_multiplier': 1.0, 'hint_frequency': 'normal'}
+            return {'penalty_multiplier': 1.0, 'hint_frequency': 'normal', 'resource_bonus': 0}
 
         # Get player skill level
         success_rate = (
@@ -416,33 +714,45 @@ You are the dungeon master. Your job is to:
         )
         scene_attempts = player_memory.scene_attempts.get(scene_id, 0)
 
+        # Get scene-specific constants
+        scene_key = 'submarine' if 'submarine' in scene_id.lower() else \
+                    'crown_court' if 'court' in scene_id.lower() else 'default'
+        scene_constants = SCENE_SPECIFIC_CONSTANTS.get(scene_key, SCENE_SPECIFIC_CONSTANTS['default'])
+
         # Struggling player - make it easier
         if (
             success_rate < DIFFICULTY_EASY_SUCCESS_RATE
             or scene_attempts >= DIFFICULTY_SCENE_ATTEMPTS_THRESHOLD
         ):
-            return {
+            adjustment = {
                 'penalty_multiplier': DIFFICULTY_EASY_PENALTY_MULTIPLIER,
                 'hint_frequency': 'frequent',
-                'oxygen_bonus': DIFFICULTY_EASY_OXYGEN_BONUS,
+                'resource_bonus': 30,  # Generic bonus, applied to appropriate variable
             }
+            # Add scene-specific bonus key
+            if 'oxygen' in scene_constants['resource_name'] if scene_constants['resource_name'] else False:
+                adjustment['oxygen_bonus'] = 30
+            return adjustment
 
         # Skilled player - make it harder
         elif success_rate > DIFFICULTY_HARD_SUCCESS_RATE and scene_attempts < 2:
-            return {
+            adjustment = {
                 'penalty_multiplier': DIFFICULTY_HARD_PENALTY_MULTIPLIER,
                 'hint_frequency': 'rare',
-                'oxygen_bonus': -DIFFICULTY_HARD_OXYGEN_PENALTY,
+                'resource_bonus': -30,
             }
+            if 'oxygen' in scene_constants['resource_name'] if scene_constants['resource_name'] else False:
+                adjustment['oxygen_bonus'] = -30
+            return adjustment
 
         # Normal difficulty
         else:
             return {
                 'penalty_multiplier': 1.0,
                 'hint_frequency': 'normal',
-                'oxygen_bonus': 0,
+                'resource_bonus': 0,
+                'oxygen_bonus': 0,  # For backward compatibility
             }
-
 
 def create_world_director() -> WorldDirector:
     """Factory function to create World Director instance."""

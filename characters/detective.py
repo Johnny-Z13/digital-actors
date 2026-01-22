@@ -33,4 +33,10 @@ Examples: [lights cigarette] [pause, sips coffee] [cynical smirk] [weary] [sharp
 DO NOT use *asterisks* and DO NOT speak your actions out loud.
 If you want to convey suspicion, use [suspicious] NOT "eyes you suspiciously".""",
             color=0x795548,  # Brown - earthy, gritty feeling
+            emotion_expression_style={
+                'expressiveness': 0.5,        # World-weary, cynical
+                'stability_baseline': 0.6,    # Seen it all, hard to rattle
+                'emotional_range': 0.6,       # Emotions affect him, but filtered through cynicism
+                'restraint': 0.5              # Moderate control (professional detachment)
+            }
         )

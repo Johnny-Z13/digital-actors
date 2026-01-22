@@ -31,4 +31,10 @@ Examples: [warm smile in voice] [pause] [system beep] [concerned] [gentle]
 DO NOT use *asterisks* and DO NOT speak your actions out loud.
 If you want to convey nervousness, use [nervous] NOT "nervously fidgets".""",
             color=0x4fc3f7,  # Cyan - tech/AI feeling
+            emotion_expression_style={
+                'expressiveness': 0.7,        # Warm, nurturing
+                'stability_baseline': 0.5,    # Balanced
+                'emotional_range': 0.8,       # Emotionally responsive
+                'restraint': 0.2              # Low restraint (designed to connect emotionally)
+            }
         )

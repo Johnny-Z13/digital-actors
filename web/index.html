@@ -3,8 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Digital Actors - AI Character Chat</title>
+    <meta name="description" content="Digital Actors - Immersive AI Character Interaction Platform">
+    <meta name="theme-color" content="#06090f">
+    <title>Digital Actors</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 </head>
 <body>
     <!-- Three.js Scene Container -->
@@ -22,57 +26,68 @@
         <!-- Chat Container -->
         <div id="chat-container" class="panel">
             <div id="chat-header" class="drag-handle">
-                <span>Chat</span>
-                <button id="chat-minimize" title="Minimize">−</button>
+                <span>Transmission</span>
+                <button id="chat-minimize" title="Minimize" aria-label="Minimize chat window">−</button>
             </div>
             <div id="chat-body">
-                <div id="chat-messages"></div>
+                <div id="chat-messages" role="log" aria-live="polite" aria-label="Chat messages"></div>
                 <div id="chat-input-container">
-                <input
-                    type="text"
-                    id="chat-input"
-                    placeholder="Type your message..."
-                    autocomplete="off"
-                />
-                <button id="send-button">Send</button>
+                    <input
+                        type="text"
+                        id="chat-input"
+                        placeholder="Enter message..."
+                        autocomplete="off"
+                        aria-label="Chat message input"
+                    />
+                    <button id="send-button" aria-label="Send message">Transmit</button>
+                </div>
+                <div id="connection-status" class="disconnected" role="status" aria-live="polite">Connecting...</div>
             </div>
-                <div id="connection-status" class="disconnected">Connecting...</div>
-            </div>
-            <div id="chat-resize-handle"></div>
+            <div id="chat-resize-handle" aria-hidden="true"></div>
         </div>
 
         <!-- Configuration Panel (collapsible) -->
         <div id="config-panel" class="panel collapsed">
-            <button id="config-toggle">⚙️ Settings</button>
+            <button id="config-toggle" aria-expanded="false" aria-controls="config-content">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+                Configuration
+            </button>
             <div id="config-content">
-                <h3>Character Configuration</h3>
+                <h3>System Parameters</h3>
 
-                <label for="character-select">Select Character:</label>
+                <label for="character-select">Active Character</label>
                 <select id="character-select">
-                    <option value="eliza">Eliza - AI Caretaker</option>
-                    <option value="wizard">Merlin - Wise Wizard</option>
-                    <option value="detective">Detective Stone</option>
-                    <option value="engineer">Lt. Cmdr. James Kovich - Sub Commander</option>
+                    <option value="eliza">Eliza — AI Caretaker</option>
+                    <option value="wizard">Merlin — Wise Wizard</option>
+                    <option value="detective">Detective Stone — Hard-boiled PI</option>
+                    <option value="engineer">Lt. Cmdr. James Kovich — Sub Commander</option>
+                    <option value="judge">Judge Harriet Thorne — Crown Court</option>
+                    <option value="mara_vane">Mara Vane — Mysterious Caller</option>
                     <option value="custom">Custom Character</option>
                 </select>
 
-                <label for="scene-select">Starting Scene:</label>
+                <label for="scene-select">Scenario</label>
                 <select id="scene-select">
                     <option value="introduction">Introduction</option>
                     <option value="conversation">General Conversation</option>
-                    <option value="quest">Quest Beginning</option>
+                    <option value="merlins_room">Merlin's Room</option>
                     <option value="submarine">Submarine Emergency</option>
+                    <option value="crown_court">Crown Court — Legal Defense</option>
+                    <option value="iconic_detectives">Iconic Detectives — NYC Office</option>
                 </select>
 
-                <button id="restart-button">Restart Conversation</button>
+                <button id="restart-button">Reset Session</button>
             </div>
         </div>
     </div>
 
     <!-- Loading Screen -->
-    <div id="loading-screen">
-        <div class="spinner"></div>
-        <p>Loading character...</p>
+    <div id="loading-screen" role="alert" aria-busy="true">
+        <div class="spinner" aria-hidden="true"></div>
+        <p>Initializing</p>
     </div>
 
     <!-- Scripts -->
