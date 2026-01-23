@@ -133,7 +133,7 @@ export class MerlinsRoomScene {
 
     loadModel() {
         const loader = new GLTFLoader();
-        const modelPath = "/models/merlins_workshop.glb";
+        const modelPath = "/art/merlins_workshop.glb";
 
         console.log('[MERLIN_SCENE] Loading model:', modelPath);
 

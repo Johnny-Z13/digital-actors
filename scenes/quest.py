@@ -15,7 +15,7 @@ class MerlinsRoom(Scene):
         # Art assets with 3D environment model
         art_assets = SceneArtAssets(
             scene_type="custom",
-            environment_model="/models/merlins_workshop.glb",
+            environment_model="/art/merlins_workshop.glb",
             audio=AudioAssets(
                 volume_levels={
                     'music': 0.3,
