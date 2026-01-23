@@ -704,7 +704,7 @@ export class DetectiveScene {
         const loader = new GLTFLoader();
 
         loader.load(
-            '/models/Phone_01.glb',
+            '/art/Phone_01.glb',
             (gltf) => {
                 this.phone = gltf.scene;
                 this.phone.scale.set(0.12, 0.12, 0.12);

@@ -2037,9 +2037,9 @@ async def static_handler(request: web.Request) -> web.Response:
     if '..' in file_path:
         raise web.HTTPForbidden()
 
-    # Build full path - check models directory for /models/* paths
+    # Build full path - check models/art directories for assets at root level
     base_dir = Path(__file__).parent
-    if file_path.startswith('models/'):
+    if file_path.startswith('models/') or file_path.startswith('art/'):
         full_path = base_dir / file_path
     else:
         full_path = base_dir / 'web' / file_path
