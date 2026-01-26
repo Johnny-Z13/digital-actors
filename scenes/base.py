@@ -27,6 +27,9 @@ class SceneControl:
             False: Action is hidden from NPC (e.g., player secretly examining evidence)
         visible_in_phases: List of phase numbers when this control should be visible
             If None, control is always visible. If specified, only visible in those phases.
+        max_presses: Maximum number of times this control can be activated per session.
+            None means unlimited. Used to prevent button-mashing exploits.
+        cooldown_seconds: Minimum time between activations. None means no cooldown.
     """
     id: str
     label: str
@@ -37,6 +40,8 @@ class SceneControl:
     action_type: str = "normal"
     npc_aware: bool = True  # Default: NPC is aware of actions
     visible_in_phases: Optional[List[int]] = None  # None means always visible
+    max_presses: Optional[int] = None  # None means unlimited
+    cooldown_seconds: Optional[float] = None  # None means no cooldown
 
 
 @dataclass
@@ -193,6 +198,39 @@ class SceneArtAssets:
 
 
 @dataclass
+class SceneConstants:
+    """
+    Scene-specific gameplay constants.
+
+    These override global defaults for scene-specific tuning.
+    Use None to fall back to global constant values.
+    """
+    # Penalty values (for interruptions/rapid actions)
+    interruption_oxygen_penalty: Optional[int] = None
+    interruption_trust_penalty: Optional[int] = None
+    rapid_action_oxygen_penalty: Optional[int] = None
+    rapid_action_trust_penalty: Optional[int] = None
+
+    # Crisis event values
+    crisis_oxygen_penalty: Optional[int] = None
+    crisis_trust_penalty: Optional[int] = None
+    help_oxygen_bonus: Optional[int] = None
+    help_trust_bonus: Optional[int] = None
+
+    # Difficulty adjustments
+    easy_oxygen_bonus: Optional[int] = None
+    hard_oxygen_penalty: Optional[int] = None
+
+    # Thresholds
+    critical_level: Optional[int] = None  # e.g., critical oxygen level
+    max_incorrect_actions: Optional[int] = None
+
+    # Director settings
+    disable_events: bool = False  # Disable random events (e.g., phone scene)
+    director_cooldown_override: Optional[int] = None
+
+
+@dataclass
 class Scene:
     """
     Base class for all scenes.
@@ -212,6 +250,7 @@ class Scene:
         character_requirements: Skills/knowledge needed for optimal performance
         time_limit: Time limit in seconds (optional)
         allow_freeform_dialogue: Whether player can chat freely or only use controls
+        scene_constants: Scene-specific constant overrides
     """
 
     id: str = "default"
@@ -228,6 +267,7 @@ class Scene:
     character_requirements: List[CharacterRequirement] = field(default_factory=list)
     time_limit: Optional[float] = None
     allow_freeform_dialogue: bool = True
+    scene_constants: SceneConstants = field(default_factory=SceneConstants)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert scene to dictionary format for web_server.py compatibility."""
@@ -273,6 +313,9 @@ class Scene:
                     'description': ctrl.description,
                     'action_type': ctrl.action_type,
                     'npc_aware': ctrl.npc_aware,
+                    'visible_in_phases': ctrl.visible_in_phases,
+                    'max_presses': ctrl.max_presses,
+                    'cooldown_seconds': ctrl.cooldown_seconds,
                 }
                 for ctrl in self.controls
             ],
@@ -317,6 +360,22 @@ class Scene:
             ],
             'time_limit': self.time_limit,
             'allow_freeform_dialogue': self.allow_freeform_dialogue,
+            'scene_constants': {
+                'interruption_oxygen_penalty': self.scene_constants.interruption_oxygen_penalty,
+                'interruption_trust_penalty': self.scene_constants.interruption_trust_penalty,
+                'rapid_action_oxygen_penalty': self.scene_constants.rapid_action_oxygen_penalty,
+                'rapid_action_trust_penalty': self.scene_constants.rapid_action_trust_penalty,
+                'crisis_oxygen_penalty': self.scene_constants.crisis_oxygen_penalty,
+                'crisis_trust_penalty': self.scene_constants.crisis_trust_penalty,
+                'help_oxygen_bonus': self.scene_constants.help_oxygen_bonus,
+                'help_trust_bonus': self.scene_constants.help_trust_bonus,
+                'easy_oxygen_bonus': self.scene_constants.easy_oxygen_bonus,
+                'hard_oxygen_penalty': self.scene_constants.hard_oxygen_penalty,
+                'critical_level': self.scene_constants.critical_level,
+                'max_incorrect_actions': self.scene_constants.max_incorrect_actions,
+                'disable_events': self.scene_constants.disable_events,
+                'director_cooldown_override': self.scene_constants.director_cooldown_override,
+            },
         }
 
     def evaluate_condition(self, condition: str, state: Dict[str, Any]) -> bool:

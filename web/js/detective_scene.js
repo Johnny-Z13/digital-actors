@@ -44,6 +44,7 @@ export class DetectiveScene {
         this.hoveredPin = null;
         this.selectedPin = null;
         this.evidenceBoard = null;  // Reference to clickable board
+        this.isPinFocusing = false; // Camera focus animation in progress
 
         // Camera view states
         this.currentView = 'desk';  // 'desk' or 'board'
@@ -707,10 +708,11 @@ export class DetectiveScene {
             '/art/Phone_01.glb',
             (gltf) => {
                 this.phone = gltf.scene;
-                this.phone.scale.set(0.12, 0.12, 0.12);
+                this.phone.scale.set(1.2, 1.2, 1.2);
                 // Position on desk, right side, slightly back
                 this.phone.position.set(0.55, 0.79, -0.65);
-                this.phone.rotation.y = -0.4;
+                this.phone.rotation.x = -Math.PI / 2;  // Lie flat on desk
+                this.phone.rotation.y = 0.3;
                 this.phone.userData = { type: 'phone', action: 'ANSWER_PHONE' };
 
                 // Make all meshes in phone interactive
@@ -930,6 +932,9 @@ export class DetectiveScene {
         const boardY = 1.5;    // Slightly lower
         const boardZ = -1.3;   // Much closer to desk
 
+        // Store board dimensions for other methods
+        this.boardDimensions = { width: boardWidth, height: boardHeight, x: boardX, y: boardY, z: boardZ };
+
         // Cork board backing - make it clickable to zoom in
         const corkMaterial = new THREE.MeshStandardMaterial({
             color: 0xb5885a,  // Cork tan color
@@ -991,15 +996,18 @@ export class DetectiveScene {
         rightFrame.position.set(boardX + boardWidth / 2 + frameThickness / 2, boardY, boardZ + 0.01);
         this.scene.add(rightFrame);
 
-        // Evidence pin definitions - adjusted for new board position
+        // === VICTIM HEADER - Central anchor at top ===
+        this.createVictimHeader(boardX, boardY + 0.38, boardZ + 0.02);
+
+        // Evidence pin definitions with enhanced labels - adjusted layout
         const pinData = [
-            { id: 'pin_map', label: 'MAP', x: -0.45, y: 0.28, color: 0xff0000 },
-            { id: 'pin_door', label: 'DOOR', x: -0.05, y: 0.32, color: 0xff4444 },
-            { id: 'pin_study', label: 'STUDY', x: 0.05, y: 0.05, color: 0xff4444 },
-            { id: 'pin_receipt', label: 'RECEIPT', x: 0.45, y: 0.25, color: 0xffff00 },
-            { id: 'pin_cctv', label: 'CCTV', x: 0.5, y: -0.08, color: 0x00ff00 },
-            { id: 'pin_note', label: 'NOTE', x: -0.35, y: -0.25, color: 0x00ffff },
-            { id: 'pin_calllog', label: 'CALLS', x: 0.35, y: -0.28, color: 0xff00ff },
+            { id: 'pin_map', label: 'LOCATIONS', subtext: 'MARLOW / RIVERWALK / GLASSWORKS', x: -0.55, y: 0.15, color: 0xff0000 },
+            { id: 'pin_door', label: 'LOCK SCRATCHES', subtext: 'FRONT DOOR - KEY COPY?', x: -0.15, y: 0.18, color: 0xff4444 },
+            { id: 'pin_study', label: 'SAFE MISSING', subtext: 'STUDY - WALL SAFE REMOVED', x: 0.25, y: 0.12, color: 0xff4444 },
+            { id: 'pin_receipt', label: 'KEY BLANK', subtext: 'KESTREL PAWN - 2 DAYS PRIOR', x: 0.55, y: 0.18, color: 0xffff00 },
+            { id: 'pin_cctv', label: 'SUSPECT?', subtext: 'HOODED FIGURE - REFLECTIVE SLEEVE', x: -0.5, y: -0.12, color: 0x00ff00 },
+            { id: 'pin_note', label: 'GLASSWORKS', subtext: '"DON\'T OPEN IT..."', x: -0.55, y: -0.32, color: 0x00ffff },
+            { id: 'pin_calllog', label: 'PHONE LOG', subtext: '3 CALLS - UNKNOWN NUMBER', x: 0.55, y: -0.08, color: 0xff00ff },
         ];
 
         // Create pins and evidence cards
@@ -1011,20 +1019,402 @@ export class DetectiveScene {
                 boardY + pin.y,
                 boardZ + 0.02,
                 pin.color,
-                index
+                index,
+                pin.subtext
             );
         });
 
-        // Create string connections between related pins
-        this.createStringConnection(pinData[0], pinData[5], boardY, boardZ, boardX); // map to note (Glassworks)
-        this.createStringConnection(pinData[3], pinData[1], boardY, boardZ, boardX); // receipt to door (key copying)
-        this.createStringConnection(pinData[4], pinData[0], boardY, boardZ, boardX); // cctv to map (riverwalk)
-        this.createStringConnection(pinData[6], pinData[2], boardY, boardZ, boardX); // calls to study
+        // === STICKY NOTE ANNOTATIONS ===
+        this.createStickyNote('INSIDE JOB?', boardX + 0.35, boardY + 0.0, boardZ + 0.025, -0.08);
+        this.createStickyNote('THEY MADE A COPY', boardX + 0.15, boardY - 0.15, boardZ + 0.025, 0.05, true); // highlighted
+        this.createStickyNote('7:12 PM - LAST CALL', boardX + 0.55, boardY - 0.25, boardZ + 0.025, -0.03);
+        this.createStickyNote('WHO IS SHE?', boardX - 0.2, boardY - 0.38, boardZ + 0.025, 0.1);
+
+        // Suspect placeholder with question mark
+        this.createSuspectPlaceholder(boardX + 0.0, boardY - 0.28, boardZ + 0.02);
+
+        // === TIMELINE STRIP along bottom ===
+        this.createTimelineStrip(boardX, boardY - 0.46, boardZ + 0.025);
+
+        // === REVISED STRING CONNECTIONS - More logical investigation threads ===
+        // Find pin indices for connections
+        const mapPin = pinData[0];      // LOCATIONS
+        const doorPin = pinData[1];     // LOCK SCRATCHES
+        const studyPin = pinData[2];    // SAFE MISSING
+        const receiptPin = pinData[3];  // KEY BLANK
+        const cctvPin = pinData[4];     // SUSPECT?
+        const notePin = pinData[5];     // GLASSWORKS
+        const callPin = pinData[6];     // PHONE LOG
+
+        // Victim to locations (where he was killed)
+        this.createStringConnection({ x: 0, y: 0.32 }, mapPin, boardY, boardZ, boardX);
+
+        // Locations to Glassworks note (what happened there?)
+        this.createStringConnection(mapPin, notePin, boardY, boardZ, boardX);
+
+        // Door scratches to Key blank (they made a copy!)
+        this.createStringConnection(doorPin, receiptPin, boardY, boardZ, boardX);
+
+        // CCTV to Locations (riverwalk connection)
+        this.createStringConnection(cctvPin, mapPin, boardY, boardZ, boardX);
+
+        // Phone log to victim area (last contact before death)
+        this.createStringConnection(callPin, { x: 0.1, y: 0.32 }, boardY, boardZ, boardX);
+
+        // Safe missing to Key blank (what did the key open?)
+        this.createStringConnection(studyPin, receiptPin, boardY, boardZ, boardX);
 
         console.log('[DETECTIVE] Evidence board created with', this.evidencePins.length, 'pins');
     }
 
-    createEvidencePin(id, label, x, y, z, color, index) {
+    /**
+     * Create a canvas texture with styled text for evidence labels
+     */
+    createTextTexture(text, options = {}) {
+        const {
+            fontSize = 24,
+            fontFamily = 'Courier New, monospace',
+            textColor = '#222222',
+            bgColor = null,
+            width = 256,
+            height = 64,
+            bold = false,
+            italic = false,
+            align = 'center'
+        } = options;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        // Background
+        if (bgColor) {
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, width, height);
+        } else {
+            ctx.clearRect(0, 0, width, height);
+        }
+
+        // Text styling
+        let fontStyle = '';
+        if (italic) fontStyle += 'italic ';
+        if (bold) fontStyle += 'bold ';
+        ctx.font = `${fontStyle}${fontSize}px ${fontFamily}`;
+        ctx.fillStyle = textColor;
+        ctx.textAlign = align;
+        ctx.textBaseline = 'middle';
+
+        // Draw text
+        const x = align === 'center' ? width / 2 : (align === 'left' ? 10 : width - 10);
+        ctx.fillText(text, x, height / 2);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        return texture;
+    }
+
+    /**
+     * Create multi-line text texture
+     */
+    createMultiLineTexture(lines, options = {}) {
+        const {
+            fontSize = 20,
+            lineHeight = 1.3,
+            fontFamily = 'Courier New, monospace',
+            textColor = '#222222',
+            bgColor = null,
+            width = 256,
+            bold = false
+        } = options;
+
+        const height = Math.ceil(lines.length * fontSize * lineHeight + 20);
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        // Background
+        if (bgColor) {
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, width, height);
+        }
+
+        // Text
+        ctx.font = `${bold ? 'bold ' : ''}${fontSize}px ${fontFamily}`;
+        ctx.fillStyle = textColor;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+
+        lines.forEach((line, i) => {
+            ctx.fillText(line, width / 2, 10 + i * fontSize * lineHeight);
+        });
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        return { texture, height };
+    }
+
+    /**
+     * Create victim header card at top center of board
+     */
+    createVictimHeader(x, y, z) {
+        // Dark photo-style card
+        const cardWidth = 0.28;
+        const cardHeight = 0.12;
+
+        // Photo backing (dark)
+        const photoMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1a1a1a,
+            roughness: 0.8,
+        });
+        const photoBacking = new THREE.Mesh(
+            new THREE.BoxGeometry(cardWidth, cardHeight, 0.003),
+            photoMaterial
+        );
+        photoBacking.position.set(x, y, z);
+        this.scene.add(photoBacking);
+
+        // Victim silhouette area (slightly lighter)
+        const silhouetteMaterial = new THREE.MeshStandardMaterial({
+            color: 0x2a2a2a,
+            roughness: 0.9,
+        });
+        const silhouette = new THREE.Mesh(
+            new THREE.BoxGeometry(cardWidth * 0.35, cardHeight * 0.7, 0.001),
+            silhouetteMaterial
+        );
+        silhouette.position.set(x - cardWidth * 0.25, y, z + 0.003);
+        this.scene.add(silhouette);
+
+        // Name label texture
+        const nameTexture = this.createMultiLineTexture(
+            ['DR. ELIAS CROWE', 'MARLOW ST - DOA 11/14/87'],
+            { fontSize: 18, textColor: '#cccccc', bgColor: '#1a1a1a', width: 200, bold: true }
+        );
+
+        const nameLabelMaterial = new THREE.MeshBasicMaterial({
+            map: nameTexture.texture,
+            transparent: true,
+        });
+        const nameLabel = new THREE.Mesh(
+            new THREE.PlaneGeometry(cardWidth * 0.6, cardHeight * 0.8),
+            nameLabelMaterial
+        );
+        nameLabel.position.set(x + cardWidth * 0.15, y, z + 0.004);
+        this.scene.add(nameLabel);
+
+        // Red pin for victim card
+        const pinMaterial = new THREE.MeshStandardMaterial({
+            color: 0xff0000,
+            roughness: 0.3,
+            metalness: 0.6,
+            emissive: 0xff0000,
+            emissiveIntensity: 0.3,
+        });
+        const pin = new THREE.Mesh(
+            new THREE.SphereGeometry(0.02, 12, 12),
+            pinMaterial
+        );
+        pin.position.set(x, y + cardHeight / 2 + 0.015, z + 0.01);
+        this.scene.add(pin);
+    }
+
+    /**
+     * Create sticky note annotation card
+     */
+    createStickyNote(text, x, y, z, rotation = 0, highlighted = false) {
+        const noteWidth = 0.1;
+        const noteHeight = 0.06;
+
+        // Yellow sticky note background
+        const noteColor = highlighted ? 0xffcc00 : 0xfffacd;
+        const noteMaterial = new THREE.MeshStandardMaterial({
+            color: noteColor,
+            roughness: 0.95,
+            metalness: 0.0,
+        });
+
+        const note = new THREE.Mesh(
+            new THREE.BoxGeometry(noteWidth, noteHeight, 0.002),
+            noteMaterial
+        );
+        note.position.set(x, y, z);
+        note.rotation.z = rotation;
+        this.scene.add(note);
+
+        // Handwritten text texture
+        const textTexture = this.createTextTexture(text, {
+            fontSize: highlighted ? 16 : 14,
+            textColor: '#333333',
+            fontFamily: 'Georgia, serif',
+            italic: true,
+            bold: highlighted,
+            width: 180,
+            height: 50
+        });
+
+        const textMaterial = new THREE.MeshBasicMaterial({
+            map: textTexture,
+            transparent: true,
+        });
+        const textMesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(noteWidth * 0.95, noteHeight * 0.8),
+            textMaterial
+        );
+        textMesh.position.set(x, y, z + 0.003);
+        textMesh.rotation.z = rotation;
+        this.scene.add(textMesh);
+    }
+
+    /**
+     * Create suspect placeholder with question mark
+     */
+    createSuspectPlaceholder(x, y, z) {
+        const cardWidth = 0.1;
+        const cardHeight = 0.12;
+
+        // Dark card with dashed outline effect
+        const cardMaterial = new THREE.MeshStandardMaterial({
+            color: 0x333333,
+            roughness: 0.9,
+            transparent: true,
+            opacity: 0.7,
+        });
+        const card = new THREE.Mesh(
+            new THREE.BoxGeometry(cardWidth, cardHeight, 0.002),
+            cardMaterial
+        );
+        card.position.set(x, y, z);
+        this.scene.add(card);
+
+        // Question mark texture
+        const qTexture = this.createTextTexture('?', {
+            fontSize: 48,
+            textColor: '#ff4444',
+            bold: true,
+            width: 64,
+            height: 64
+        });
+
+        const qMaterial = new THREE.MeshBasicMaterial({
+            map: qTexture,
+            transparent: true,
+        });
+        const qMesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(cardWidth * 0.6, cardHeight * 0.5),
+            qMaterial
+        );
+        qMesh.position.set(x, y + 0.01, z + 0.003);
+        this.scene.add(qMesh);
+
+        // "HOLLIS ROOK?" label below
+        const labelTexture = this.createTextTexture('HOLLIS ROOK?', {
+            fontSize: 12,
+            textColor: '#999999',
+            italic: true,
+            width: 128,
+            height: 24
+        });
+
+        const labelMaterial = new THREE.MeshBasicMaterial({
+            map: labelTexture,
+            transparent: true,
+        });
+        const labelMesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(cardWidth * 1.2, cardHeight * 0.25),
+            labelMaterial
+        );
+        labelMesh.position.set(x, y - cardHeight / 2 - 0.02, z + 0.003);
+        this.scene.add(labelMesh);
+
+        // Yellow pin
+        const pinMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffff00,
+            roughness: 0.3,
+            metalness: 0.6,
+            emissive: 0xffff00,
+            emissiveIntensity: 0.2,
+        });
+        const pin = new THREE.Mesh(
+            new THREE.SphereGeometry(0.015, 12, 12),
+            pinMaterial
+        );
+        pin.position.set(x, y + cardHeight / 2 + 0.01, z + 0.01);
+        this.scene.add(pin);
+    }
+
+    /**
+     * Create timeline strip along bottom of board
+     */
+    createTimelineStrip(x, y, z) {
+        const stripWidth = 1.4;
+        const stripHeight = 0.05;
+
+        // Timeline background strip
+        const stripMaterial = new THREE.MeshStandardMaterial({
+            color: 0xf0e8d8,
+            roughness: 0.95,
+        });
+        const strip = new THREE.Mesh(
+            new THREE.BoxGeometry(stripWidth, stripHeight, 0.002),
+            stripMaterial
+        );
+        strip.position.set(x, y, z);
+        this.scene.add(strip);
+
+        // Timeline events
+        const events = [
+            { text: '11/12 KEY BLANK', offset: -0.5 },
+            { text: '7:12PM LAST CALL', offset: 0 },
+            { text: '~9PM BODY FOUND', offset: 0.5 }
+        ];
+
+        events.forEach(event => {
+            // Event marker (small circle)
+            const markerMaterial = new THREE.MeshStandardMaterial({
+                color: 0xcc0000,
+                roughness: 0.3,
+            });
+            const marker = new THREE.Mesh(
+                new THREE.CircleGeometry(0.012, 12),
+                markerMaterial
+            );
+            marker.position.set(x + event.offset, y, z + 0.003);
+            this.scene.add(marker);
+
+            // Event text
+            const textTexture = this.createTextTexture(event.text, {
+                fontSize: 11,
+                textColor: '#444444',
+                width: 140,
+                height: 24
+            });
+
+            const textMaterial = new THREE.MeshBasicMaterial({
+                map: textTexture,
+                transparent: true,
+            });
+            const textMesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(0.12, 0.025),
+                textMaterial
+            );
+            textMesh.position.set(x + event.offset, y + stripHeight / 2 + 0.018, z + 0.003);
+            this.scene.add(textMesh);
+        });
+
+        // Connecting line through timeline
+        const lineMaterial = new THREE.LineBasicMaterial({ color: 0x666666 });
+        const linePoints = [
+            new THREE.Vector3(x - stripWidth / 2 + 0.05, y, z + 0.004),
+            new THREE.Vector3(x + stripWidth / 2 - 0.05, y, z + 0.004)
+        ];
+        const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
+        const timelineLine = new THREE.Line(lineGeometry, lineMaterial);
+        this.scene.add(timelineLine);
+    }
+
+    createEvidencePin(id, label, x, y, z, color, index, subtext = '') {
         // Pin head (sphere)
         const pinHeadMaterial = new THREE.MeshStandardMaterial({
             color: color,
@@ -1063,23 +1453,23 @@ export class DetectiveScene {
         needle.rotation.x = Math.PI / 2;
         this.scene.add(needle);
 
-        // Evidence card/photo under the pin
-        this.createEvidenceCard(id, label, x, y - 0.06, z + 0.015, index);
+        // Evidence card/photo under the pin with label and subtext
+        this.createEvidenceCard(id, label, x, y - 0.06, z + 0.015, index, subtext);
     }
 
-    createEvidenceCard(id, label, x, y, z, index) {
-        // Different card styles based on evidence type
+    createEvidenceCard(id, label, x, y, z, index, subtext = '') {
+        // Different card styles based on evidence type - larger cards for better label visibility
         const cardConfigs = {
-            'pin_map': { width: 0.18, height: 0.12, color: 0xf5f0e0, type: 'map' },
-            'pin_door': { width: 0.12, height: 0.09, color: 0xdddddd, type: 'photo' },
-            'pin_study': { width: 0.12, height: 0.09, color: 0xdddddd, type: 'photo' },
-            'pin_receipt': { width: 0.08, height: 0.12, color: 0xffffd0, type: 'receipt' },
-            'pin_cctv': { width: 0.1, height: 0.08, color: 0x222222, type: 'screen' },
-            'pin_note': { width: 0.1, height: 0.06, color: 0xf5f0e0, type: 'note' },
-            'pin_calllog': { width: 0.08, height: 0.1, color: 0xf5f0e0, type: 'paper' },
+            'pin_map': { width: 0.2, height: 0.14, color: 0xf5f0e0, type: 'map' },
+            'pin_door': { width: 0.14, height: 0.11, color: 0xdddddd, type: 'photo' },
+            'pin_study': { width: 0.14, height: 0.11, color: 0xdddddd, type: 'photo' },
+            'pin_receipt': { width: 0.1, height: 0.14, color: 0xffffd0, type: 'receipt' },
+            'pin_cctv': { width: 0.14, height: 0.1, color: 0x222222, type: 'screen' },
+            'pin_note': { width: 0.12, height: 0.08, color: 0xf5f0e0, type: 'note' },
+            'pin_calllog': { width: 0.1, height: 0.12, color: 0xf5f0e0, type: 'paper' },
         };
 
-        const config = cardConfigs[id] || { width: 0.1, height: 0.08, color: 0xf5f0e0 };
+        const config = cardConfigs[id] || { width: 0.12, height: 0.1, color: 0xf5f0e0 };
 
         const cardMaterial = new THREE.MeshStandardMaterial({
             color: config.color,
@@ -1093,7 +1483,7 @@ export class DetectiveScene {
         );
 
         // Slight random rotation for natural look
-        const tilt = (Math.random() - 0.5) * 0.1;
+        const tilt = (Math.random() - 0.5) * 0.08;
         card.position.set(x, y, z);
         card.rotation.z = tilt;
         card.receiveShadow = true;
@@ -1101,18 +1491,18 @@ export class DetectiveScene {
 
         // Add visual details based on type
         if (config.type === 'photo') {
-            // Dark rectangle for photo content
+            // Dark rectangle for photo content (upper portion)
             const photoContent = new THREE.Mesh(
-                new THREE.BoxGeometry(config.width * 0.85, config.height * 0.85, 0.001),
+                new THREE.BoxGeometry(config.width * 0.85, config.height * 0.5, 0.001),
                 new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 })
             );
-            photoContent.position.set(x, y, z + 0.002);
+            photoContent.position.set(x, y + config.height * 0.15, z + 0.002);
             photoContent.rotation.z = tilt;
             this.scene.add(photoContent);
         } else if (config.type === 'screen') {
-            // Greenish tint for CCTV
+            // Greenish tint for CCTV (upper portion)
             const screenGlow = new THREE.Mesh(
-                new THREE.BoxGeometry(config.width * 0.9, config.height * 0.9, 0.001),
+                new THREE.BoxGeometry(config.width * 0.85, config.height * 0.5, 0.001),
                 new THREE.MeshStandardMaterial({
                     color: 0x003300,
                     emissive: 0x002200,
@@ -1120,35 +1510,84 @@ export class DetectiveScene {
                     roughness: 0.5
                 })
             );
-            screenGlow.position.set(x, y, z + 0.002);
+            screenGlow.position.set(x, y + config.height * 0.15, z + 0.002);
             screenGlow.rotation.z = tilt;
             this.scene.add(screenGlow);
         } else if (config.type === 'map') {
-            // Add some "lines" to suggest a map
+            // Add some "lines" to suggest a map (upper area)
             for (let i = 0; i < 3; i++) {
                 const line = new THREE.Mesh(
-                    new THREE.BoxGeometry(config.width * 0.6, 0.003, 0.001),
+                    new THREE.BoxGeometry(config.width * 0.5, 0.003, 0.001),
                     new THREE.MeshStandardMaterial({ color: 0x666666 })
                 );
-                line.position.set(x + (Math.random() - 0.5) * 0.04, y - 0.02 + i * 0.03, z + 0.002);
-                line.rotation.z = tilt + (Math.random() - 0.5) * 0.2;
+                line.position.set(x + (Math.random() - 0.5) * 0.03, y + 0.02 + i * 0.025, z + 0.002);
+                line.rotation.z = tilt + (Math.random() - 0.5) * 0.15;
                 this.scene.add(line);
             }
             // Red circles for locations
             const circlePositions = [
-                { cx: -0.03, cy: 0.02 },
-                { cx: 0.02, cy: -0.01 },
-                { cx: 0.04, cy: 0.03 },
+                { cx: -0.03, cy: 0.04 },
+                { cx: 0.02, cy: 0.02 },
+                { cx: 0.04, cy: 0.05 },
             ];
             circlePositions.forEach(pos => {
                 const circle = new THREE.Mesh(
-                    new THREE.RingGeometry(0.008, 0.01, 16),
+                    new THREE.RingGeometry(0.006, 0.008, 16),
                     new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide })
                 );
                 circle.position.set(x + pos.cx, y + pos.cy, z + 0.003);
                 circle.rotation.z = tilt;
                 this.scene.add(circle);
             });
+        }
+
+        // === TEXT LABEL BELOW VISUAL CONTENT ===
+        // Label header (bold)
+        const labelTextColor = config.type === 'screen' ? '#00ff00' : '#222222';
+        const labelBgColor = config.type === 'screen' ? '#111111' : null;
+
+        const labelTexture = this.createTextTexture(label, {
+            fontSize: 14,
+            textColor: labelTextColor,
+            bgColor: labelBgColor,
+            bold: true,
+            width: 160,
+            height: 28
+        });
+
+        const labelMaterial = new THREE.MeshBasicMaterial({
+            map: labelTexture,
+            transparent: true,
+        });
+        const labelMesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(config.width * 0.9, config.height * 0.22),
+            labelMaterial
+        );
+        labelMesh.position.set(x, y - config.height * 0.2, z + 0.003);
+        labelMesh.rotation.z = tilt;
+        this.scene.add(labelMesh);
+
+        // Subtext (smaller, italic)
+        if (subtext) {
+            const subtextTexture = this.createTextTexture(subtext, {
+                fontSize: 10,
+                textColor: config.type === 'screen' ? '#88ff88' : '#555555',
+                italic: true,
+                width: 200,
+                height: 24
+            });
+
+            const subtextMaterial = new THREE.MeshBasicMaterial({
+                map: subtextTexture,
+                transparent: true,
+            });
+            const subtextMesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(config.width * 0.95, config.height * 0.18),
+                subtextMaterial
+            );
+            subtextMesh.position.set(x, y - config.height * 0.38, z + 0.003);
+            subtextMesh.rotation.z = tilt;
+            this.scene.add(subtextMesh);
         }
     }
 
@@ -1257,6 +1696,16 @@ export class DetectiveScene {
         const neonLight = new THREE.PointLight(0xff3366, 0.4, 6);
         neonLight.position.set(3, 2, -1);
         this.scene.add(neonLight);
+
+        // Phone area light - warm accent to illuminate the phone on right side of desk
+        const phoneLight = new THREE.SpotLight(0xffeedd, 1.5, 2, Math.PI / 5, 0.5);
+        phoneLight.position.set(0.8, 1.5, -0.4);
+        phoneLight.target.position.set(0.55, 0.79, -0.65);
+        phoneLight.castShadow = true;
+        phoneLight.shadow.mapSize.width = 256;
+        phoneLight.shadow.mapSize.height = 256;
+        this.scene.add(phoneLight);
+        this.scene.add(phoneLight.target);
     }
 
     setupInteraction() {
@@ -1296,6 +1745,9 @@ export class DetectiveScene {
 
         console.log('[DETECTIVE] Evidence pin clicked:', pinId, label);
 
+        // Prevent clicks during camera animation
+        if (this.isPinFocusing) return;
+
         // Visual feedback - make pin glow brighter
         if (this.selectedPin && this.selectedPin !== pinMesh) {
             // Reset previous selection
@@ -1305,8 +1757,83 @@ export class DetectiveScene {
         this.selectedPin = pinMesh;
         pinMesh.material.emissiveIntensity = 0.8;
 
+        // Camera focus animation - zoom 15% towards pin, hold 2s, reset
+        this.focusOnPin(pinMesh.position.clone());
+
         // Notify the app of pin selection
         this.onButtonClick(pinId);
+    }
+
+    /**
+     * Animate camera to focus on a pin position, hold, then reset
+     */
+    focusOnPin(pinPosition) {
+        if (this.isPinFocusing) return;
+        this.isPinFocusing = true;
+
+        // Store original camera state
+        const originalPos = this.camera.position.clone();
+        const originalTarget = this.controls.target.clone();
+
+        // Calculate 15% closer position towards the pin
+        const zoomFactor = 0.15;
+        const targetPos = new THREE.Vector3().lerpVectors(originalPos, pinPosition, zoomFactor);
+        const targetLook = new THREE.Vector3().lerpVectors(originalTarget, pinPosition, zoomFactor * 0.5);
+
+        const zoomInDuration = 300;  // ms
+        const holdDuration = 2000;   // ms
+        const zoomOutDuration = 400; // ms (slightly slower for soft reset)
+
+        // Phase 1: Zoom in
+        this.animateCameraTo(targetPos, targetLook, zoomInDuration, () => {
+            // Phase 2: Hold for 2 seconds, then zoom out
+            setTimeout(() => {
+                // Phase 3: Soft reset back to original
+                this.animateCameraTo(originalPos, originalTarget, zoomOutDuration, () => {
+                    this.isPinFocusing = false;
+                }, 'easeOut');
+            }, holdDuration);
+        }, 'easeOut');
+    }
+
+    /**
+     * Animate camera position and target smoothly
+     */
+    animateCameraTo(targetPos, targetLook, duration, onComplete, easing = 'easeInOut') {
+        const startPos = this.camera.position.clone();
+        const startTarget = this.controls.target.clone();
+        const startTime = Date.now();
+
+        const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+
+            // Apply easing
+            let eased;
+            if (easing === 'easeOut') {
+                eased = 1 - Math.pow(1 - progress, 3);
+            } else if (easing === 'easeIn') {
+                eased = Math.pow(progress, 3);
+            } else {
+                // easeInOut
+                eased = progress < 0.5
+                    ? 4 * progress * progress * progress
+                    : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+            }
+
+            // Interpolate position and target
+            this.camera.position.lerpVectors(startPos, targetPos, eased);
+            this.controls.target.lerpVectors(startTarget, targetLook, eased);
+            this.controls.update();
+
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            } else if (onComplete) {
+                onComplete();
+            }
+        };
+
+        animate();
     }
 
     animate() {
@@ -1529,4 +2056,67 @@ export class DetectiveScene {
     setHullPressure(pressure) {}
     setSystemsRepaired(count) {}
     setPhase(phase) {}
+
+    /**
+     * Clean up all resources. Called when switching scenes.
+     */
+    dispose() {
+        console.log('[DETECTIVE] Disposing scene...');
+
+        // Stop phone ringing
+        this.stopPhoneRinging();
+
+        // Close audio context
+        if (this.audioContext) {
+            this.audioContext.close();
+            this.audioContext = null;
+        }
+
+        // Remove UI elements
+        if (this.backButton && this.backButton.parentNode) {
+            this.backButton.parentNode.removeChild(this.backButton);
+        }
+        if (this.boardTooltip && this.boardTooltip.parentNode) {
+            this.boardTooltip.parentNode.removeChild(this.boardTooltip);
+        }
+
+        // Dispose Three.js renderer
+        if (this.renderer) {
+            this.renderer.dispose();
+            if (this.renderer.domElement && this.renderer.domElement.parentNode) {
+                this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
+            }
+        }
+
+        // Dispose geometries and materials
+        if (this.scene) {
+            this.scene.traverse((object) => {
+                if (object.geometry) object.geometry.dispose();
+                if (object.material) {
+                    if (Array.isArray(object.material)) {
+                        object.material.forEach(m => m.dispose());
+                    } else {
+                        object.material.dispose();
+                    }
+                }
+            });
+        }
+
+        // Clear references
+        this.interactiveObjects = [];
+        this.evidencePins = [];
+        this.scene = null;
+        this.camera = null;
+        this.renderer = null;
+        this.controls = null;
+
+        console.log('[DETECTIVE] Scene disposed');
+    }
+
+    /**
+     * Alias for dispose() - compatibility with app.js
+     */
+    destroy() {
+        this.dispose();
+    }
 }

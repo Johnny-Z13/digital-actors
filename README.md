@@ -129,28 +129,48 @@ digital-actors/
 ├── web_server.py              # Main application server (aiohttp + WebSocket)
 ├── player_memory.py           # Player tracking and personality profiling
 ├── world_director.py          # AI dungeon master orchestration
-├── characters/                # Character definitions
-│   ├── base.py
+│
+├── config/                    # Centralized configuration (single source of truth)
+│   ├── __init__.py           # Config loader functions
+│   └── scene_mappings.json   # Scene↔character mappings, categories, aliases
+│
+├── characters/                # Character definitions (NPCs)
+│   ├── base.py               # Base Character dataclass
 │   ├── eliza.py              # AI Caretaker
 │   ├── wizard.py             # Merlin the Wizard
 │   ├── detective.py          # Detective Stone
-│   └── engineer.py           # Casey Reeves (submarine engineer)
-├── scenes/                    # Scene definitions
-│   ├── base.py
-│   ├── introduction.py
-│   ├── submarine.py          # Emergency submarine scenario
-│   └── conversation.py
+│   ├── engineer.py           # Casey Reeves (submarine engineer)
+│   ├── mara_vane.py          # Mara Vane (murder mystery informant)
+│   └── captain_hale.py       # Captain Hale (submarine captain)
+│
+├── scenes/                    # Scene definitions (data + structure)
+│   ├── base.py               # Base Scene, SceneControl, SceneConstants
+│   ├── submarine.py          # Submarine emergency scenario
+│   ├── iconic_detectives.py  # Murder mystery phone call
+│   ├── life_raft.py          # Submarine survival scenario
+│   └── handlers/             # Scene-specific game logic (separated from data)
+│       ├── __init__.py       # Handler registry
+│       ├── base.py           # SceneHandler interface
+│       ├── life_raft_handler.py       # Life Raft button actions
+│       └── iconic_detectives_handler.py  # Detective pin reactions
+│
 ├── llm_prompt_core/          # Generic LLM dialogue framework
 │   ├── models/               # Claude, OpenAI, Gemini wrappers
 │   ├── prompts/              # Prompt templates
 │   └── types.py              # Core data structures
+│
 ├── web/                      # Frontend assets
 │   ├── index.html
 │   ├── css/style.css
 │   └── js/
 │       ├── app.js            # Main app logic
-│       ├── scene.js          # Character scene (Three.js)
-│       └── submarine_scene.js # Submarine scene (Three.js)
+│       ├── base_scene.js     # BaseScene interface for all 3D scenes
+│       ├── scene.js          # Character conversation scene (Three.js)
+│       ├── submarine_scene.js # Submarine scene (Three.js)
+│       ├── detective_scene.js # Detective office scene (Three.js)
+│       ├── life_raft_scene.js # Life raft scene (Three.js)
+│       └── welcome_scene.js  # Welcome/intro scene (Three.js)
+│
 ├── data/                     # Runtime data
 │   └── player_memory.db      # SQLite player database
 ├── docs/                     # Documentation
@@ -164,6 +184,72 @@ digital-actors/
 ```
 
 ## Architecture
+
+### Global vs Scene-Specific Separation
+
+The codebase maintains a clear separation between **GLOBAL** settings and **SCENARIO-specific** game logic:
+
+#### Centralized Configuration (`config/`)
+
+Single source of truth for scene↔character mappings:
+
+```json
+// config/scene_mappings.json
+{
+  "scenes": {
+    "submarine": { "character": "engineer", "sceneClass": "SubmarineScene" },
+    "iconic_detectives": { "character": "mara_vane", "sceneClass": "DetectiveScene" }
+  },
+  "characterAliases": { "casey": "engineer", "mara": "mara_vane" }
+}
+```
+
+Both frontend and backend use this config via `/api/config` endpoint - no duplicate mappings.
+
+#### Scene Data vs Scene Logic
+
+**Scene Config** (e.g., `scenes/submarine.py`):
+- Static data: name, description, controls, state variables
+- Success/failure criteria
+- Scene-specific constants (penalty values, thresholds)
+
+**Scene Handler** (e.g., `scenes/handlers/life_raft_handler.py`):
+- Dynamic game logic: button action processing
+- State modifications: oxygen transfers, score updates
+- Evidence pin reactions (for investigation scenes)
+
+```python
+# Handler processes actions and returns state changes
+result = handler.process_action('O2 VALVE', scene_state)
+# Returns: ActionResult(success=True, state_changes={'oxygen': +15})
+```
+
+#### Scene Constants
+
+Scene-specific values override global defaults via `SceneConstants`:
+
+```python
+# In scenes/submarine.py
+scene_constants=SceneConstants(
+    interruption_oxygen_penalty=10,  # Override global default
+    crisis_oxygen_penalty=15,
+    critical_level=20,
+    max_incorrect_actions=5,
+)
+```
+
+#### Button Press Limits
+
+Controls can specify max presses and cooldowns per-scene:
+
+```python
+SceneControl(
+    id="flood_med_bay",
+    label="FLOOD MED BAY",
+    max_presses=1,        # One-shot action
+    cooldown_seconds=5.0, # 5 second cooldown
+)
+```
 
 ### The Framework
 
@@ -241,6 +327,41 @@ decision = await world_director.evaluate_situation(
 # - 'spawn_event' (~10%)
 # - 'adjust_npc' (~5%)
 # - 'give_hint' (~5%)
+```
+
+### JavaScript Scene System
+
+All 3D scenes extend a common interface with lifecycle management:
+
+```javascript
+// web/js/base_scene.js defines the interface
+class BaseScene {
+    init()      // Initialize Three.js scene, camera, renderer
+    dispose()   // Clean up all resources (geometries, materials, textures)
+    updateState(state)   // Receive state updates from server
+    setPhase(phase)      // Handle phase transitions
+}
+```
+
+**Resource Cleanup:**
+
+Every scene MUST implement `dispose()` to prevent memory leaks:
+
+```javascript
+dispose() {
+    // Remove event listeners
+    window.removeEventListener('resize', this.onWindowResize);
+
+    // Dispose Three.js objects
+    this.scene.traverse((object) => {
+        if (object.geometry) object.geometry.dispose();
+        if (object.material) object.material.dispose();
+    });
+
+    // Remove renderer
+    this.renderer.dispose();
+    this.renderer.domElement.remove();
+}
 ```
 
 ## Models and API

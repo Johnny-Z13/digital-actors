@@ -1236,4 +1236,59 @@ export class SubmarineScene {
         // Could add screen shake, color flash, etc.
         console.log('Alert triggered:', type);
     }
+
+    /**
+     * Clean up all resources. Called when switching scenes.
+     */
+    dispose() {
+        console.log('[SUBMARINE] Disposing scene...');
+
+        // Stop alarm
+        this.stopAlarm();
+
+        // Close audio context
+        if (this.audioContext) {
+            this.audioContext.close();
+            this.audioContext = null;
+        }
+
+        // Dispose Three.js renderer
+        if (this.renderer) {
+            this.renderer.dispose();
+            if (this.renderer.domElement && this.renderer.domElement.parentNode) {
+                this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
+            }
+        }
+
+        // Dispose geometries and materials
+        if (this.scene) {
+            this.scene.traverse((object) => {
+                if (object.geometry) object.geometry.dispose();
+                if (object.material) {
+                    if (Array.isArray(object.material)) {
+                        object.material.forEach(m => m.dispose());
+                    } else {
+                        object.material.dispose();
+                    }
+                }
+            });
+        }
+
+        // Clear references
+        this.interactiveObjects = [];
+        this.warningLights = [];
+        this.scene = null;
+        this.camera = null;
+        this.renderer = null;
+        this.controls = null;
+
+        console.log('[SUBMARINE] Scene disposed');
+    }
+
+    /**
+     * Alias for dispose()
+     */
+    destroy() {
+        this.dispose();
+    }
 }

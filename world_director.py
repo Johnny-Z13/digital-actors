@@ -205,12 +205,13 @@ class WorldDirector:
         logger.info("[WorldDirector] Initialized with fast rules layer and temporal tracking")
 
     def reset_scene_timing(self) -> None:
-        """Reset timing trackers for a new scene."""
+        """Reset timing trackers for a new scene - FULL context wipe."""
         self.scene_start_time = time.time()
         self.last_player_action_time = time.time()
+        self.decision_cooldown = 0  # Reset cooldown for new scene
         self.rules_engine.reset_cooldowns()
         self.temporal_state.reset()
-        logger.info("[WorldDirector] Scene timing and temporal state reset")
+        logger.info("[WorldDirector] Scene timing, cooldowns, and temporal state reset")
 
     def record_player_action(self, action: str = "unknown") -> None:
         """Record that the player just took an action."""

@@ -13,9 +13,12 @@ from characters.custom import Custom
 from characters.engineer import Engineer
 from characters.judge import Judge
 from characters.mara_vane import MaraVane
+from characters.captain_hale import CaptainHale
+from characters.clippy import Clippy
 
 # Registry of all available characters
 CHARACTERS = {
+    'clippy': Clippy(),
     'eliza': Eliza(),
     'wizard': Wizard(),
     'detective': Detective(),
@@ -23,6 +26,7 @@ CHARACTERS = {
     'engineer': Engineer(),
     'judge': Judge(),
     'mara_vane': MaraVane(),
+    'captain_hale': CaptainHale(),
 }
 
-__all__ = ['Character', 'CHARACTERS', 'Eliza', 'Wizard', 'Detective', 'Custom', 'Engineer', 'Judge', 'MaraVane']
+__all__ = ['Character', 'CHARACTERS', 'Eliza', 'Wizard', 'Detective', 'Custom', 'Engineer', 'Judge', 'MaraVane', 'CaptainHale', 'Clippy']

@@ -1,0 +1,94 @@
+{
+  "version": "1.0",
+  "description": "Single source of truth for scene-character mappings and scene configuration",
+
+  "scenes": {
+    "welcome": {
+      "character": "clippy",
+      "sceneClass": "WelcomeScene",
+      "displayName": "Welcome",
+      "requiresCustomScene": true,
+      "category": "tutorial"
+    },
+    "submarine": {
+      "character": "engineer",
+      "sceneClass": "SubmarineScene",
+      "displayName": "Pressure Point",
+      "requiresCustomScene": true,
+      "category": "survival"
+    },
+    "iconic_detectives": {
+      "character": "mara_vane",
+      "sceneClass": "DetectiveScene",
+      "displayName": "Iconic Detectives",
+      "requiresCustomScene": true,
+      "category": "mystery"
+    },
+    "life_raft": {
+      "character": "captain_hale",
+      "sceneClass": "LifeRaftScene",
+      "displayName": "Life Raft",
+      "requiresCustomScene": true,
+      "category": "survival"
+    },
+    "crown_court": {
+      "character": "judge",
+      "sceneClass": "CharacterScene",
+      "displayName": "Crown Court",
+      "requiresCustomScene": false,
+      "category": "drama"
+    },
+    "quest": {
+      "character": "wizard",
+      "sceneClass": "MerlinsRoomScene",
+      "displayName": "Merlin's Workshop",
+      "requiresCustomScene": true,
+      "category": "fantasy"
+    },
+    "introduction": {
+      "character": "eliza",
+      "sceneClass": "CharacterScene",
+      "displayName": "Introduction",
+      "requiresCustomScene": false,
+      "category": "conversation"
+    },
+    "conversation": {
+      "character": "eliza",
+      "sceneClass": "CharacterScene",
+      "displayName": "Conversation",
+      "requiresCustomScene": false,
+      "category": "conversation"
+    }
+  },
+
+  "characterAliases": {
+    "detective": "mara_vane"
+  },
+
+  "categories": {
+    "tutorial": {
+      "description": "Introductory experiences",
+      "color": "#4CAF50"
+    },
+    "survival": {
+      "description": "High-stakes survival scenarios",
+      "color": "#F44336"
+    },
+    "mystery": {
+      "description": "Investigation and detective work",
+      "color": "#9C27B0"
+    },
+    "drama": {
+      "description": "Character-driven dramatic scenes",
+      "color": "#FF9800"
+    },
+    "fantasy": {
+      "description": "Magical and fantastical settings",
+      "color": "#2196F3"
+    },
+    "conversation": {
+      "description": "Open-ended dialogue",
+      "color": "#607D8B"
+    }
+  }
+}

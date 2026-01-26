@@ -5,7 +5,24 @@ All characters inherit from this class and override the configuration properties
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, List
+from pathlib import Path
+from typing import Dict, Any, List, Optional
+
+
+def load_backstory_file(character_id: str) -> Optional[str]:
+    """
+    Load backstory from a markdown file if it exists.
+
+    Looks for: characters/backstories/{character_id}_backstory.md
+    Returns the file contents if found, None otherwise.
+    """
+    backstory_path = Path(__file__).parent / "backstories" / f"{character_id}_backstory.md"
+    if backstory_path.exists():
+        try:
+            return backstory_path.read_text(encoding='utf-8')
+        except Exception as e:
+            print(f"Warning: Could not load backstory file for {character_id}: {e}")
+    return None
 
 
 @dataclass
@@ -41,6 +58,13 @@ class Character:
         'emotional_range': 0.8,   # How much emotions affect voice (0.0-1.0)
         'restraint': 0.3          # How much character suppresses emotion (0.0-1.0)
     })
+
+    def __post_init__(self):
+        """Load backstory from file if available, appending to existing backstory."""
+        file_backstory = load_backstory_file(self.id)
+        if file_backstory:
+            # Prepend file backstory to any existing backstory
+            self.back_story = f"{file_backstory}\n\n---\n\n{self.back_story}"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert character to dictionary format for web_server.py compatibility."""

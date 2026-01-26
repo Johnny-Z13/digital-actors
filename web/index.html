@@ -16,17 +16,22 @@
 
     <!-- UI Overlay -->
     <div id="ui-overlay">
-        <!-- Character Info Panel -->
-        <div id="character-info" class="panel">
-            <h2 id="character-name">Eliza</h2>
-            <p id="character-description">AI Caretaker</p>
-            <div id="scene-info">Scene: <span id="current-scene">Introduction</span></div>
+        <!-- Hidden scene tracker -->
+        <span id="current-scene" style="display:none;">Welcome</span>
+
+        <!-- Welcome Text - Top Left -->
+        <div id="welcome-text">
+            <h1 id="welcome-title">Digital Actors</h1>
+            <p id="welcome-subtitle">Immersive AI Character Experiences</p>
         </div>
 
         <!-- Chat Container -->
         <div id="chat-container" class="panel">
             <div id="chat-header" class="drag-handle">
-                <span>Transmission</span>
+                <div id="chat-header-info">
+                    <h2 id="character-name">Clippy</h2>
+                    <p id="character-description">Your Friendly Guide</p>
+                </div>
                 <button id="chat-minimize" title="Minimize" aria-label="Minimize chat window">−</button>
             </div>
             <div id="chat-body">
@@ -58,29 +63,30 @@
             <div id="config-content">
                 <h3>System Parameters</h3>
 
-                <label for="character-select">Active Character</label>
+                <label for="character-select">Digital Actor</label>
                 <select id="character-select">
-                    <option value="eliza">Eliza — AI Caretaker</option>
-                    <option value="wizard">Merlin — Wise Wizard</option>
-                    <option value="detective">Detective Stone — Hard-boiled PI</option>
-                    <option value="engineer">Lt. Cmdr. James Kovich — Sub Commander</option>
-                    <option value="judge">Judge Harriet Thorne — Crown Court</option>
-                    <option value="mara_vane">Mara Vane — Mysterious Caller</option>
-                    <option value="custom">Custom Character</option>
+                    <option value="">Loading...</option>
                 </select>
 
                 <label for="scene-select">Scenario</label>
                 <select id="scene-select">
-                    <option value="introduction">Introduction</option>
-                    <option value="conversation">General Conversation</option>
-                    <option value="merlins_room">Merlin's Room</option>
-                    <option value="submarine">Submarine Emergency</option>
-                    <option value="crown_court">Crown Court — Legal Defense</option>
-                    <option value="iconic_detectives">Iconic Detectives — NYC Office</option>
+                    <option value="">Loading...</option>
                 </select>
+
+                <label for="tts-mode-select">Voice Mode</label>
+                <select id="tts-mode-select">
+                    <option value="fast">Fast (Turbo)</option>
+                    <option value="expressive" selected>Expressive (v3 + audio tags)</option>
+                </select>
+                <small class="setting-hint">Expressive mode vocalizes [laughs], [sighs], etc.</small>
 
                 <button id="restart-button">Reset Session</button>
             </div>
+        </div>
+
+        <!-- Suggested Questions - Bottom of Screen -->
+        <div id="suggested-questions" class="hidden" role="group" aria-label="Suggested responses">
+            <!-- Dynamically populated suggestion buttons -->
         </div>
     </div>
 

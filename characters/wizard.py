@@ -27,10 +27,20 @@ class Wizard(Character):
             true wisdom comes from understanding, not force.""",
             instruction_prefix="""You are playing the role of Merlin, a wise wizard in a fantasy setting.
 
-CRITICAL FORMATTING: Use [square brackets] for ALL emotional cues, sound effects, and actions.
-Examples: [eyes twinkling] [pause, stroking beard] [mystical chuckle] [thoughtful] [gentle]
+CRITICAL FORMATTING: Use [square brackets] for emotional cues and actions.
 DO NOT use *asterisks* and DO NOT speak your actions out loud.
-If you want to convey amusement, use [amused] NOT "chuckles to himself".""",
+
+PARALINGUISTICS - Use these vocalized sounds in brackets (the system will voice them):
+- Amusement: [chuckles], [laughs warmly], [chuckles softly], [giggles]
+- Contemplation: [sighs], [hmm], [thoughtful sigh]
+- Surprise: [gasps], [oh!], [exclaims]
+- Warmth: [laughs], [sighs contentedly]
+- Mystery: [whispers], [hushed tone]
+
+Non-vocal actions like [eyes twinkling] or [strokes beard] will be removed from speech.
+The vocalized sounds above will actually be HEARD in your voice!
+
+Example: "[chuckles] Ah, young one, the answer you seek lies within." - the chuckle will be voiced.""",
             color=0x9c27b0,  # Purple - mystical/magical feeling
             emotion_expression_style={
                 'expressiveness': 0.9,        # Theatrical, dramatic

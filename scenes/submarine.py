@@ -6,7 +6,7 @@ A desperate survival situation in a failing two-person submersible.
 
 from scenes.base import (
     Scene, SceneControl, StateVariable, SuccessCriterion, FailureCriterion,
-    CharacterRequirement, SceneArtAssets, AudioAssets
+    CharacterRequirement, SceneArtAssets, AudioAssets, SceneConstants
 )
 from llm_prompt_core.types import Line
 
@@ -84,6 +84,7 @@ class Submarine(Scene):
         # Define user controls
         # Note: All controls have npc_aware=True because James can sense system changes
         # from forward control (gauges, sounds, pressure changes, etc.)
+        # max_presses prevents button-mashing exploits
         controls = [
             SceneControl(
                 id="o2_valve",
@@ -93,7 +94,9 @@ class Submarine(Scene):
                 position={'x': -0.4, 'y': 0.2, 'z': 0},
                 description="Oxygen valve control - temporarily shuts off oxygen flow to rebalance pressure",
                 action_type="critical",
-                npc_aware=True  # James can see oxygen gauges in forward control
+                npc_aware=True,  # James can see oxygen gauges in forward control
+                max_presses=5,
+                cooldown_seconds=3.0
             ),
             SceneControl(
                 id="vent",
@@ -103,7 +106,9 @@ class Submarine(Scene):
                 position={'x': 0.2, 'y': 0.2, 'z': 0},
                 description="Emergency vent system - releases pressure but causes temporary panic",
                 action_type="dangerous",
-                npc_aware=True  # James can hear the loud hissing sound
+                npc_aware=True,  # James can hear the loud hissing sound
+                max_presses=5,
+                cooldown_seconds=3.0
             ),
             SceneControl(
                 id="ballast",
@@ -113,7 +118,9 @@ class Submarine(Scene):
                 position={'x': -0.4, 'y': -0.15, 'z': 0},
                 description="Ballast control - adjusts submarine buoyancy to reduce strain",
                 action_type="safe",
-                npc_aware=True  # James can feel the submarine's movement/pressure change
+                npc_aware=True,  # James can feel the submarine's movement/pressure change
+                max_presses=None,  # Unlimited - safe action
+                cooldown_seconds=2.0
             ),
             SceneControl(
                 id="power",
@@ -123,7 +130,9 @@ class Submarine(Scene):
                 position={'x': 0.2, 'y': -0.15, 'z': 0},
                 description="Power relay - activates backup power systems",
                 action_type="critical",
-                npc_aware=True  # James can see power indicators in forward control
+                npc_aware=True,  # James can see power indicators in forward control
+                max_presses=3,
+                cooldown_seconds=5.0
             ),
             SceneControl(
                 id="crank",
@@ -133,7 +142,9 @@ class Submarine(Scene):
                 position={'x': 0.0, 'y': -0.5, 'z': 0},
                 description="Manual generator crank - provides emergency power boost",
                 action_type="safe",
-                npc_aware=True  # James can hear the cranking sound
+                npc_aware=True,  # James can hear the cranking sound
+                max_presses=None,  # Unlimited - physical effort
+                cooldown_seconds=1.0
             ),
             SceneControl(
                 id="flood_medbay",
@@ -144,7 +155,8 @@ class Submarine(Scene):
                 description="Emergency ascent system - floods med bay compartment to create pressure differential for surfacing. THIS WILL KILL ANYONE INSIDE.",
                 action_type="critical",
                 npc_aware=True,  # James is acutely aware of this decision
-                visible_in_phases=[3, 4]  # Only appears after the revelation in Phase 3
+                visible_in_phases=[3, 4],  # Only appears after the revelation in Phase 3
+                max_presses=1  # One-time irreversible action
             ),
         ]
 
@@ -331,7 +343,27 @@ class Submarine(Scene):
             failure_criteria=failure_criteria,
             character_requirements=character_requirements,
             time_limit=300.0,  # 5 minutes to match Pressure Point scenario
-            allow_freeform_dialogue=True
+            allow_freeform_dialogue=True,
+            scene_constants=SceneConstants(
+                # Submarine-specific penalties (oxygen/radiation-based)
+                interruption_oxygen_penalty=15,
+                interruption_trust_penalty=10,
+                rapid_action_oxygen_penalty=10,
+                rapid_action_trust_penalty=5,
+                # Crisis event values
+                crisis_oxygen_penalty=20,
+                crisis_trust_penalty=10,
+                help_oxygen_bonus=15,
+                help_trust_bonus=5,
+                # Difficulty adjustments
+                easy_oxygen_bonus=30,
+                hard_oxygen_penalty=30,
+                # Thresholds
+                critical_level=60,  # Critical oxygen/radiation level
+                max_incorrect_actions=5,
+                # Director enabled for dynamic events
+                disable_events=False,
+            )
         )
 
         # Track achieved milestones

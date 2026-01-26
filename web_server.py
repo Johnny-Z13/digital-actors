@@ -40,6 +40,13 @@ from constants import (
     RAPID_ACTION_TRUST_PENALTY,
     TRUST_MINIMUM,
 )
+
+# Centralized configuration (single source of truth)
+from config import (
+    get_scene_character_map,
+    get_character_scene_map,
+    get_scene_mappings,
+)
 from exceptions import (
     InvalidMessageError,
     LLMError,
@@ -68,8 +75,8 @@ from tts_elevenlabs import get_tts_manager, synthesize_npc_speech
 from characters import CHARACTERS as CHARACTER_REGISTRY
 from scenes import SCENES as SCENE_REGISTRY
 
-# Import Mara Vane scene-specific data
-from scenes.iconic_detectives import PIN_REACTIONS, DIALOGUE_INSTRUCTIONS
+# Import scene handler interface (encapsulates scene-specific game logic)
+from scenes.handlers import get_scene_handler
 
 # Import player memory system
 from player_memory import PlayerMemory
@@ -125,6 +132,11 @@ SCENES = {
     for scene_id, scene in SCENE_REGISTRY.items()
 }
 
+# === LOCKED SCENE ↔ CHARACTER MAPPINGS ===
+# Loaded from config/scene_mappings.json (single source of truth)
+SCENE_CHARACTER_MAP = get_scene_character_map()
+CHARACTER_SCENE_MAP = get_character_scene_map()
+
 
 class ChatSession:
     """Manages a chat session for a single WebSocket connection."""
@@ -135,25 +147,25 @@ class ChatSession:
     def __init__(
         self,
         ws: WebSocketResponse,
-        character_id: str = "eliza",
-        scene_id: str = "introduction",
+        character_id: str = "clippy",
+        scene_id: str = "welcome",
         player_id: str | None = None,
     ) -> None:
         self.ws = ws
 
-        # Auto-select appropriate character for specific scenes
-        if scene_id == 'iconic_detectives' and character_id not in ['mara_vane', 'detective']:
-            logger.info("[INIT] Auto-selecting mara_vane for iconic_detectives scene")
-            character_id = 'mara_vane'
-        elif scene_id == 'submarine' and character_id != 'engineer':
-            logger.info("[INIT] Auto-selecting engineer for submarine scene")
-            character_id = 'engineer'
+        # Auto-select: scene determines character (locked pairing)
+        if scene_id in SCENE_CHARACTER_MAP:
+            expected_char = SCENE_CHARACTER_MAP[scene_id]
+            if character_id != expected_char:
+                logger.info("[INIT] Auto-selecting %s for %s scene", expected_char, scene_id)
+                character_id = expected_char
 
         self.character_id = character_id
         self.scene_id = scene_id
         self.dialogue_history = ""
         self.character_config = CHARACTERS.get(character_id, CHARACTERS['custom'])
         self.scene_config = SCENES.get(scene_id, SCENES['introduction'])
+        self.tts_mode = 'expressive'  # 'expressive' (v3 + audio tags) or 'fast' (turbo)
 
         # Player memory system
         self.player_id = player_id or f"player_{id(ws)}"  # Use websocket ID if no player_id provided
@@ -181,16 +193,10 @@ class ChatSession:
         self.last_action_time = 0
         self.action_count_recent = 0  # Track rapid actions
 
-        # Button press limits - prevent flooding
-        self.button_press_counts = {}  # Track presses per button
-        self.button_press_caps = {
-            'O2 VALVE': 5,
-            'VENT': 5,
-            'BALLAST': 5,
-            'POWER': 3,
-            'CRANK': 8,  # Can be used a bit more but still limited
-            'FLOOD MED BAY': 1  # Critical decision - only once
-        }
+        # Button press limits - built from scene control configuration
+        self.button_press_counts = {}  # Track presses per button (by label)
+        self.button_cooldowns = {}  # Track last press time per button
+        self.button_press_caps = self._build_button_caps_from_controls()
 
         # Response queue management - prevent multiple responses piling up
         self.response_sequence = 0  # Incrementing counter for each new action
@@ -206,6 +212,11 @@ class ChatSession:
         self.game_over = False
         self.game_outcome = None  # Will be 'success', 'failure', or specific ending type
         self.james_dying_speech_sent = False  # Track if James gave his death speech before player dies
+
+        # === GLOBAL DEATH SEQUENCE FLAG ===
+        # When True, ALL responses are blocked EXCEPT explicitly marked death speeches.
+        # This is a HARD BLOCK that prevents any dialogue after death, globally for ALL actors.
+        self.death_sequence_active = False
 
         # Oxygen countdown task (managed by session)
         self.oxygen_task = None
@@ -238,6 +249,29 @@ class ChatSession:
             min_gap_seconds=2.0  # 2 second minimum gap between NPC responses
         )
         logger.info("Response Queue initialized")
+
+    def _build_button_caps_from_controls(self) -> dict:
+        """
+        Build button press caps from scene control configuration.
+
+        Uses control.max_presses if defined, otherwise defaults to 10.
+        Returns dict mapping control label -> max_presses.
+        """
+        caps = {}
+        for ctrl in self.scene_controls.values():
+            label = ctrl.get('label', '')
+            max_presses = ctrl.get('max_presses')
+            if max_presses is not None:
+                caps[label] = max_presses
+            # If max_presses is None, don't add to caps (unlimited)
+        return caps
+
+    def _get_control_cooldown(self, control_label: str) -> float:
+        """Get cooldown seconds for a control, or 0 if no cooldown."""
+        for ctrl in self.scene_controls.values():
+            if ctrl.get('label') == control_label:
+                return ctrl.get('cooldown_seconds') or 0.0
+        return 0.0
 
     def start_oxygen_countdown(self) -> None:
         """Start the state update task if this scene has state variables with update_rate."""
@@ -365,11 +399,15 @@ class ChatSession:
             logger.info("[PHASE TRANSITION] Entering Phase %d at %.0fs remaining", new_phase, time_remaining)
 
     def _get_phase_context(self) -> str:
-        """Get phase-specific context for Pressure Point emotional progression.
+        """Get phase-specific context for scene emotional progression.
 
-        Only applies to submarine scene - returns empty string for other scenes.
+        Provides real-time state values to ensure NPC dialogue matches UI readings.
         """
-        # SCENE ISOLATION: Only return phase context for submarine scene
+        # === LIFE RAFT SCENE ===
+        if self.scene_id == 'life_raft':
+            return self._get_life_raft_phase_context()
+
+        # === SUBMARINE SCENE ===
         if self.scene_id != 'submarine':
             return ""
 
@@ -452,10 +490,112 @@ empathetic, you'll seek their blessing. If they've been cold, you'll shut down."
 
         return phase_contexts.get(phase, "")
 
+    def _get_life_raft_phase_context(self) -> str:
+        """Get phase-specific context for Life Raft scene.
+
+        CRITICAL: All numbers mentioned MUST match the actual state values.
+        Captain Hale references these exact values in dialogue.
+        """
+        phase = self.scene_state.get('phase', 1)
+        player_o2 = self.scene_state.get('player_oxygen', 0)
+        captain_o2 = self.scene_state.get('captain_oxygen', 0)
+        hull = self.scene_state.get('hull_integrity', 0)
+        empathy = self.scene_state.get('empathy_score', 50)
+        commitment = self.scene_state.get('commitment_score', 50)
+        presence = self.scene_state.get('presence_score', 50)
+        transfers = self.scene_state.get('o2_transfers', 0)
+
+        # Base context with REAL values - always included
+        state_context = f"""
+=== CRITICAL: USE THESE EXACT NUMBERS IN DIALOGUE ===
+YOUR (Captain Hale's) OXYGEN: {captain_o2:.0f}%
+PLAYER'S OXYGEN: {player_o2:.0f}%
+HULL INTEGRITY: {hull:.0f}%
+O2 TRANSFERS USED: {transfers}/5
+
+When you mention oxygen levels, pressure, or hull status - USE THESE EXACT NUMBERS.
+Example: "Your O2 is at {player_o2:.0f}%... that's not good." NOT a made-up number.
+"""
+
+        phase_contexts = {
+            1: f"""{state_context}
+PHASE 1 - INITIAL CONTACT:
+You are Captain Hale. Professional, competent, but the situation is serious.
+The player is in a flooding compartment with LOW oxygen ({player_o2:.0f}%).
+You have MORE oxygen ({captain_o2:.0f}%) and can transfer some via the O2 valve.
+
+KEY ACTIONS:
+- Establish contact, assess their status
+- If their O2 is below 40%, MENTION IT: "Your oxygen's at {player_o2:.0f}%... I can transfer some of mine."
+- Be calm but urgent - this is a survival situation
+- Ask their name to build connection
+
+TONE: Professional crisis management. Competent but human.""",
+
+            2: f"""{state_context}
+PHASE 2 - O2 CRISIS:
+Player oxygen is critically low ({player_o2:.0f}%). Hull at {hull:.0f}%.
+You've offered oxygen transfer. The situation is getting worse.
+
+KEY ACTIONS:
+- If O2 valve hasn't been used: "Hit the O2 valve - I'm at {captain_o2:.0f}%, I can spare some."
+- React to transfers: Each one costs you. Show the sacrifice.
+- Start opening up - mention you have "someone" you're worried about
+- Physical signs of stress: [heavy breathing] [coughing]
+
+TONE: More personal. The professional mask is slipping under stress.""",
+
+            3: f"""{state_context}
+PHASE 3 - BONDING:
+Hull integrity dropping ({hull:.0f}%). Time running out.
+Player has shown {('good' if empathy > 60 else 'some' if empathy > 40 else 'little')} empathy.
+
+KEY ACTIONS:
+- Open up about your daughter Mei - she's why you do this job
+- Share something personal: "When we surface... I promised Mei I'd teach her to sail."
+- React to their engagement level (presence: {presence:.0f}%)
+- Physical deterioration increasing
+
+TONE: Vulnerable. Human. Building genuine connection.""",
+
+            4: f"""{state_context}
+PHASE 4 - THE DECISION:
+Hull at {hull:.0f}% - CRITICAL. This is THE MOMENT.
+Empathy score: {empathy:.0f}% | Commitment: {commitment:.0f}% | Presence: {presence:.0f}%
+
+THE CHOICE - Present both options:
+1. SAFE PROTOCOL (DETACH): Player escapes. You stay behind. Certain survival for one.
+2. RISKY MANEUVER (RISKY SAVE): 1-in-10 chance BOTH survive. Requires trust.
+
+KEY ACTIONS:
+- Explain the situation honestly with REAL numbers: "Hull's at {hull:.0f}%..."
+- Present the choice clearly
+- Your recommendation depends on bond:
+  - High empathy ({empathy:.0f}%+): "I think we can do this together..."
+  - Low empathy: "You should take the safe option. I'll be fine."
+
+TONE: Raw honesty. This might be goodbye.""",
+
+            5: f"""{state_context}
+PHASE 5 - FINALE:
+The choice has been made. React to what's happening.
+
+If DETACH triggered: Say goodbye. Thank them. Think of Mei.
+If RISKY SAVE triggered: Commit fully. Either triumph or tragedy.
+
+Empathy: {empathy:.0f}% | Commitment: {commitment:.0f}% | Presence: {presence:.0f}%
+(Risky succeeds if all three >= 60/70/50)
+
+TONE: Whatever the outcome, make it meaningful."""
+        }
+
+        return phase_contexts.get(phase, state_context)
+
     async def _send_character_response_direct(
         self,
         content: str,
         emotion_context: str | None = None,
+        is_death_speech: bool = False,
     ) -> None:
         """
         INTERNAL: Directly send a character response to the client (bypasses queue).
@@ -471,9 +611,35 @@ empathetic, you'll seek their blessing. If they've been cold, you'll shut down."
         Args:
             content: The dialogue text
             emotion_context: Optional emotional context for TTS (e.g., "panicked", "calm")
+            is_death_speech: If True, this is a final death speech and should be allowed
+                            even when death_sequence_active is True.
         """
+        # === GLOBAL DEATH BLOCK (applies to ALL actors) ===
+        # If death sequence is active, ONLY allow explicitly marked death speeches.
+        # This prevents ANY dialogue from playing after the character dies.
+        if self.death_sequence_active and not is_death_speech:
+            logger.info(
+                "[DEATH_BLOCK] Blocked post-death response: '%s...' (death_sequence_active=True)",
+                content[:50]
+            )
+            return  # Silently abort - character is dead, no more dialogue
+
         # Generate unique response ID for matching text with audio
         response_id = f"resp_{id(content)}_{asyncio.get_event_loop().time()}"
+
+        # Generate suggested questions (don't block - use quick defaults if slow)
+        suggestions = []
+        if not self.game_over and not self.opening_speech_playing:
+            try:
+                suggestions = await asyncio.wait_for(
+                    self.generate_suggested_questions(content),
+                    timeout=2.0  # 2 second timeout
+                )
+            except asyncio.TimeoutError:
+                logger.debug("[SUGGESTIONS] Timeout - using defaults")
+                suggestions = ["Tell me more", "What should I do?", "I understand"]
+            except Exception as e:
+                logger.warning("[SUGGESTIONS] Error: %s", e)
 
         # STEP 1: Send text IMMEDIATELY (don't wait for TTS)
         text_response = {
@@ -481,9 +647,10 @@ empathetic, you'll seek their blessing. If they've been cold, you'll shut down."
             'character_name': self.character_config['name'],
             'content': content,
             'response_id': response_id,
+            'suggested_questions': suggestions,  # Include suggestions with response
         }
         await self.ws.send_json(text_response)
-        logger.debug("[TEXT-FIRST] Sent text immediately: '%s...'", content[:50])
+        logger.debug("[TEXT-FIRST] Sent text with %d suggestions: '%s...'", len(suggestions), content[:50])
 
         # STEP 2: Generate TTS audio asynchronously
         if self.tts_manager.is_enabled():
@@ -497,7 +664,8 @@ empathetic, you'll seek their blessing. If they've been cold, you'll shut down."
                     self.character_id,
                     emotion_context,
                     scene_phase,
-                    scene_type
+                    scene_type,
+                    self.tts_mode
                 )
 
                 # STEP 3: Send audio as follow-up message
@@ -620,6 +788,95 @@ empathetic, you'll seek their blessing. If they've been cold, you'll shut down."
             actors=[self.character_config['name'], "Player"]
         )
 
+    async def generate_suggested_questions(self, npc_response: str) -> list[str]:
+        """
+        Generate 3 contextual question suggestions for the player.
+
+        These help players who want quick interaction options without typing.
+        Questions are based on the current scene context and recent dialogue.
+
+        Args:
+            npc_response: The NPC's most recent response
+
+        Returns:
+            List of 3 short question/response suggestions
+        """
+        # Scene-specific static suggestions for certain contexts
+        scene_defaults = {
+            'welcome': [
+                "What's the point of this project?",
+                "How do I create my own digital actor?",
+                "Give me an overview"
+            ],
+            'crown_court': [
+                "What evidence do we have?",
+                "Tell me about the witness",
+                "What are my options?"
+            ],
+        }
+
+        # Use static defaults for welcome scene (Clippy help context)
+        if self.scene_id == 'welcome':
+            return scene_defaults['welcome']
+
+        # For other scenes, generate dynamic suggestions
+        try:
+            char_name = self.character_config['name']
+            scene_desc = self.scene_config.get('description', '')[:300]
+            phase = self.scene_state.get('phase', 1)
+
+            # Determine scene type for better context
+            scene_type = "survival/crisis" if self.scene_id in ['submarine', 'life_raft'] else "narrative"
+
+            suggestion_prompt = f"""Generate 3 SHORT player response options for an interactive {scene_type} scenario.
+
+CONTEXT:
+- Character: {char_name}
+- Scene: {scene_desc[:200]}
+- Current Phase: {phase}
+- NPC just said: "{npc_response[:150]}"
+
+RULES:
+1. Generate EXACTLY 3 options
+2. Each option must be 2-8 words MAX
+3. Make them relevant to the CURRENT situation
+4. Write from PLAYER perspective (first person)
+5. NO numbering, NO prefixes, NO meta-commentary
+
+OUTPUT (one per line, nothing else):"""
+
+            from langchain_core.prompts import PromptTemplate
+            prompt = PromptTemplate.from_template("{text}")
+            chain = prompt | QUERY_MODEL
+            result = await asyncio.get_event_loop().run_in_executor(
+                None, lambda: chain.invoke({"text": suggestion_prompt})
+            )
+
+            # Parse response - expect 3 lines
+            lines = [line.strip() for line in result.strip().split('\n') if line.strip()]
+            suggestions = []
+            for line in lines:
+                clean = line.lstrip('0123456789.-) ').strip()
+                if clean and len(clean) <= 50 and not clean.startswith(('Generate', 'OUTPUT', 'RULES')):
+                    suggestions.append(clean)
+                if len(suggestions) >= 3:
+                    break
+
+            # Fallback to scene defaults or generic
+            if len(suggestions) < 3:
+                suggestions = scene_defaults.get(self.scene_id, [
+                    "What should I do?",
+                    "Tell me more",
+                    "I understand"
+                ])
+
+            logger.debug("[SUGGESTIONS] Generated: %s", suggestions)
+            return suggestions[:3]
+
+        except Exception as e:
+            logger.warning("[SUGGESTIONS] Failed to generate: %s", e)
+            return scene_defaults.get(self.scene_id, ["Tell me more", "What should I do?", "I understand"])
+
     def check_game_over_conditions(self) -> None:
         """Check if any win/lose conditions are met."""
         if self.game_over:
@@ -705,10 +962,12 @@ Examples: [coughing violently] [voice barely audible] [choking] [static overwhel
         )
         dying_speech = dying_speech.replace('"', '').replace('*', '')
 
-        # Send James's death speech IMMEDIATELY (CRITICAL priority - cannot be cancelled or delayed)
-        await self.send_character_response_immediate(
+        # Send James's death speech DIRECTLY with death_speech flag
+        # This ensures it plays even if game_over triggers during this speech
+        await self._send_character_response_direct(
             content=dying_speech,
-            emotion_context="dying"
+            emotion_context="dying",
+            is_death_speech=True  # Always allow death speeches
         )
 
         # Add to dialogue history
@@ -738,6 +997,28 @@ Examples: [coughing violently] [voice barely audible] [choking] [static overwhel
         """Trigger final speech and send game over message to client."""
         if not self.game_over or not self.game_outcome:
             return
+
+        # === CRITICAL: ACTIVATE DEATH SEQUENCE BLOCK (GLOBAL FOR ALL ACTORS) ===
+        # This MUST be set FIRST, before anything else. It blocks ALL future
+        # dialogue from playing, ensuring the character stays dead/silent.
+        self.death_sequence_active = True
+        logger.info("[GAME_OVER] Death sequence activated - ALL non-death responses now blocked")
+
+        # Clear ALL queued responses - death takes priority
+        cleared = await self.response_queue.clear_all_except_critical()
+        logger.info("[GAME_OVER] Cleared %d queued responses", cleared)
+
+        # Stop any currently playing audio on frontend
+        await self.ws.send_json({
+            'type': 'stop_audio',
+            'reason': 'game_over'
+        })
+
+        # Block any new NPC responses
+        self.npc_responding = False
+
+        # Brief pause for audio to stop
+        await asyncio.sleep(0.3)
 
         # Generate final speech from NPC based on outcome
         outcome_type = self.game_outcome['type']
@@ -777,11 +1058,13 @@ Keep it to 2-3 short sentences maximum."""
         )
         final_speech = final_speech.replace('"', '').replace('*', '')
 
-        # Send final speech IMMEDIATELY (CRITICAL priority - game over speeches cannot be delayed)
+        # Send final speech DIRECTLY with death_speech flag (bypasses death block)
+        # This is the ONLY dialogue that should play after death_sequence_active is True
         emotion = "panicked" if outcome_type == 'failure' else "relieved"
-        await self.send_character_response_immediate(
+        await self._send_character_response_direct(
             content=final_speech,
-            emotion_context=emotion
+            emotion_context=emotion,
+            is_death_speech=True  # Allows this through the death block
         )
 
         # Wait for final speech to complete
@@ -817,11 +1100,22 @@ Keep it to 2-3 short sentences maximum."""
         outcome_type = self.game_outcome['type']
         self.player_memory.end_scene(outcome_type, self.scene_state)
 
+        # === FINAL CLEANUP: Stop ALL audio before game over screen ===
+        await self.ws.send_json({
+            'type': 'stop_audio',
+            'reason': 'final_death'
+        })
+
+        # Clear any responses that might have queued during death sequence
+        await self.response_queue.clear_all_except_critical()
+
         # Send game over screen
         await self.ws.send_json({
             'type': 'game_over',
             'outcome': self.game_outcome
         })
+
+        logger.info("[GAME_OVER] Scene ended - all audio stopped, game over screen sent")
 
     async def send_opening_speech(self, force: bool = False) -> None:
         """Send the character's opening lines with TTS audio (parallel generation).
@@ -834,14 +1128,32 @@ Keep it to 2-3 short sentences maximum."""
             logger.info("[OPENING_SPEECH] Delaying opening speech for iconic_detectives (waiting for phone answer)")
             return
 
-        logger.info("[OPENING_SPEECH] Preparing %d opening lines (parallel TTS)", len(self.scene_config['opening_speech']))
+        opening_lines = self.scene_config['opening_speech']
+
+        # Handle scenes with no opening speech (like welcome/Clippy)
+        if not opening_lines:
+            logger.info("[OPENING_SPEECH] No opening lines - sending initial suggestions only")
+            self.opening_speech_playing = False
+
+            # Get initial suggestions for this scene
+            initial_suggestions = await self.generate_suggested_questions("")
+
+            await self.ws.send_json({
+                'type': 'opening_speech',
+                'character_name': self.character_config['name'],
+                'lines': [],
+                'disable_input': False,  # Input enabled immediately
+                'initial_suggestions': initial_suggestions
+            })
+            return
+
+        logger.info("[OPENING_SPEECH] Preparing %d opening lines (parallel TTS)", len(opening_lines))
 
         # Get current scene phase and type
         scene_phase = self.scene_state.get('phase') if hasattr(self, 'scene_state') else None
         scene_type = self.scene_id if hasattr(self, 'scene_id') else None
 
-        # Prepare line data and calculate total duration
-        opening_lines = self.scene_config['opening_speech']
+        # Calculate total duration
         total_duration = sum(line.delay for line in opening_lines)
 
         # Generate TTS for ALL lines in parallel using asyncio.gather
@@ -854,7 +1166,8 @@ Keep it to 2-3 short sentences maximum."""
                     self.character_id,
                     emotion_context="urgent",
                     scene_phase=scene_phase,
-                    scene_type=scene_type
+                    scene_type=scene_type,
+                    tts_mode=self.tts_mode
                 )
                 for line in opening_lines
             ]
@@ -895,7 +1208,7 @@ Keep it to 2-3 short sentences maximum."""
         })
 
         # Add to dialogue history
-        for line in self.scene_config['opening_speech']:
+        for line in opening_lines:
             response = speech_template.format(
                 actor=self.character_config['name'],
                 speech=line.text
@@ -1031,26 +1344,27 @@ Keep it to 2-3 short sentences maximum."""
         Args:
             pin_id: The ID of the pin clicked (e.g., "pin_map", "pin_receipt")
         """
-        if self.scene_id != 'iconic_detectives':
+        # Get scene handler (if any)
+        handler = get_scene_handler(self.scene_id)
+        if not handler:
             return
 
-        logger.info("[MARA] Player referenced evidence pin: %s", pin_id)
-
-        # Get pin reaction data
-        pin_data = PIN_REACTIONS.get(pin_id)
-        if not pin_data:
-            logger.warning("[MARA] Unknown pin ID: %s", pin_id)
+        # Get pin reaction from handler
+        pin_reaction = handler.get_pin_reaction(pin_id)
+        if not pin_reaction:
+            logger.warning("[PIN] Unknown pin ID for scene %s: %s", self.scene_id, pin_id)
             return
+
+        logger.info("[PIN] Player referenced evidence pin: %s", pin_id)
 
         # Track which pins have been referenced (bitfield)
-        pin_bit = pin_data.get('pin_id', 0)
         if 'pins_referenced' in self.scene_state:
-            self.scene_state['pins_referenced'] |= pin_bit
+            self.scene_state['pins_referenced'] |= pin_reaction.pin_id
 
         # Send system notification about the pin
         await self.ws.send_json({
             'type': 'system_notification',
-            'message': f'📌 Examining: {pin_data["name"]}'
+            'message': f'Examining: {pin_reaction.name}'
         })
 
         # Show typing indicator
@@ -1061,9 +1375,9 @@ Keep it to 2-3 short sentences maximum."""
 
         self.npc_responding = True
 
-        # Generate Mara's reaction to this pin
+        # Generate NPC's reaction to this pin using handler's prompt
         pin_instruction = f"""
-{pin_data['reaction']}
+{pin_reaction.reaction_prompt}
 
 CURRENT TRUST LEVEL: {self.scene_state.get('trust', 50):.0f}%
 React to the player examining this evidence. Keep it SHORT - 2-3 sentences max.
@@ -1087,7 +1401,7 @@ Use [brackets] for emotional cues like [pause], [voice tightens], [a beat].
         character_response = character_response.replace('"', '').replace('*', '')
 
         # Add to dialogue history
-        self.dialogue_history += f"[PLAYER examines evidence: {pin_data['name']}]\n"
+        self.dialogue_history += f"[PLAYER examines evidence: {pin_reaction.name}]\n"
         self.dialogue_history += f"[{self.character_config['name']}]: {character_response}\n"
 
         # Queue response
@@ -1106,21 +1420,23 @@ Use [brackets] for emotional cues like [pause], [voice tightens], [a beat].
             'state': self.scene_state
         })
 
-    async def handle_mara_dialogue_choice(self, choice_id: str) -> None:
-        """Handle dialogue choice buttons for the Mara Vane scene.
+    async def handle_dialogue_choice(self, choice_id: str) -> None:
+        """Handle dialogue choice buttons for scenes with structured choices.
 
         Args:
             choice_id: The ID of the dialogue choice (e.g., "hook_identity", "follow_key")
         """
-        if self.scene_id != 'iconic_detectives':
+        # Get scene handler
+        handler = get_scene_handler(self.scene_id)
+        if not handler or not hasattr(handler, 'get_dialogue_choice_instruction'):
             return
 
-        logger.info("[MARA] Player made dialogue choice: %s", choice_id)
+        logger.info("[DIALOGUE] Player made choice: %s", choice_id)
 
-        # Get the instruction for this choice
-        instruction = DIALOGUE_INSTRUCTIONS.get(choice_id)
+        # Get the instruction from handler
+        instruction = handler.get_dialogue_choice_instruction(choice_id)
         if not instruction:
-            logger.warning("[MARA] Unknown dialogue choice: %s", choice_id)
+            logger.warning("[DIALOGUE] Unknown choice for scene %s: %s", self.scene_id, choice_id)
             return
 
         # Update state based on choice
@@ -1266,8 +1582,10 @@ Keep response SHORT - 3-4 sentences max. Use [brackets] for emotional cues.
                 'p2_who_staged', 'p2_why_argument', 'p2_killer_detail',
                 'challenge_mara'
             ]
-            if action in mara_choices and self.scene_id == 'iconic_detectives':
-                await self.handle_mara_dialogue_choice(action)
+            # Check if this is a dialogue choice handled by scene handler
+            handler = get_scene_handler(self.scene_id)
+            if action in mara_choices and handler and hasattr(handler, 'get_dialogue_choice_instruction'):
+                await self.handle_dialogue_choice(action)
                 return
 
             # Don't respond to button actions during opening speech (but still show notification)
@@ -1297,20 +1615,36 @@ Keep response SHORT - 3-4 sentences max. Use [brackets] for emotional cues.
                 })
                 return
 
-            # CHECK BUTTON PRESS CAP
-            if action not in self.button_press_counts:
-                self.button_press_counts[action] = 0
+            # CHECK BUTTON COOLDOWN
+            cooldown = self._get_control_cooldown(action)
+            if cooldown > 0:
+                last_press = self.button_cooldowns.get(action, 0)
+                time_since_press = time.time() - last_press
+                if time_since_press < cooldown:
+                    remaining = cooldown - time_since_press
+                    logger.debug("[BUTTON_COOLDOWN] Button %s on cooldown (%.1fs remaining)", action, remaining)
+                    await self.ws.send_json({
+                        'type': 'system_notification',
+                        'message': f'⏳ {action} - Wait {remaining:.1f}s'
+                    })
+                    return
+                self.button_cooldowns[action] = time.time()
 
-            self.button_press_counts[action] += 1
-            cap = self.button_press_caps.get(action, 10)  # Default cap of 10 if not specified
+            # CHECK BUTTON PRESS CAP (only if max_presses is defined)
+            if action in self.button_press_caps:
+                if action not in self.button_press_counts:
+                    self.button_press_counts[action] = 0
 
-            if self.button_press_counts[action] > cap:
-                logger.debug("[BUTTON_CAP] Button %s has reached cap (%d/%d)", action, self.button_press_counts[action], cap)
-                await self.ws.send_json({
-                    'type': 'system_notification',
-                    'message': f'⚠️ {action} - Maximum uses reached ({cap})'
-                })
-                return
+                self.button_press_counts[action] += 1
+                cap = self.button_press_caps[action]
+
+                if self.button_press_counts[action] > cap:
+                    logger.debug("[BUTTON_CAP] Button %s has reached cap (%d/%d)", action, self.button_press_counts[action], cap)
+                    await self.ws.send_json({
+                        'type': 'system_notification',
+                        'message': f'⚠️ {action} - Maximum uses reached ({cap})'
+                    })
+                    return
 
             # Show typing indicator only if NPC will respond
             await self.ws.send_json({
@@ -1349,19 +1683,49 @@ Keep response SHORT - 3-4 sentences max. Use [brackets] for emotional cues.
             # Check if interrupting NPC
             was_interrupted = self.npc_responding
 
-            # Send button notification IMMEDIATELY to frontend (before NPC response)
-            action_descriptions = {
-                'O2 VALVE': 'O2 VALVE activated',
-                'VENT': 'VENT system activated',
-                'BALLAST': 'BALLAST control activated',
-                'POWER': 'POWER relay activated',
-                'CRANK': 'Manual crank engaged',
-                'FLOOD MED BAY': '🚨 EMERGENCY ASCENT INITIATED - MED BAY FLOODING SEQUENCE ARMED 🚨'
-            }
-            action_text = action_descriptions.get(action, f'{action} activated')
+            # === SCENE-SPECIFIC GAME LOGIC ===
+            # Process button action through scene handler (if available)
+            handler = get_scene_handler(self.scene_id)
+            game_logic_result = None
+
+            if handler:
+                game_logic_result = handler.process_action(action, self.scene_state)
+
+                if game_logic_result and game_logic_result.success:
+                    # Apply state changes from handler
+                    for key, delta in game_logic_result.state_changes.items():
+                        if key in self.scene_state:
+                            self.scene_state[key] = self.scene_state[key] + delta
+                        else:
+                            self.scene_state[key] = delta
+
+                    logger.info(
+                        "[GAME_LOGIC] Scene '%s' action '%s' applied: %s",
+                        self.scene_id, action, game_logic_result.state_changes
+                    )
+
+                    # Send immediate state update so UI reflects changes
+                    await self.ws.send_json({
+                        'type': 'state_update',
+                        'state': self.scene_state
+                    })
+
+                    # Record milestone if achieved
+                    if game_logic_result.milestone:
+                        scene_instance = SCENE_REGISTRY.get(self.scene_id)
+                        if hasattr(scene_instance, 'achieve_milestone'):
+                            scene_instance.achieve_milestone(game_logic_result.milestone)
+
+            # Get action description from handler or use default
+            action_text = (
+                handler.get_action_description(action)
+                if handler else f'{action} activated'
+            )
+
+            # Send button notification to frontend
             await self.ws.send_json({
                 'type': 'system_notification',
-                'message': f'⚡ {action_text}'
+                'message': f'{action_text}'
             })
 
             # Check if NPC should be aware of this action
@@ -1456,6 +1820,39 @@ If emotional bond is LOW (<30):
 
 After your response, you will execute the flooding. This is THE FINAL DECISION. Make it count.
 Keep response to 2-3 sentences maximum. Every word costs you."""
+                # Life Raft specific action context
+                elif self.scene_id == 'life_raft':
+                    life_raft_action_context = {
+                        'O2 VALVE': f"""
+=== O2 TRANSFER JUST HAPPENED ===
+The player activated the O2 valve. You (Captain Hale) just GAVE them some of your oxygen.
+- YOUR oxygen went DOWN (you sacrificed for them)
+- THEIR oxygen went UP (they received your transfer)
+- This is a SACRIFICE - acknowledge it with relief for them, awareness of your own cost
+React: "Oxygen transfer complete... [heavy breath] ...that should help you breathe easier. I'm at {self.scene_state.get('captain_oxygen', 0):.0f}% now."
+""",
+                        'COMMS': """
+The player opened the communication channel. They're reaching out, staying connected.
+React with acknowledgment - they're showing presence and engagement.
+""",
+                        'PREP POD': """
+The player is preparing the escape pod. This is a commitment signal.
+React: They're taking this seriously. The end is coming.
+""",
+                        'DETACH': """
+=== CRITICAL: DETACH TRIGGERED ===
+The player chose the SAFE option. They're escaping. You stay behind.
+This is goodbye. Make it meaningful. Think of Mei.
+""",
+                        'RISKY SAVE': """
+=== CRITICAL: RISKY MANEUVER TRIGGERED ===
+The player chose to try saving BOTH of you. 1-in-10 odds.
+This requires everything you have. Commit fully.
+""",
+                    }
+                    extra_instruction = life_raft_action_context.get(action, "\nThe player just performed an action. React to it immediately and naturally.")
+                    if was_interrupted or self.action_count_recent >= RAPID_ACTION_COUNT_THRESHOLD:
+                        extra_instruction += "\n[NOTE: They interrupted or acted rapidly. Add urgency to your response.]"
                 # Adjust instruction suffix based on interruption
                 elif was_interrupted or self.action_count_recent >= RAPID_ACTION_COUNT_THRESHOLD:
                     extra_instruction = "\nThe player interrupted you or acted without waiting for your guidance. React with panic, frustration, or anger. Make it clear they're making things worse."
@@ -1853,13 +2250,12 @@ Keep response to 2-3 sentences maximum. Every word costs you."""
 
     def update_config(self, character_id: str, scene_id: str) -> None:
         """Update character and scene configuration."""
-        # Auto-select appropriate character for specific scenes
-        if scene_id == 'iconic_detectives' and character_id not in ['mara_vane', 'detective']:
-            logger.info("[CONFIG] Auto-selecting mara_vane for iconic_detectives scene")
-            character_id = 'mara_vane'
-        elif scene_id == 'submarine' and character_id != 'engineer':
-            logger.info("[CONFIG] Auto-selecting engineer for submarine scene")
-            character_id = 'engineer'
+        # Auto-select: scene determines character (locked pairing)
+        if scene_id in SCENE_CHARACTER_MAP:
+            expected_char = SCENE_CHARACTER_MAP[scene_id]
+            if character_id != expected_char:
+                logger.info("[CONFIG] Auto-selecting %s for %s scene", expected_char, scene_id)
+                character_id = expected_char
 
         self.character_id = character_id
         self.scene_id = scene_id
@@ -1875,7 +2271,8 @@ Keep response to 2-3 sentences maximum. Every word costs you."""
         self.dialogue_history = ""
 
     async def restart(self, character_id: str | None = None, scene_id: str | None = None) -> None:
-        """Restart the conversation."""
+        """Restart the conversation with FULL context wipe."""
+        logger.info("[RESTART] === FULL SESSION RESET ===")
         logger.info("[RESTART] Restarting scene: %s with character: %s", scene_id or self.scene_id, character_id or self.character_id)
 
         # Stop any existing oxygen countdown
@@ -1885,12 +2282,31 @@ Keep response to 2-3 sentences maximum. Every word costs you."""
         await self.response_queue.clear_all_except_critical()
         logger.info("[RESTART] Cleared response queue")
 
+        # === FULL STATE RESET - Everything that could leak between scenes ===
+
         # Reset all dialogue/game state flags
         self.npc_responding = False
         self.opening_speech_playing = False
         self.james_dying_speech_sent = False
-        self.button_press_counts = {}  # Reset button press counters
-        logger.info("[RESTART] Reset state flags and button press counters")
+        logger.info("[RESTART] Reset NPC response flags")
+
+        # Reset button tracking (counts, cooldowns, timing)
+        self.button_press_counts = {}
+        self.button_cooldowns = {}
+        self.last_action_time = 0
+        self.action_count_recent = 0
+        logger.info("[RESTART] Reset button press counters and cooldowns")
+
+        # Reset response queue management
+        self.response_sequence = 0
+        self.current_response_id = 0
+        logger.info("[RESTART] Reset response sequence counters")
+
+        # Reset World Director state completely
+        self.director_npc_modifier = None
+        self.pending_director_guidance = None  # Clear any pending guidance from old scene
+        self.world_director.reset_scene_timing()
+        logger.info("[RESTART] Reset World Director state and pending guidance")
 
         if character_id:
             self.character_id = character_id
@@ -1899,9 +2315,14 @@ Keep response to 2-3 sentences maximum. Every word costs you."""
 
         self.update_config(self.character_id, self.scene_id)
 
+        # Rebuild button press caps for new scene's controls
+        self.button_press_caps = self._build_button_caps_from_controls()
+        logger.info("[RESTART] Rebuilt button press caps for new scene")
+
         # Reset game over state
         self.game_over = False
         self.game_outcome = None
+        self.death_sequence_active = False  # Reset death block for new session
 
         # Reinitialize scene state
         self.scene_state = {
@@ -1939,6 +2360,24 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     # Create chat session
     session = ChatSession(ws)
 
+    # Send available characters and scenes to client for dynamic menu population
+    available_characters = [
+        {'id': char_id, 'name': char['name'], 'description': char['description']}
+        for char_id, char in CHARACTERS.items()
+    ]
+    available_scenes = [
+        {'id': scene_id, 'name': scene['name'], 'description': scene['description'][:100] + '...' if len(scene['description']) > 100 else scene['description']}
+        for scene_id, scene in SCENES.items()
+    ]
+    await ws.send_json({
+        'type': 'available_options',
+        'characters': available_characters,
+        'scenes': available_scenes,
+        'current_character': session.character_id,
+        'current_scene': session.scene_id
+    })
+    logger.info("[INIT] Sent available options: %d characters, %d scenes", len(available_characters), len(available_scenes))
+
     # Start oxygen countdown if this scene has oxygen
     session.start_oxygen_countdown()
 
@@ -1975,7 +2414,10 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                         # Update configuration
                         character_id = data.get('character', 'eliza')
                         scene_id = data.get('scene', 'introduction')
+                        tts_mode = data.get('tts_mode', 'expressive')
                         session.update_config(character_id, scene_id)
+                        session.tts_mode = tts_mode
+                        logger.info(f"[CONFIG] TTS mode set to: {tts_mode}")
                         # Notify client of actual character (may have been auto-selected)
                         await ws.send_json({
                             'type': 'config_confirmed',
@@ -1984,10 +2426,21 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                             'scene': session.scene_id
                         })
 
+                    elif msg_type == 'tts_mode':
+                        # Update TTS mode without resetting session
+                        tts_mode = data.get('mode', 'expressive')
+                        session.tts_mode = tts_mode
+                        logger.info(f"[TTS_MODE] Changed to: {tts_mode}")
+
                     elif msg_type == 'restart':
                         # Restart conversation
                         character_id = data.get('character')
                         scene_id = data.get('scene')
+                        # Preserve TTS mode across restart
+                        tts_mode = data.get('tts_mode', session.tts_mode)
+                        session.tts_mode = tts_mode
+                        logger.info(f"[RESTART] TTS mode: {tts_mode}")
+
                         await session.restart(character_id, scene_id)
                         # Notify client of actual character (may have been auto-selected)
                         await ws.send_json({
@@ -2072,12 +2525,25 @@ async def static_handler(request: web.Request) -> web.Response:
     return web.Response(body=content, content_type=content_type)
 
 
+# API endpoint for scene configuration
+async def config_handler(request: web.Request) -> web.Response:
+    """
+    Serve scene mappings to frontend.
+
+    This provides the single source of truth for scene↔character mappings,
+    eliminating the need for duplicate hard-coded mappings in JavaScript.
+    """
+    mappings = get_scene_mappings()
+    return web.json_response(mappings)
+
+
 # Create app
 async def create_app() -> web.Application:
     """Create and configure the web application."""
     app = web.Application()
 
-    # Add routes
+    # Add routes - API endpoints first, then static fallback
+    app.router.add_get('/api/config', config_handler)
     app.router.add_get('/ws', websocket_handler)
     app.router.add_get('/', static_handler)
     app.router.add_get('/{path:.*}', static_handler)

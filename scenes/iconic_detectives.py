@@ -17,7 +17,8 @@ from scenes.base import (
     CharacterRequirement,
     SceneArtAssets,
     AudioAssets,
-    VoiceEffect
+    VoiceEffect,
+    SceneConstants
 )
 from llm_prompt_core.types import Line
 
@@ -393,7 +394,10 @@ class IconicDetectives(Scene):
             failure_criteria=failure_criteria,
             character_requirements=character_requirements,
             time_limit=600.0,  # 10 minutes
-            allow_freeform_dialogue=True
+            allow_freeform_dialogue=True,
+            scene_constants=SceneConstants(
+                disable_events=True,  # Phone scene - no random crisis events
+            )
         )
 
 

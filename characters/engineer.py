@@ -99,9 +99,14 @@ class Engineer(Character):
             ABSOLUTE RULES:
             1. MAXIMUM 1-2 SENTENCES. If you can say it in ONE sentence, do that.
             2. NO STAGE DIRECTIONS. Do NOT use phrases like "His voice is sharp" or "desperately" - JUST SPEAK.
-            3. MINIMAL BRACKETS: Only [coughing] or [long pause] for critical moments. NO emotion descriptions in brackets.
-            4. DON'T REPEAT: Look at the dialogue history. See what you JUST said. Don't say it again. Move the conversation FORWARD.
-            5. NATURAL PROGRESSION: If they ignore your warning, don't repeat louder. Try something else. Get quieter. Give up. Move on.
+            3. DON'T REPEAT: Look at the dialogue history. See what you JUST said. Don't say it again. Move the conversation FORWARD.
+            4. NATURAL PROGRESSION: If they ignore your warning, don't repeat louder. Try something else. Get quieter. Give up. Move on.
+
+            PARALINGUISTICS - Use these vocalized sounds in brackets (the system will voice them):
+            - Physical distress: [coughing], [gasping], [wheezing], [groans]
+            - Breathing: [exhales], [inhales sharply], [breathing heavily]
+            - Emotional: [sighs], [voice breaking], [clears throat]
+            - Use sparingly - once per response max, only at critical moments
 
             HANDLING REPETITION:
             - First button press: "Easy on the crank. Quarter turns."

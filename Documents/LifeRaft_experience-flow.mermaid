@@ -1,0 +1,113 @@
+graph TD
+    Start([Experience Start]) --> InitContact[Captain Initial Contact<br/>Formal/Corporate Tone]
+    InitContact --> MaskCrack[Mask Cracks:<br/>'Actually... speaking honestly,<br/>things are concerning']
+    MaskCrack --> O2Check{Player O₂ Low}
+    
+    O2Check --> O2Offer[Captain Offers O₂ Transfer]
+    O2Offer --> PlayerPushback{Player<br/>Pushes Back?}
+    
+    PlayerPushback -->|Yes| CaptainInsist[Captain Insists:<br/>'I need you conscious']
+    PlayerPushback -->|No| PlayerAction1
+    CaptainInsist --> StillRefuse{Still<br/>Refuses?}
+    StillRefuse -->|Yes| RemoteOverride[Captain Opens Remotely<br/>Track: Low Presence]
+    StillRefuse -->|No| PlayerAction1[Player Opens Valve]
+    
+    PlayerAction1 --> O2Transfer[O₂ Gauge: Red → Green<br/>Captain Breathing Shallower<br/>Track: Commitment Signal]
+    RemoteOverride --> O2Transfer
+    
+    O2Transfer --> BondWindow1[Bonding Window 1:<br/>After O₂ Stabilizes]
+    
+    BondWindow1 --> PlayerSpeaks1{Player Speaks<br/>Within 3s?}
+    PlayerSpeaks1 -->|Yes| CaptainResponds1[Captain Responds Personally<br/>Track: Presence]
+    PlayerSpeaks1 -->|No| Wait5s{Wait 5-7s}
+    Wait5s --> CaptainFills1[Captain Fills Space]
+    
+    CaptainResponds1 --> LovedOnesQ
+    CaptainFills1 --> LovedOnesQ[Captain Asks:<br/>'You got anyone waiting<br/>for you up top?']
+    
+    LovedOnesQ --> PlayerShare{Player<br/>Response?}
+    
+    PlayerShare -->|Shares Personal| CaptainListens[Captain Asks Follow-up<br/>Track: High Empathy]
+    PlayerShare -->|Deflects/Surface| CaptainOffers1[Captain Shares About Daughter<br/>Track: Medium Empathy]
+    PlayerShare -->|Silent 10s+| CaptainOffers2[Captain Shares About Daughter<br/>Track: Low Empathy]
+    
+    CaptainListens --> StoreMemory[Store: Player's Loved One Info]
+    CaptainOffers1 --> StoreMemory
+    CaptainOffers2 --> StoreMemory
+    
+    StoreMemory --> BondWindow2[Bonding Window 2:<br/>Hull Stress Escalates]
+    
+    BondWindow2 --> CaptainComment['That's the frame taking load'<br/>'I just need to know you're there']
+    CaptainComment --> PlayerResponds2{Player<br/>Speaks?}
+    PlayerResponds2 -->|Yes| BriefAck[Captain Acknowledges Briefly<br/>Track: Presence]
+    PlayerResponds2 -->|No| AcceptSilence[Captain Accepts Silence<br/>Track: Presence]
+    
+    BriefAck --> Transition
+    AcceptSilence --> Transition[Transition: Hull Intensifies<br/>Captain Tries to Fix<br/>Sounds of Giving Up]
+    
+    Transition --> GearChange[GEAR CHANGE<br/>'Time to get serious'<br/>'We're in the shit']
+    
+    GearChange --> SituationLaid[Captain Lays Out Situation:<br/>Hull compromised, both go down]
+    SituationLaid --> Protocol[Captain Recommends Protocol:<br/>'Life raft procedure'<br/>'You'll be fine. I won't.']
+    
+    Protocol --> LongPause[7-10 Second Pause]
+    LongPause --> RiskyMention['There's one other thing...<br/>not protocol'<br/>'1 in 10 chance']
+    
+    RiskyMention --> CaptainRecommend['Your call. But take the pod.']
+    
+    CaptainRecommend --> PlayerChoice{Player<br/>Response?}
+    
+    PlayerChoice -->|Accepts Detachment| Ending1
+    PlayerChoice -->|Silent 10-15s| CaptainDecides['I'm getting you out']
+    PlayerChoice -->|Argues for Risky| Pushback1
+    
+    CaptainDecides --> Ending1[ENDING 1: Certain Salvation<br/>Detachment, Captain Dies]
+    
+    Pushback1[1st Pushback:<br/>'Don't do this.<br/>You've got people up there']
+    Pushback1 --> PlayerInsist1{Player<br/>Insists?}
+    
+    PlayerInsist1 -->|No/Silent| Ending1
+    PlayerInsist1 -->|Yes| Pushback2[2nd Pushback:<br/>'I'm serious. Bad idea.<br/>Take the pod.'<br/>Track: High Ownership]
+    
+    Pushback2 --> PlayerInsist2{Player<br/>Persists?}
+    
+    PlayerInsist2 -->|No/Silent| Ending1
+    PlayerInsist2 -->|Yes| CaptainRelent[Captain Relents:<br/>'Alright. If we're doing this...<br/>I need to know you mean it']
+    
+    CaptainRelent --> PrepPod[Player Preps Pod<br/>Track: Commitment]
+    PrepPod --> DelayCheck{Excessive<br/>Delay?}
+    
+    DelayCheck -->|Yes| FailGate[Hard Gate Failed]
+    DelayCheck -->|No| PassGate[Hard Gate Passed:<br/>All 3 Requirements Met]
+    
+    FailGate --> Ending1
+    PassGate --> LightsOut[Captain: 'I'm starting the sequence'<br/>Lights Cut Out<br/>Brief Darkness 2-3s]
+    
+    LightsOut --> RedLights[Lights Come On RED<br/>Captain: 'Here we go']
+    
+    RedLights --> ViabilityCheck{Viability State<br/>Evaluation}
+    
+    ViabilityCheck -->|High: 3+ Signals Met<br/>Empathy + Commitment Strong| Ending2[ENDING 2: Hero Ending<br/>Both Survive<br/>Heavy Shake, Bubbles<br/>Dark → Light → White]
+    
+    ViabilityCheck -->|Low: Insufficient Signals<br/>Mockery/Deflection Present| Ending3[ENDING 3: Failure<br/>Both Die<br/>No Shake, Falling Sensation<br/>Dark → Darker → Black]
+    
+    Ending1 --> AIReflect1[AI Generates Reflection<br/>Based on Conversation Style]
+    Ending2 --> AIReflect2[AI Generates Reflection<br/>Based on Conversation Style]
+    Ending3 --> AIReflect3[AI Generates Reflection<br/>Based on Conversation Style]
+    
+    AIReflect1 --> EndSlate1[End Slate:<br/>'HE DIDN'T MAKE IT, YOU DID'<br/>+ Reflection<br/>PLAY AGAIN]
+    AIReflect2 --> EndSlate2[End Slate:<br/>'YOU BOTH MADE IT'<br/>+ Reflection<br/>PLAY AGAIN]
+    AIReflect3 --> EndSlate3[End Slate:<br/>'NEITHER OF YOU MADE IT'<br/>+ Reflection<br/>PLAY AGAIN]
+    
+    EndSlate1 --> End([Experience End])
+    EndSlate2 --> End
+    EndSlate3 --> End
+    
+    style Start fill:#4CAF50
+    style End fill:#f44336
+    style Ending1 fill:#FF9800
+    style Ending2 fill:#4CAF50
+    style Ending3 fill:#f44336
+    style ViabilityCheck fill:#2196F3
+    style PassGate fill:#4CAF50
+    style FailGate fill:#f44336

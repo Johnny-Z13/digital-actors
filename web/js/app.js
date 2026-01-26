@@ -2,15 +2,23 @@ import { CharacterScene } from './scene.js';
 import { SubmarineScene } from './submarine_scene.js';
 import { DetectiveScene } from './detective_scene.js';
 import { MerlinsRoomScene } from './merlins_room_scene.js';
+import { LifeRaftScene } from './life_raft_scene.js';
+import { WelcomeScene } from './welcome_scene.js';
 
 class ChatApp {
     constructor() {
         this.ws = null;
         this.scene = null;
-        this.sceneType = 'character'; // 'character' or 'submarine'
-        this.currentCharacter = 'eliza';
-        this.currentScene = 'introduction';
+        this.sceneType = 'welcome'; // Scene type for 3D environment
+        this.currentCharacter = 'clippy';
+        this.currentScene = 'welcome';
         this.isConnected = false;
+
+        // Configuration - loaded from server (single source of truth)
+        this.config = null;
+        this.sceneCharacterMap = {};
+        this.characterSceneMap = {};
+        this.customScenes = [];
 
         // Message queue for delivering one message at a time
         this.messageQueue = [];
@@ -44,10 +52,16 @@ class ChatApp {
         // TEXT-FIRST: Track pending responses waiting for audio
         this.pendingAudioResponses = new Map(); // response_id -> {element, characterName, content}
 
+        // Suggested questions state
+        this.currentSuggestions = [];
+
         this.init();
     }
 
-    init() {
+    async init() {
+        // Load configuration from server (single source of truth)
+        await this.loadConfig();
+
         // Initialize Three.js scene
         const sceneContainer = document.getElementById('scene-container');
         this.createScene(sceneContainer, this.currentScene);
@@ -64,14 +78,105 @@ class ChatApp {
         }, 1000);
     }
 
+    async loadConfig() {
+        /**
+         * Load scene configuration from server.
+         * This is the single source of truth for scene↔character mappings.
+         */
+        try {
+            const response = await fetch('/api/config');
+            if (!response.ok) {
+                throw new Error(`Config fetch failed: ${response.status}`);
+            }
+            this.config = await response.json();
+
+            // Build lookup maps from config
+            this.sceneCharacterMap = {};
+            this.characterSceneMap = {};
+            this.customScenes = [];
+
+            for (const [sceneId, sceneConfig] of Object.entries(this.config.scenes)) {
+                // scene -> character
+                this.sceneCharacterMap[sceneId] = sceneConfig.character;
+
+                // character -> scene (first occurrence wins for characters in multiple scenes)
+                if (!this.characterSceneMap[sceneConfig.character]) {
+                    this.characterSceneMap[sceneConfig.character] = sceneId;
+                }
+
+                // Track custom scenes
+                if (sceneConfig.requiresCustomScene) {
+                    this.customScenes.push(sceneId);
+                }
+            }
+
+            // Add character aliases
+            if (this.config.characterAliases) {
+                for (const [alias, canonical] of Object.entries(this.config.characterAliases)) {
+                    if (this.characterSceneMap[canonical]) {
+                        this.characterSceneMap[alias] = this.characterSceneMap[canonical];
+                    }
+                }
+            }
+
+            console.log('[CONFIG] Loaded scene mappings:', {
+                scenes: Object.keys(this.sceneCharacterMap),
+                characters: Object.keys(this.characterSceneMap),
+                customScenes: this.customScenes
+            });
+
+        } catch (error) {
+            console.error('[CONFIG] Failed to load config, using fallback:', error);
+            // Fallback mappings if server unavailable
+            this.sceneCharacterMap = {
+                'welcome': 'clippy',
+                'submarine': 'engineer',
+                'iconic_detectives': 'mara_vane',
+                'life_raft': 'captain_hale',
+                'crown_court': 'judge',
+                'quest': 'wizard',
+                'introduction': 'eliza',
+                'conversation': 'eliza',
+            };
+            this.characterSceneMap = {
+                'clippy': 'welcome',
+                'engineer': 'submarine',
+                'mara_vane': 'iconic_detectives',
+                'captain_hale': 'life_raft',
+                'judge': 'crown_court',
+                'wizard': 'quest',
+                'eliza': 'introduction',
+                'detective': 'iconic_detectives',
+            };
+            this.customScenes = ['welcome', 'submarine', 'iconic_detectives', 'merlins_room', 'life_raft'];
+        }
+    }
+
     createScene(container, sceneId) {
-        // Clear existing scene
-        if (this.scene && this.scene.renderer) {
-            container.removeChild(this.scene.renderer.domElement);
+        // Clean up existing scene using dispose() (preferred) or destroy() (fallback)
+        if (this.scene) {
+            if (typeof this.scene.dispose === 'function') {
+                this.scene.dispose();
+            } else if (typeof this.scene.destroy === 'function') {
+                this.scene.destroy();
+            }
+            // Remove renderer element if dispose didn't (fallback for legacy code)
+            if (this.scene.renderer && this.scene.renderer.domElement && this.scene.renderer.domElement.parentNode) {
+                this.scene.renderer.domElement.parentNode.removeChild(this.scene.renderer.domElement);
+            }
+        }
+
+        // Remove any lingering welcome overlay
+        const existingOverlay = document.getElementById('welcome-overlay');
+        if (existingOverlay) {
+            existingOverlay.remove();
         }
 
         // Create appropriate scene based on scene ID
-        if (sceneId === 'submarine') {
+        if (sceneId === 'welcome') {
+            this.sceneType = 'welcome';
+            this.scene = new WelcomeScene(container, (action) => this.handleButtonClick(action));
+        } else if (sceneId === 'submarine') {
             this.sceneType = 'submarine';
             this.scene = new SubmarineScene(container, (action) => this.handleButtonClick(action));
         } else if (sceneId === 'iconic_detectives') {
@@ -80,6 +185,9 @@ class ChatApp {
         } else if (sceneId === 'merlins_room') {
             this.sceneType = 'merlins_room';
             this.scene = new MerlinsRoomScene(container, (action) => this.handleButtonClick(action));
+        } else if (sceneId === 'life_raft') {
+            this.sceneType = 'life_raft';
+            this.scene = new LifeRaftScene(container, (action) => this.handleButtonClick(action));
         } else {
             this.sceneType = 'character';
             this.scene = new CharacterScene(container);
@@ -135,13 +243,25 @@ class ChatApp {
         // Setup chat window drag and resize
         this.setupChatDragResize();
 
-        // Character selection
+        // === SCENE ↔ CHARACTER MAPPINGS (loaded from server config) ===
+        // Character selection - auto-select matching scene
         const characterSelect = document.getElementById('character-select');
         characterSelect.addEventListener('change', (e) => {
-            this.changeCharacter(e.target.value);
+            const newChar = e.target.value;
+            // Auto-select the matching scene
+            if (this.characterSceneMap[newChar]) {
+                const matchingScene = this.characterSceneMap[newChar];
+                const sceneSelect = document.getElementById('scene-select');
+                if (sceneSelect.value !== matchingScene) {
+                    console.log(`[CONFIG] Auto-selecting scene ${matchingScene} for character ${newChar}`);
+                    sceneSelect.value = matchingScene;
+                    this.currentScene = matchingScene;
+                }
+            }
+            this.changeCharacter(newChar);
         });
 
-        // Scene selection
+        // Scene selection - auto-select matching character
         const sceneSelect = document.getElementById('scene-select');
         sceneSelect.addEventListener('change', (e) => {
             const newScene = e.target.value;
@@ -149,19 +269,41 @@ class ChatApp {
                 const oldScene = this.currentScene;
                 this.currentScene = newScene;
 
+                // Auto-select the matching character and update UI
+                if (this.sceneCharacterMap[newScene]) {
+                    const matchingChar = this.sceneCharacterMap[newScene];
+                    const characterSelect = document.getElementById('character-select');
+                    if (characterSelect.value !== matchingChar) {
+                        console.log(`[CONFIG] Auto-selecting character ${matchingChar} for scene ${newScene}`);
+                        characterSelect.value = matchingChar;
+                        this.currentCharacter = matchingChar;
+                        // Update UI display without sending config or system message
+                        this.updateCharacterDisplay(matchingChar);
+                    }
+                }
+
                 // Reset voice effect when changing scenes (will be set by opening_speech)
                 this.voiceEffect = null;
                 this.stopPhoneNoise();
 
-                // Scenes that need custom 3D environments
-                const customScenes = ['submarine', 'iconic_detectives', 'merlins_room'];
-                const needsSceneRecreate = customScenes.includes(newScene) || customScenes.includes(oldScene);
+                // Check if scene needs custom 3D environment (from config)
+                const needsSceneRecreate = this.customScenes.includes(newScene) || this.customScenes.includes(oldScene);
                 if (needsSceneRecreate) {
                     const sceneContainer = document.getElementById('scene-container');
                     this.createScene(sceneContainer, newScene);
                 }
             }
         });
+
+        // TTS mode selection (expressive vs fast)
+        const ttsModeSelect = document.getElementById('tts-mode-select');
+        if (ttsModeSelect) {
+            ttsModeSelect.addEventListener('change', (e) => {
+                console.log('[TTS_MODE] Changed to:', e.target.value);
+                // Send updated config to server
+                this.sendTtsMode(e.target.value);
+            });
+        }
 
         // Restart button
         const restartButton = document.getElementById('restart-button');
@@ -331,10 +473,23 @@ class ChatApp {
     sendConfig() {
         if (!this.isConnected) return;
 
+        const ttsModeSelect = document.getElementById('tts-mode-select');
+        const ttsMode = ttsModeSelect ? ttsModeSelect.value : 'expressive';
+
         this.ws.send(JSON.stringify({
             type: 'config',
             character: this.currentCharacter,
-            scene: this.currentScene
+            scene: this.currentScene,
+            tts_mode: ttsMode
+        }));
+    }
+
+    sendTtsMode(mode) {
+        if (!this.isConnected) return;
+
+        this.ws.send(JSON.stringify({
+            type: 'tts_mode',
+            mode: mode
         }));
     }
 
@@ -343,6 +498,9 @@ class ChatApp {
         const message = input.value.trim();
 
         if (!message || !this.isConnected) return;
+
+        // Clear suggestions when sending a message
+        this.clearSuggestedQuestions();
 
         // Add user message to chat
         this.addMessage('You', message, 'user');
@@ -404,6 +562,11 @@ class ChatApp {
                 }
                 break;
 
+            case 'available_options':
+                // Populate character and scene dropdowns dynamically from server
+                this.populateMenus(data.characters, data.scenes, data.current_character, data.current_scene);
+                break;
+
             case 'state_change':
                 console.log('State changed:', data.changes);
                 break;
@@ -428,6 +591,21 @@ class ChatApp {
                         this.scene.setSystemsRepaired(data.state.systems_repaired);
                     }
                     // Sync phase with server
+                    if (data.state.phase !== undefined) {
+                        this.scene.setPhase(data.state.phase);
+                    }
+                }
+                // Handle life_raft scene state updates
+                if (data.state && this.sceneType === 'life_raft' && this.scene) {
+                    if (data.state.player_oxygen !== undefined) {
+                        this.scene.setPlayerOxygen(data.state.player_oxygen);
+                    }
+                    if (data.state.captain_oxygen !== undefined) {
+                        this.scene.setCaptainOxygen(data.state.captain_oxygen);
+                    }
+                    if (data.state.hull_integrity !== undefined) {
+                        this.scene.setHullIntegrity(data.state.hull_integrity);
+                    }
                     if (data.state.phase !== undefined) {
                         this.scene.setPhase(data.state.phase);
                     }
@@ -461,7 +639,12 @@ class ChatApp {
                     sendButton.disabled = true;
                     chatInput.placeholder = 'Please wait...';
                     chatInput.classList.remove('pulse');
+                    this.clearSuggestedQuestions(); // Hide suggestions during opening
                     console.log('[SYNC] Input disabled during opening speech');
+                }
+                // If no lines (like Welcome scene), show initial suggestions
+                if (data.lines.length === 0 && data.initial_suggestions) {
+                    this.updateSuggestedQuestions(data.initial_suggestions);
                 }
                 this.queueOpeningLines(data.lines, data.character_name || 'Character');
                 break;
@@ -483,11 +666,13 @@ class ChatApp {
                 const thinkingInput = document.getElementById('chat-input');
                 thinkingInput.placeholder = 'Please wait...';
                 thinkingInput.classList.remove('pulse');
+                this.clearSuggestedQuestions(); // Hide suggestions while waiting
                 this.showTypingIndicator(data.character_name);
                 break;
 
             case 'game_over':
                 // Game over screen
+                this.clearSuggestedQuestions();
                 this.showGameOverScreen(data.outcome);
                 break;
 
@@ -499,6 +684,12 @@ class ChatApp {
             case 'system_notification':
                 // Button press or action notification
                 this.addSystemMessage(data.message);
+                break;
+
+            case 'stop_audio':
+                // === DEATH/GAME OVER: Stop ALL audio and clear queues ===
+                console.log('[STOP_AUDIO] Received stop signal:', data.reason);
+                this.stopAllAudioAndQueues();
                 break;
 
             default:
@@ -656,12 +847,16 @@ class ChatApp {
         // Stop any playing audio
         this.stopAudio();
 
-        // Send restart message to server
+        // Send restart message to server (include TTS mode)
         if (this.isConnected) {
+            const ttsModeSelect = document.getElementById('tts-mode-select');
+            const ttsMode = ttsModeSelect ? ttsModeSelect.value : 'expressive';
+
             this.ws.send(JSON.stringify({
                 type: 'restart',
                 character: this.currentCharacter,
-                scene: this.currentScene
+                scene: this.currentScene,
+                tts_mode: ttsMode
             }));
         }
 
@@ -764,6 +959,7 @@ class ChatApp {
         const characterName = data.character_name || 'Character';
         const content = data.content;
         const responseId = data.response_id;
+        const suggestions = data.suggested_questions || [];
 
         console.log('[TEXT-FIRST] Displaying text immediately:', content.substring(0, 50) + '...');
 
@@ -805,6 +1001,73 @@ class ChatApp {
                 // If not, we'll play it when it arrives
             }
         });
+
+        // Update suggested questions (if input is enabled)
+        const chatInput = document.getElementById('chat-input');
+        if (!chatInput.disabled && suggestions.length > 0) {
+            this.updateSuggestedQuestions(suggestions);
+        }
+    }
+
+    /**
+     * Update the suggested questions UI
+     * @param {string[]} suggestions - Array of suggestion strings
+     */
+    updateSuggestedQuestions(suggestions) {
+        const container = document.getElementById('suggested-questions');
+        if (!container) return;
+
+        // Clear existing buttons
+        container.innerHTML = '';
+        this.currentSuggestions = suggestions;
+
+        if (suggestions.length === 0) {
+            container.classList.add('hidden');
+            return;
+        }
+
+        // Create buttons for each suggestion
+        suggestions.forEach((suggestion, index) => {
+            const btn = document.createElement('button');
+            btn.className = 'suggestion-btn';
+            btn.textContent = suggestion;
+            btn.setAttribute('aria-label', `Suggestion: ${suggestion}`);
+            btn.addEventListener('click', () => this.handleSuggestionClick(suggestion));
+            container.appendChild(btn);
+        });
+
+        container.classList.remove('hidden');
+        console.log('[SUGGESTIONS] Displayed', suggestions.length, 'suggestions');
+    }
+
+    /**
+     * Handle click on a suggestion button
+     * @param {string} suggestion - The suggestion text to send
+     */
+    handleSuggestionClick(suggestion) {
+        console.log('[SUGGESTIONS] User clicked:', suggestion);
+
+        // Clear suggestions immediately
+        this.clearSuggestedQuestions();
+
+        // Put the suggestion in the input field and send
+        const chatInput = document.getElementById('chat-input');
+        chatInput.value = suggestion;
+
+        // Send the message
+        this.sendMessage();
+    }
+
+    /**
+     * Clear all suggested questions
+     */
+    clearSuggestedQuestions() {
+        const container = document.getElementById('suggested-questions');
+        if (container) {
+            container.innerHTML = '';
+            container.classList.add('hidden');
+        }
+        this.currentSuggestions = [];
     }
 
     /**
@@ -913,6 +1176,61 @@ class ChatApp {
             this.currentAudio = null;
         }
         this.audioCallback = null;
+    }
+
+    /**
+     * DEATH/GAME OVER: Stop ALL audio and clear ALL queues
+     * Called when character dies - ensures no more dialogue plays
+     */
+    stopAllAudioAndQueues() {
+        console.log('[DEATH] Stopping all audio and clearing all queues');
+
+        // 1. Stop any currently playing audio
+        this.stopAudio();
+
+        // 2. Clear message queue
+        this.messageQueue = [];
+        this.isProcessingQueue = false;
+        this.currentTypingMessage = null;
+
+        // 3. Clear audio queue
+        this.audioQueue = [];
+
+        // 4. Clear pending audio responses (TEXT-FIRST system)
+        this.pendingAudioResponses.clear();
+
+        // 5. Clear pending responses
+        this.pendingResponses = [];
+        this.dialogueLocked = false;
+
+        // 6. Hide typing indicator
+        this.hideTypingIndicator();
+
+        // 7. Clear waiting indicator
+        if (this.waitingInterval) {
+            clearInterval(this.waitingInterval);
+            this.waitingInterval = null;
+        }
+        this.waitingDots = 0;
+
+        // 8. Clear suggested questions
+        this.clearSuggestedQuestions();
+
+        // 9. Stop any radio static/noise effects
+        if (this.staticNoise) {
+            try {
+                this.staticNoise.stop();
+            } catch (e) {}
+            this.staticNoise = null;
+        }
+        if (this.phoneNoiseSource) {
+            try {
+                this.phoneNoiseSource.stop();
+            } catch (e) {}
+            this.phoneNoiseSource = null;
+        }
+
+        console.log('[DEATH] All audio and queues cleared - silence');
     }
 
     /**
@@ -1686,52 +2004,71 @@ class ChatApp {
         }
     }
 
-    changeCharacter(characterId) {
-        this.currentCharacter = characterId;
-
-        // Update UI
+    /**
+     * Update character display in the UI without side effects.
+     * Called when character changes due to scene selection.
+     */
+    updateCharacterDisplay(characterId) {
         const characterNames = {
+            'clippy': 'Clippy',
             'eliza': 'Eliza',
             'wizard': 'Merlin',
             'detective': 'Detective Stone',
             'engineer': 'Lt. Cmdr. James Kovich',
             'judge': 'Judge Harriet Thorne',
             'mara_vane': 'Mara Vane',
+            'captain_hale': 'Captain Hale',
             'custom': 'Custom Character'
         };
 
         const characterDescriptions = {
+            'clippy': 'Your Friendly Guide',
             'eliza': 'AI Caretaker',
             'wizard': 'Wise Wizard',
             'detective': 'Hard-boiled Detective',
             'engineer': 'Sub Commander',
             'judge': 'Crown Court Judge',
             'mara_vane': 'Mysterious Caller',
+            'captain_hale': 'Life Raft Commander',
             'custom': 'Custom Character'
         };
 
         const characterColors = {
+            'clippy': 0x7B7B7B,
             'eliza': 0x4fc3f7,
             'wizard': 0x9c27b0,
             'detective': 0x795548,
             'engineer': 0xff6b35,
             'judge': 0x8b4513,
             'mara_vane': 0x6b4423,
+            'captain_hale': 0x2a5a8a,
             'custom': 0x4caf50
         };
 
-        document.getElementById('character-name').textContent = characterNames[characterId];
-        document.getElementById('character-description').textContent = characterDescriptions[characterId];
+        const name = characterNames[characterId] || characterId;
+        const desc = characterDescriptions[characterId] || '';
+
+        document.getElementById('character-name').textContent = name;
+        document.getElementById('character-description').textContent = desc;
 
         // Update 3D character appearance (only for character scenes)
-        if (this.sceneType === 'character' && this.scene.updateCharacter) {
+        if (this.sceneType === 'character' && this.scene && this.scene.updateCharacter) {
             this.scene.updateCharacter({ color: characterColors[characterId] });
         }
+
+        return { name, description: desc };
+    }
+
+    changeCharacter(characterId) {
+        this.currentCharacter = characterId;
+
+        // Update UI
+        const { name } = this.updateCharacterDisplay(characterId);
 
         // Send config to server
         this.sendConfig();
 
-        this.addSystemMessage(`Switched to ${characterNames[characterId]}`);
+        this.addSystemMessage(`Switched to ${name}`);
     }
 
     restartConversation() {
@@ -1742,26 +2079,96 @@ class ChatApp {
         const messagesContainer = document.getElementById('chat-messages');
         messagesContainer.innerHTML = '';
 
-        // Clear detective dialogue buttons
+        // Clear detective dialogue buttons and suggestions
         this.clearDetectiveDialogueButtons();
+        this.clearSuggestedQuestions();
+
+        // Reset voice effect for new scene
+        this.voiceEffect = null;
+        this.stopPhoneNoise();
 
         // Recreate the scene if it's a custom 3D scene
-        const customScenes = ['submarine', 'iconic_detectives', 'merlins_room'];
+        const customScenes = ['welcome', 'submarine', 'iconic_detectives', 'merlins_room', 'life_raft'];
         if (customScenes.includes(this.currentScene)) {
             const sceneContainer = document.getElementById('scene-container');
             this.createScene(sceneContainer, this.currentScene);
         }
 
-        // Send restart message to server
+        // Send restart message to server (include TTS mode)
         if (this.isConnected) {
+            const ttsModeSelect = document.getElementById('tts-mode-select');
+            const ttsMode = ttsModeSelect ? ttsModeSelect.value : 'expressive';
+
             this.ws.send(JSON.stringify({
                 type: 'restart',
                 character: this.currentCharacter,
-                scene: this.currentScene
+                scene: this.currentScene,
+                tts_mode: ttsMode
             }));
         }
 
         this.addSystemMessage('Conversation restarted. The character is ready to talk!');
+    }
+
+    // ==================== Dynamic Menu Population ====================
+
+    /**
+     * Populate character and scene dropdowns from server data
+     */
+    populateMenus(characters, scenes, currentCharacter, currentScene) {
+        console.log('[MENUS] Populating menus with', characters.length, 'characters and', scenes.length, 'scenes');
+
+        // Populate character dropdown
+        const characterSelect = document.getElementById('character-select');
+        if (characterSelect) {
+            characterSelect.innerHTML = '';
+            characters.forEach(char => {
+                const option = document.createElement('option');
+                option.value = char.id;
+                option.textContent = `${char.name} — ${char.description}`;
+                if (char.id === currentCharacter) {
+                    option.selected = true;
+                }
+                characterSelect.appendChild(option);
+            });
+        }
+
+        // Populate scene dropdown
+        const sceneSelect = document.getElementById('scene-select');
+        if (sceneSelect) {
+            sceneSelect.innerHTML = '';
+            scenes.forEach(scene => {
+                const option = document.createElement('option');
+                option.value = scene.id;
+                option.textContent = `${scene.name}`;
+                if (scene.id === currentScene) {
+                    option.selected = true;
+                }
+                sceneSelect.appendChild(option);
+            });
+        }
+
+        // Update current state
+        this.currentCharacter = currentCharacter;
+        this.currentScene = currentScene;
+
+        // Update header with current character info
+        const selectedChar = characters.find(c => c.id === currentCharacter);
+        if (selectedChar) {
+            const charNameEl = document.getElementById('character-name');
+            const charDescEl = document.getElementById('character-description');
+            if (charNameEl) charNameEl.textContent = selectedChar.name;
+            if (charDescEl) charDescEl.textContent = selectedChar.description;
+        }
+
+        // Update scene display
+        const selectedScene = scenes.find(s => s.id === currentScene);
+        if (selectedScene) {
+            const sceneEl = document.getElementById('current-scene');
+            if (sceneEl) sceneEl.textContent = selectedScene.name;
+        }
+
+        console.log('[MENUS] Current character:', currentCharacter, 'Current scene:', currentScene);
     }
 
     // ==================== Detective Scene UI ====================
