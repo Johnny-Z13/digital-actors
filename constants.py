@@ -106,3 +106,19 @@ DEFAULT_SERVER_PORT: Final[int] = 8080
 # Scene Hint Thresholds
 # =============================================================================
 HINT_SCENE_ATTEMPTS_THRESHOLD: Final[int] = 2  # Failed this many times before hints
+
+# =============================================================================
+# Query System Configuration
+# =============================================================================
+QUERY_CACHE_MAX_SIZE: Final[int] = 500  # Max cached query results
+
+# =============================================================================
+# RAG Facts Configuration
+# =============================================================================
+RAG_TOP_K_DEFAULT: Final[int] = 3  # Default number of facts to retrieve
+RAG_SIMILARITY_THRESHOLD: Final[float] = 0.3  # Minimum similarity for inclusion
+
+# =============================================================================
+# Post-Speak Hooks Configuration
+# =============================================================================
+POST_SPEAK_HOOK_TIMEOUT: Final[float] = 2.0  # Max time per hook in seconds

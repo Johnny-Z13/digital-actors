@@ -54,6 +54,7 @@ class ChatApp {
 
         // Suggested questions state
         this.currentSuggestions = [];
+        this.suggestionsEnabled = true; // Toggle for reply suggestions feature
 
         this.init();
     }
@@ -243,25 +244,7 @@ class ChatApp {
         // Setup chat window drag and resize
         this.setupChatDragResize();
 
-        // === SCENE ↔ CHARACTER MAPPINGS (loaded from server config) ===
-        // Character selection - auto-select matching scene
-        const characterSelect = document.getElementById('character-select');
-        characterSelect.addEventListener('change', (e) => {
-            const newChar = e.target.value;
-            // Auto-select the matching scene
-            if (this.characterSceneMap[newChar]) {
-                const matchingScene = this.characterSceneMap[newChar];
-                const sceneSelect = document.getElementById('scene-select');
-                if (sceneSelect.value !== matchingScene) {
-                    console.log(`[CONFIG] Auto-selecting scene ${matchingScene} for character ${newChar}`);
-                    sceneSelect.value = matchingScene;
-                    this.currentScene = matchingScene;
-                }
-            }
-            this.changeCharacter(newChar);
-        });
-
-        // Scene selection - auto-select matching character
+        // === SCENARIO SELECTION (scene is master, character follows) ===
         const sceneSelect = document.getElementById('scene-select');
         sceneSelect.addEventListener('change', (e) => {
             const newScene = e.target.value;
@@ -269,17 +252,15 @@ class ChatApp {
                 const oldScene = this.currentScene;
                 this.currentScene = newScene;
 
-                // Auto-select the matching character and update UI
+                // Update scenario info display (actor + tagline)
+                this.updateScenarioInfo(newScene);
+
+                // Set the matching character internally
                 if (this.sceneCharacterMap[newScene]) {
                     const matchingChar = this.sceneCharacterMap[newScene];
-                    const characterSelect = document.getElementById('character-select');
-                    if (characterSelect.value !== matchingChar) {
-                        console.log(`[CONFIG] Auto-selecting character ${matchingChar} for scene ${newScene}`);
-                        characterSelect.value = matchingChar;
-                        this.currentCharacter = matchingChar;
-                        // Update UI display without sending config or system message
-                        this.updateCharacterDisplay(matchingChar);
-                    }
+                    console.log(`[CONFIG] Scene ${newScene} -> Character ${matchingChar}`);
+                    this.currentCharacter = matchingChar;
+                    this.updateCharacterDisplay(matchingChar);
                 }
 
                 // Reset voice effect when changing scenes (will be set by opening_speech)
@@ -302,6 +283,22 @@ class ChatApp {
                 console.log('[TTS_MODE] Changed to:', e.target.value);
                 // Send updated config to server
                 this.sendTtsMode(e.target.value);
+            });
+        }
+
+        // Reply suggestions toggle
+        const suggestionsToggle = document.getElementById('suggestions-toggle');
+        if (suggestionsToggle) {
+            suggestionsToggle.addEventListener('change', (e) => {
+                this.suggestionsEnabled = e.target.checked;
+                console.log('[SUGGESTIONS] Toggle:', this.suggestionsEnabled ? 'ON' : 'OFF');
+                if (!this.suggestionsEnabled) {
+                    // Hide but preserve stored suggestions for re-enable
+                    this.hideSuggestedQuestions();
+                } else if (this.currentSuggestions && this.currentSuggestions.length > 0) {
+                    // Re-display stored suggestions when toggled back on
+                    this.updateSuggestedQuestions(this.currentSuggestions);
+                }
             });
         }
 
@@ -545,20 +542,17 @@ class ChatApp {
                 break;
 
             case 'config_confirmed':
-                // Server confirmed configuration (may have auto-selected character)
+                // Server confirmed configuration (may have auto-selected character for scene)
                 if (data.character !== this.currentCharacter) {
                     console.log(`Character auto-selected: ${data.character} (${data.character_name})`);
                     this.currentCharacter = data.character;
-                    // Update dropdown to reflect auto-selection
-                    const characterSelect = document.getElementById('character-select');
-                    if (characterSelect) {
-                        characterSelect.value = data.character;
-                    }
                     // Update UI elements
                     const charNameEl = document.getElementById('character-name');
                     if (charNameEl) {
                         charNameEl.textContent = data.character_name;
                     }
+                    // Update scenario info display
+                    this.updateScenarioInfo(this.currentScene);
                 }
                 break;
 
@@ -1017,6 +1011,13 @@ class ChatApp {
         const container = document.getElementById('suggested-questions');
         if (!container) return;
 
+        // Check if suggestions are enabled (global toggle)
+        if (!this.suggestionsEnabled) {
+            container.innerHTML = '';
+            container.classList.add('hidden');
+            return;
+        }
+
         // Clear existing buttons
         container.innerHTML = '';
         this.currentSuggestions = suggestions;
@@ -1059,7 +1060,7 @@ class ChatApp {
     }
 
     /**
-     * Clear all suggested questions
+     * Clear all suggested questions (clears stored suggestions too)
      */
     clearSuggestedQuestions() {
         const container = document.getElementById('suggested-questions');
@@ -1068,6 +1069,19 @@ class ChatApp {
             container.classList.add('hidden');
         }
         this.currentSuggestions = [];
+    }
+
+    /**
+     * Hide suggested questions without clearing stored state
+     * Used when temporarily hiding (e.g., toggle off) but may restore later
+     */
+    hideSuggestedQuestions() {
+        const container = document.getElementById('suggested-questions');
+        if (container) {
+            container.innerHTML = '';
+            container.classList.add('hidden');
+        }
+        // Note: does NOT clear this.currentSuggestions
     }
 
     /**
@@ -2059,6 +2073,29 @@ class ChatApp {
         return { name, description: desc };
     }
 
+    /**
+     * Update the scenario info display (actor name + tagline).
+     * Called when scenario selection changes.
+     */
+    updateScenarioInfo(sceneId) {
+        const actorNameEl = document.getElementById('scenario-actor-name');
+        const taglineEl = document.getElementById('scenario-tagline');
+
+        if (!actorNameEl || !taglineEl) return;
+
+        // Get scene config from loaded config
+        const sceneConfig = this.config?.scenes?.[sceneId];
+
+        if (sceneConfig) {
+            actorNameEl.textContent = sceneConfig.characterName || sceneConfig.character || '—';
+            taglineEl.textContent = sceneConfig.tagline || 'No description available';
+            console.log(`[SCENARIO] Updated info: ${sceneConfig.characterName} - ${sceneConfig.tagline?.substring(0, 50)}...`);
+        } else {
+            actorNameEl.textContent = '—';
+            taglineEl.textContent = 'Select a scenario above';
+        }
+    }
+
     changeCharacter(characterId) {
         this.currentCharacter = characterId;
 
@@ -2113,34 +2150,20 @@ class ChatApp {
     // ==================== Dynamic Menu Population ====================
 
     /**
-     * Populate character and scene dropdowns from server data
+     * Populate scenario dropdown from server data.
+     * Scenario is the master selection; character follows automatically.
      */
     populateMenus(characters, scenes, currentCharacter, currentScene) {
-        console.log('[MENUS] Populating menus with', characters.length, 'characters and', scenes.length, 'scenes');
+        console.log('[MENUS] Populating scenario menu with', scenes.length, 'scenarios');
 
-        // Populate character dropdown
-        const characterSelect = document.getElementById('character-select');
-        if (characterSelect) {
-            characterSelect.innerHTML = '';
-            characters.forEach(char => {
-                const option = document.createElement('option');
-                option.value = char.id;
-                option.textContent = `${char.name} — ${char.description}`;
-                if (char.id === currentCharacter) {
-                    option.selected = true;
-                }
-                characterSelect.appendChild(option);
-            });
-        }
-
-        // Populate scene dropdown
+        // Populate scenario (scene) dropdown
         const sceneSelect = document.getElementById('scene-select');
         if (sceneSelect) {
             sceneSelect.innerHTML = '';
             scenes.forEach(scene => {
                 const option = document.createElement('option');
                 option.value = scene.id;
-                option.textContent = `${scene.name}`;
+                option.textContent = scene.name;
                 if (scene.id === currentScene) {
                     option.selected = true;
                 }
@@ -2151,6 +2174,9 @@ class ChatApp {
         // Update current state
         this.currentCharacter = currentCharacter;
         this.currentScene = currentScene;
+
+        // Update scenario info display (actor + tagline)
+        this.updateScenarioInfo(currentScene);
 
         // Update header with current character info
         const selectedChar = characters.find(c => c.id === currentCharacter);
@@ -2168,7 +2194,7 @@ class ChatApp {
             if (sceneEl) sceneEl.textContent = selectedScene.name;
         }
 
-        console.log('[MENUS] Current character:', currentCharacter, 'Current scene:', currentScene);
+        console.log('[MENUS] Current scenario:', currentScene, '-> Character:', currentCharacter);
     }
 
     // ==================== Detective Scene UI ====================

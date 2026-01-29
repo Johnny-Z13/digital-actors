@@ -268,6 +268,8 @@ class Scene:
     time_limit: Optional[float] = None
     allow_freeform_dialogue: bool = True
     scene_constants: SceneConstants = field(default_factory=SceneConstants)
+    facts: List[str] = field(default_factory=list)  # RAG facts for this scene
+    hooks: List[Dict[str, Any]] = field(default_factory=list)  # Post-speak hook configs
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert scene to dictionary format for web_server.py compatibility."""
@@ -360,6 +362,8 @@ class Scene:
             ],
             'time_limit': self.time_limit,
             'allow_freeform_dialogue': self.allow_freeform_dialogue,
+            'facts': self.facts,
+            'hooks': self.hooks,
             'scene_constants': {
                 'interruption_oxygen_penalty': self.scene_constants.interruption_oxygen_penalty,
                 'interruption_trust_penalty': self.scene_constants.interruption_trust_penalty,

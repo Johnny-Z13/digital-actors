@@ -1,61 +1,77 @@
 {
-  "version": "1.0",
+  "version": "1.2",
   "description": "Single source of truth for scene-character mappings and scene configuration",
 
   "scenes": {
     "welcome": {
       "character": "clippy",
+      "characterName": "Clippy",
       "sceneClass": "WelcomeScene",
       "displayName": "Welcome",
+      "tagline": "Your guide to the Digital Actors experience. Learn the basics before diving in.",
       "requiresCustomScene": true,
       "category": "tutorial"
     },
     "submarine": {
       "character": "engineer",
+      "characterName": "Lt. Cmdr. James Kovich",
       "sceneClass": "SubmarineScene",
       "displayName": "Pressure Point",
+      "tagline": "Trapped in a sinking nuclear submarine. Radiation spreading. Your voice is all that stands between salvation and the deep.",
       "requiresCustomScene": true,
       "category": "survival"
     },
     "iconic_detectives": {
       "character": "mara_vane",
+      "characterName": "Mara Vane",
       "sceneClass": "DetectiveScene",
       "displayName": "Iconic Detectives",
+      "tagline": "A late-night call. A dead man. A key that opens something it shouldn't. Your string board holds the truth.",
       "requiresCustomScene": true,
       "category": "mystery"
     },
     "life_raft": {
       "character": "captain_hale",
+      "characterName": "Captain Hale",
       "sceneClass": "LifeRaftScene",
       "displayName": "Life Raft",
+      "tagline": "Your submersible is sinking. One seat on the rescue chopper. Earn survival through conversation, not choices.",
       "requiresCustomScene": true,
       "category": "survival"
     },
     "crown_court": {
       "character": "judge",
+      "characterName": "Judge Whitmore",
       "sceneClass": "CharacterScene",
       "displayName": "Crown Court",
+      "tagline": "The dock. The gavel. Your words are your only defence in this tense courtroom drama.",
       "requiresCustomScene": false,
       "category": "drama"
     },
     "quest": {
       "character": "wizard",
+      "characterName": "Merlin",
       "sceneClass": "MerlinsRoomScene",
       "displayName": "Merlin's Workshop",
+      "tagline": "A cluttered workshop of impossible things. Dusty tomes, bubbling potions, and secrets older than memory.",
       "requiresCustomScene": true,
       "category": "fantasy"
     },
     "introduction": {
       "character": "eliza",
+      "characterName": "Eliza",
       "sceneClass": "CharacterScene",
       "displayName": "Introduction",
+      "tagline": "A gentle first conversation. No stakes, no pressure. Just two minds meeting.",
       "requiresCustomScene": false,
       "category": "conversation"
     },
     "conversation": {
       "character": "eliza",
+      "characterName": "Eliza",
       "sceneClass": "CharacterScene",
       "displayName": "Conversation",
+      "tagline": "Free-form dialogue. Talk about anything—philosophy, dreams, the weather. She's listening.",
       "requiresCustomScene": false,
       "category": "conversation"
     }

@@ -47,6 +47,163 @@ Then open: **http://localhost:8080**
 
 ## Key Features
 
+### 🔍 Query System & RAG Facts (NEW)
+
+AI-powered scene intelligence for richer, more dynamic storytelling:
+
+#### Query System (`query_system.py`)
+LLM-based condition evaluation with caching and latching:
+
+```python
+# In a scene handler
+async def process_action(self, action, scene_state, ctx=None):
+    if ctx and action == "CHALLENGE":
+        # Query evaluates natural language conditions
+        has_evidence = await ctx.query(
+            ctx.dialogue_history,
+            "Player has caught the suspect in at least two contradictions",
+            latch=True  # Once True, stays True for session
+        )
+        if has_evidence:
+            ctx.trigger_event("confrontation_ready")
+```
+
+Features:
+- **Caching**: MD5-hashed results avoid redundant LLM calls
+- **Latching**: Once a condition is True, it stays True for the session
+- **Session isolation**: Latch state isolated per player session
+- **Fast evaluation**: Uses Claude Haiku with low temperature
+
+#### RAG Facts (`rag_facts.py`)
+Embedding-based fact retrieval for dense scene lore:
+
+```python
+# In scene definition (scenes/submarine.py)
+facts = [
+    "Lt. Commander James Kovich has a son named Adrian who is aboard.",
+    "The reactor uses a VM-5 pressurized water design.",
+    "Emergency ascent requires flooding the med bay compartment.",
+    ...
+]
+
+super().__init__(
+    id="submarine",
+    facts=facts,  # Automatically indexed at scene load
+    ...
+)
+```
+
+How it works:
+1. Facts are embedded at scene load using `all-MiniLM-L6-v2`
+2. When player asks about something, relevant facts are retrieved
+3. Retrieved facts are injected into the LLM prompt automatically
+4. Falls back to keyword matching if sentence-transformers unavailable
+
+#### Post-Speak Hooks (`scene_hooks.py`)
+Data-driven hooks that run after every NPC response:
+
+```python
+# In scene definition - declarative, no custom code needed
+from scene_hooks import create_standard_hooks
+
+hooks = create_standard_hooks(
+    slip_detection=True,           # Catch "when I..." reveals
+    emotional_tracking=True,        # Track bonding moments
+    name_mentions=["Adrian", "Mei"], # Track key names
+    custom_hooks=[
+        {
+            "name": "sacrifice_mentioned",
+            "query": "Speaker mentioned sacrifice or dying",
+            "latch": False,
+            "on_true": {
+                "state": {"emotional_bond": "+5"},
+                "event": "sacrifice_moment",
+            },
+        },
+    ]
+)
+
+super().__init__(
+    id="submarine",
+    hooks=hooks,  # Registered automatically
+    ...
+)
+```
+
+Standard hook patterns:
+- **slip_detection**: Catches verbal slips and contradictions
+- **emotional_tracking**: Tracks bonding/vulnerability moments
+- **name_mentions**: Tracks when specific names are mentioned
+- **location_mentions**: Tracks when specific places are mentioned
+
+Hook actions:
+- `state`: Update scene state (use `"+1"` for delta, `50` for absolute)
+- `event`: Trigger a named event (sent to frontend)
+- `milestone`: Record a milestone for phase progression
+
+#### Scene Context (`scene_context.py`)
+Unified API for scene authors:
+
+```python
+@dataclass
+class SceneContext:
+    async def query(text, condition, latch=False) -> bool
+    def get_relevant_facts(query, top_k=3) -> list[str]
+    def get_state(key, default=None) -> Any
+    def update_state(key, value) -> None
+    def trigger_event(event_name) -> None
+```
+
+Passed to `process_action` for handlers that need advanced features.
+
+### 💬 Contextual Reply Suggestions
+
+For players who prefer quick interactions over typing, the system generates **3 contextual reply options** after each NPC response. These appear as clickable buttons below the chat input.
+
+**How It Works:**
+
+1. After each NPC response, the system generates suggestions using Claude Haiku
+2. Suggestions are contextually aware of:
+   - Current scene type (survival/crisis vs narrative)
+   - Recent dialogue history
+   - Scene state and situation
+3. Players click a suggestion to send it as their response
+4. Suggestions clear when typing or during NPC speech
+
+**Example Flow:**
+```
+NPC: "The reactor pressure is climbing. We need to vent, but the
+     manual release is jammed. What do you want to try?"
+
+[Suggested Replies]
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│ Try the valve   │ │ Is there another│ │ How bad is it?  │
+│ manually        │ │ way?            │ │                 │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
+```
+
+**Configuration:**
+
+Suggestions are generated in `web_server.py` via `generate_suggested_questions()`:
+- **Timeout:** 2 seconds (falls back to defaults if LLM is slow)
+- **Scene defaults:** Welcome scene has static suggestions; others are dynamic
+- **Fallback options:** "What should I do?", "Tell me more", "I understand"
+
+**Toggle Setting:**
+
+Users can enable/disable reply suggestions via the Configuration panel:
+- **Reply Suggestions toggle** - ON by default
+- When disabled, suggestions are hidden globally across all scenes
+- Setting persists for the session (resets on page reload)
+
+**Design Notes:**
+- Suggestions use the fast Haiku model for low latency
+- They're generated in parallel with TTS synthesis
+- Disabled during opening speeches and game over states
+- Clicking a suggestion sends it immediately (no confirmation)
+
+This feature balances accessibility for casual players with the full typing experience for those who prefer deeper engagement.
+
 ### 🧠 Player Memory System
 
 Every player interaction is tracked and remembered:
@@ -145,14 +302,20 @@ digital-actors/
 │
 ├── scenes/                    # Scene definitions (data + structure)
 │   ├── base.py               # Base Scene, SceneControl, SceneConstants
-│   ├── submarine.py          # Submarine emergency scenario
-│   ├── iconic_detectives.py  # Murder mystery phone call
-│   ├── life_raft.py          # Submarine survival scenario
+│   ├── submarine.py          # Submarine emergency (with facts + hooks)
+│   ├── iconic_detectives.py  # Murder mystery (with facts + hooks)
+│   ├── life_raft.py          # Submarine survival (with facts + hooks)
 │   └── handlers/             # Scene-specific game logic (separated from data)
 │       ├── __init__.py       # Handler registry
-│       ├── base.py           # SceneHandler interface
+│       ├── base.py           # SceneHandler interface + post_speak
 │       ├── life_raft_handler.py       # Life Raft button actions
 │       └── iconic_detectives_handler.py  # Detective pin reactions
+│
+├── query_system.py           # LLM-based condition evaluation with caching
+├── rag_facts.py              # Embedding-based fact retrieval
+├── post_speak_hooks.py       # Post-response hook execution
+├── scene_hooks.py            # Data-driven hook configuration
+├── scene_context.py          # Unified API for scene authors
 │
 ├── llm_prompt_core/          # Generic LLM dialogue framework
 │   ├── models/               # Claude, OpenAI, Gemini wrappers
@@ -173,15 +336,115 @@ digital-actors/
 │
 ├── data/                     # Runtime data
 │   └── player_memory.db      # SQLite player database
-├── docs/                     # Documentation
+│
+├── docs/                     # System documentation
 │   ├── PLAYER_MEMORY_SYSTEM.md
 │   ├── WORLD_DIRECTOR_SYSTEM.md
 │   ├── INTERRUPTION_SYSTEM.md
-│   └── UPDATE_SUMMARY.md
+│   └── SCENE_ARCHITECTURE.md
+│
+├── documents/                # Design documents & specs
+│   ├── Digital-Actors-DESIGN_DOCUMENT.md
+│   ├── life-raft.md
+│   ├── Pressure-Point.md
+│   └── ...
+│
+├── archive/                  # Historical implementation notes (reference only)
+│
 ├── .env                      # API keys (not in git)
 ├── requirements.txt
 └── start-web.sh             # Launch script
 ```
+
+## Configuration
+
+### Scenario Selection (Scene → Actor)
+
+**Scenario is the master selection.** Users choose a scenario (e.g., "Iconic Detectives"), and the associated actor is displayed automatically.
+
+In the Configuration panel:
+1. **Scenario dropdown** - Select the experience (Pressure Point, Iconic Detectives, etc.)
+2. **Actor display** - Shows the paired character name
+3. **Tagline** - One-sentence scene description
+
+```json
+// config/scene_mappings.json
+{
+  "scenes": {
+    "iconic_detectives": {
+      "character": "mara_vane",
+      "characterName": "Mara Vane",
+      "displayName": "Iconic Detectives",
+      "tagline": "You run a one-man detective agency. Mara Vane calls with a case. What happens next?"
+    }
+  }
+}
+```
+
+**Why scenario-first?**
+- Users think in terms of *experiences*, not character names
+- Eliminates confusion from two interdependent dropdowns
+- Taglines provide immediate context for what to expect
+
+**Current Design:** Actor/scenario pairs are fixed. Each character has:
+- Backstory and personality tuned for their scene
+- Voice ID and emotional expression style
+- Scene-specific facts and hooks
+
+**Future Consideration:** Non-contextual actors (e.g., Mara Vane in the submarine) could enable emergent gameplay, but pairs remain fixed for now to maintain narrative quality.
+
+### TTS Voice Models
+
+Voice synthesis uses ElevenLabs with two operational modes, configurable per-session:
+
+| Mode | Model | Audio Tags | Latency | Use Case |
+|------|-------|------------|---------|----------|
+| **Expressive** (default) | `eleven_v3` | ✅ `[laughs]`, `[sighs]`, etc. | ~2-3s | Paralinguistic richness |
+| **Fast** | `eleven_turbo_v2_5` | ❌ Stripped | ~1s | Low-latency gameplay |
+
+**Mode Selection:**
+- Frontend sends `tts_mode: "expressive"` or `tts_mode: "fast"` on session init
+- Expressive mode auto-selects v3 when audio tags detected, turbo otherwise
+- Fast mode always uses turbo and strips all `[emotion]` tags
+
+**Voice Configuration:**
+
+Voice IDs and settings are modular, defined in `tts_elevenlabs.py`:
+
+```python
+# Voice IDs per character (override via environment)
+DEFAULT_VOICE_IDS = {
+    "engineer": os.getenv("ELEVENLABS_VOICE_ENGINEER", "pNInz6obpgDQGcFmaJgB"),
+    "captain_hale": os.getenv("ELEVENLABS_VOICE_CAPTAIN_HALE", "SOYHLrjzK2X1ezoPC6cr"),
+    "mara_vane": os.getenv("ELEVENLABS_VOICE_MARA_VANE", "21m00Tcm4TlvDq8ikWAM"),
+    ...
+}
+
+# Voice settings per character (stability, style, etc.)
+VOICE_SETTINGS = {
+    "engineer": {"stability": 0.4, "style": 0.2, ...},  # Stressed, urgent
+    "captain_hale": {"stability": 0.65, "style": 0.1, ...},  # Calm, measured
+    ...
+}
+```
+
+**Environment Overrides:**
+```env
+ELEVENLABS_API_KEY=your-key-here
+ELEVENLABS_MODEL=eleven_turbo_v2_5          # Default model
+ELEVENLABS_VOICE_ENGINEER=your-voice-id     # Per-character overrides
+ELEVENLABS_PRESERVE_AUDIO_TAGS=true         # Keep [laughs] etc.
+```
+
+**Adding New Voices:**
+
+1. Add voice ID to `DEFAULT_VOICE_IDS` in `tts_elevenlabs.py`
+2. Add voice settings to `VOICE_SETTINGS` (stability, style, etc.)
+3. Optionally add env var override for easy swapping
+
+The modular design supports easy testing of new TTS providers and voice models.
+
+---
 
 ## Architecture
 
@@ -441,26 +704,97 @@ class NewCharacter(Character):
 
 Register in `web_server.py` character list.
 
-### Adding New Scenes
+### Adding New Scenes (Standardized Approach)
 
-Create new file in `scenes/`:
+Every scene should follow this standardized pattern with facts and hooks:
 
 ```python
-from scenes.base import Scene, Line
+# scenes/my_new_scene.py
+from scenes.base import (
+    Scene, SceneControl, StateVariable, SuccessCriterion,
+    FailureCriterion, SceneArtAssets, AudioAssets
+)
+from llm_prompt_core.types import Line
+from scene_hooks import create_standard_hooks
 
-class NewScene(Scene):
+
+class MyNewScene(Scene):
     def __init__(self):
-        super().__init__(
-            scene_id="new_scene",
-            scene_name="Scene Name",
-            description="Scene description for LLM context",
-            opening_speech=[
-                Line(text="Opening line", delay=0)
+        # 1. Define audio/art assets
+        audio = AudioAssets(...)
+        art_assets = SceneArtAssets(...)
+
+        # 2. Define controls (buttons)
+        controls = [
+            SceneControl(id="action_1", label="DO THING", npc_aware=True),
+            ...
+        ]
+
+        # 3. Define state variables
+        state_variables = [
+            StateVariable(name="tension", initial_value=50.0),
+            ...
+        ]
+
+        # 4. Define RAG facts (lore the NPC can reference)
+        facts = [
+            "Character X has a secret they're hiding.",
+            "Location Y was the site of an incident 10 years ago.",
+            "The key to the mystery is the blue envelope.",
+            ...
+        ]
+
+        # 5. Define hooks (post-speak processing)
+        hooks = create_standard_hooks(
+            slip_detection=True,         # Catch contradictions
+            emotional_tracking=True,     # Track bonding moments
+            name_mentions=["Secret Character"],  # Track key names
+            custom_hooks=[
+                {
+                    "name": "secret_revealed",
+                    "query": "Speaker revealed or hinted at the secret",
+                    "latch": True,
+                    "on_true": {
+                        "state": {"secret_known": True},
+                        "event": "revelation",
+                    },
+                },
             ]
+        )
+
+        # 6. Initialize with all components
+        super().__init__(
+            id="my_new_scene",
+            name="My New Scene",
+            description="Scene description for LLM...",
+            facts=facts,          # RAG facts
+            hooks=hooks,          # Post-speak hooks
+            art_assets=art_assets,
+            controls=controls,
+            state_variables=state_variables,
+            opening_speech=[Line(text="Opening line", delay=0)],
         )
 ```
 
-Add to scene list in `web_server.py`.
+**Key principles:**
+1. **Facts**: Write 10-30 facts covering characters, locations, history, and key details
+2. **Hooks**: Use `create_standard_hooks()` for common patterns, add `custom_hooks` for scene-specific logic
+3. **No bespoke code**: All hook logic is declarative via configuration
+4. **Handler optional**: Only create a handler if you need button-specific game logic
+
+**Registering the scene:**
+
+```python
+# scenes/__init__.py
+from scenes.my_new_scene import MyNewScene
+
+SCENES = {
+    ...
+    'my_new_scene': MyNewScene(),
+}
+```
+
+Add character mapping in `config/scene_mappings.json`.
 
 ### Testing World Director
 
@@ -481,6 +815,7 @@ Output shows:
 
 Comprehensive guides available:
 
+- **[Explainer Guide](docs/EXPLAINER.md)** - Friendly overview of all core concepts (start here!)
 - **[Player Memory System](docs/PLAYER_MEMORY_SYSTEM.md)** - How player tracking works, database schema, integration
 - **[World Director System](docs/WORLD_DIRECTOR_SYSTEM.md)** - Dungeon master AI, decision flow, event generation
 - **[Interruption System](docs/INTERRUPTION_SYSTEM.md)** - Penalty mechanics, detection logic
@@ -503,8 +838,21 @@ python web_server.py
 ### Environment Variables
 
 ```env
+# Required
 ANTHROPIC_API_KEY=your-key-here
+
+# Server
 PORT=8080  # Optional, defaults to 8080
+
+# TTS (ElevenLabs)
+ELEVENLABS_API_KEY=your-key-here           # Required for voice synthesis
+ELEVENLABS_MODEL=eleven_turbo_v2_5         # Default TTS model
+ELEVENLABS_PRESERVE_AUDIO_TAGS=true        # Keep [laughs], [sighs] for v3
+
+# Voice ID overrides (optional - use your own cloned voices)
+ELEVENLABS_VOICE_ENGINEER=voice-id-here
+ELEVENLABS_VOICE_CAPTAIN_HALE=voice-id-here
+ELEVENLABS_VOICE_MARA_VANE=voice-id-here
 ```
 
 ## Testing the System
@@ -594,6 +942,13 @@ export $(cat .env | grep -v '^#' | xargs)
 - Multiplayer scenes with multiple NPCs coordinated by Director
 - Emotional state tracking (frustration detection)
 - Story branching based on player personality
+- Non-contextual actors (characters appearing in different scenes)
+
+**TTS Roadmap:**
+- **Local TTS models** - Support for self-hosted voice synthesis (Coqui, XTTS, etc.) for offline/low-latency scenarios
+- **New provider testing** - Modular architecture allows road-testing emerging TTS services
+- **Voice cloning integration** - Custom character voices from audio samples
+- **Real-time streaming TTS** - Chunk-based audio for reduced first-byte latency
 
 **Potential Optimizations:**
 - LLM response streaming for faster perceived latency

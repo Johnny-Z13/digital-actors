@@ -63,15 +63,18 @@
             <div id="config-content">
                 <h3>System Parameters</h3>
 
-                <label for="character-select">Digital Actor</label>
-                <select id="character-select">
-                    <option value="">Loading...</option>
-                </select>
-
                 <label for="scene-select">Scenario</label>
                 <select id="scene-select">
                     <option value="">Loading...</option>
                 </select>
+
+                <div id="scenario-info" class="scenario-info">
+                    <div class="scenario-actor">
+                        <span class="actor-label">Actor:</span>
+                        <span id="scenario-actor-name">—</span>
+                    </div>
+                    <p id="scenario-tagline" class="scenario-tagline">Select a scenario above</p>
+                </div>
 
                 <label for="tts-mode-select">Voice Mode</label>
                 <select id="tts-mode-select">
@@ -79,6 +82,15 @@
                     <option value="expressive" selected>Expressive (v3 + audio tags)</option>
                 </select>
                 <small class="setting-hint">Expressive mode vocalizes [laughs], [sighs], etc.</small>
+
+                <div class="toggle-setting">
+                    <label for="suggestions-toggle">Reply Suggestions</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="suggestions-toggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <small class="setting-hint">Show contextual reply options after each response</small>
 
                 <button id="restart-button">Reset Session</button>
             </div>
