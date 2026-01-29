@@ -57,10 +57,11 @@ class LifeRaftHandler(SceneHandler):
             'RISKY SAVE': self._handle_risky_save,
         }
 
-    def process_action(
+    async def process_action(
         self,
         action: str,
         scene_state: dict[str, Any],
+        ctx: Any = None,
     ) -> ActionResult:
         """
         Process a button action and return state changes.
@@ -68,6 +69,7 @@ class LifeRaftHandler(SceneHandler):
         Args:
             action: Button label (e.g., 'O2 VALVE')
             scene_state: Current scene state dict
+            ctx: Optional SceneContext (unused, for interface compatibility)
 
         Returns:
             ActionResult with state changes to apply

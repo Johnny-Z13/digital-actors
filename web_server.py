@@ -15,7 +15,7 @@ import json
 import mimetypes
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 import aiohttp
 from aiohttp import web
@@ -34,6 +34,8 @@ from constants import (
     LLM_MAX_TOKENS_QUERY,
     LLM_TEMPERATURE_DIALOGUE,
     LLM_TEMPERATURE_QUERY,
+    POST_SPEAK_HOOK_TIMEOUT,
+    RAG_TOP_K_DEFAULT,
     RAPID_ACTION_COUNT_THRESHOLD,
     RAPID_ACTION_OXYGEN_PENALTY,
     RAPID_ACTION_THRESHOLD_SECONDS,
@@ -86,6 +88,13 @@ from world_director import WorldDirector
 
 # Import response queue system
 from response_queue import ResponseQueue, ResponseItem, ResponsePriority
+
+# Import Foxhole-inspired systems (query, RAG, hooks, context)
+from query_system import QuerySystem, get_query_system
+from rag_facts import RAGFactsEngine, get_rag_engine
+from post_speak_hooks import PostSpeakContext, execute_hooks
+from scene_context import SceneContext, create_scene_context
+from scene_hooks import register_scene_hooks
 
 if TYPE_CHECKING:
     from aiohttp.web import WebSocketResponse
@@ -177,6 +186,22 @@ class ChatSession:
         self.director_npc_modifier = ""  # Behavior modifications from director
         self.pending_director_guidance: dict[str, Any] | None = None  # Fire-and-forget guidance
         logger.info("World Director initialized")
+
+        # Query System (LLM-based condition evaluation)
+        self.query_system = get_query_system(model=QUERY_MODEL)
+        logger.info("Query System initialized")
+
+        # RAG Facts Engine (embedding-based fact retrieval)
+        self.rag_engine = get_rag_engine()
+        scene_facts = self.scene_config.get('facts', [])
+        if scene_facts:
+            self.rag_engine.set_facts(scene_id, scene_facts)
+            logger.info("Indexed %d RAG facts for scene %s", len(scene_facts), scene_id)
+
+        # Register scene hooks (data-driven post-speak processing)
+        scene_hooks = self.scene_config.get('hooks', [])
+        if scene_hooks:
+            register_scene_hooks(scene_id, scene_hooks)
 
         # Response Queue System - prevents dialogue flooding
         # This must be initialized AFTER self is set up, since it needs send_character_response_direct
@@ -272,6 +297,76 @@ class ChatSession:
             if ctrl.get('label') == control_label:
                 return ctrl.get('cooldown_seconds') or 0.0
         return 0.0
+
+    def _create_scene_context(self) -> SceneContext:
+        """Create a SceneContext for scene handler access."""
+        return create_scene_context(
+            scene_id=self.scene_id,
+            session_id=self.player_id,
+            query_system=self.query_system,
+            rag_engine=self.rag_engine,
+            scene_state=self.scene_state,
+            dialogue_history=self.dialogue_history,
+        )
+
+    async def _execute_post_speak_hooks(self, llm_response: str) -> None:
+        """
+        Execute post-speak hooks after NPC dialogue is sent.
+
+        Runs asynchronously during TTS playback to avoid blocking.
+        """
+        try:
+            ctx = PostSpeakContext(
+                llm_response=llm_response,
+                dialogue_history=self.dialogue_history,
+                scene_state=self.scene_state,
+                scene_id=self.scene_id,
+                session_id=self.player_id,
+                query_system=self.query_system,
+            )
+
+            # Execute hooks with timeout protection
+            ctx = await execute_hooks(ctx, timeout=POST_SPEAK_HOOK_TIMEOUT)
+
+            # Apply any state updates from hooks
+            for key, value in ctx.get_state_updates().items():
+                self.scene_state[key] = value
+                logger.debug("[POST_SPEAK] State updated: %s = %s", key, value)
+
+            # Dispatch any triggered events
+            for event_name in ctx.get_triggered_events():
+                await self._dispatch_event(event_name)
+
+        except Exception as e:
+            logger.warning("[POST_SPEAK] Hook execution failed: %s", e)
+
+    async def _dispatch_event(self, event_name: str) -> None:
+        """Dispatch an event triggered by post-speak hooks."""
+        logger.info("[EVENT] Dispatching: %s", event_name)
+        try:
+            await self.ws.send_json({
+                'type': 'scene_event',
+                'event': event_name,
+            })
+        except Exception as e:
+            logger.warning("[EVENT] Failed to dispatch %s: %s", event_name, e)
+
+    def _get_rag_facts_context(self, query: str) -> str:
+        """Retrieve relevant facts for the current query and format for prompt."""
+        if not self.rag_engine:
+            return ""
+
+        result = self.rag_engine.retrieve(
+            query=query,
+            scene_id=self.scene_id,
+            top_k=RAG_TOP_K_DEFAULT,
+        )
+
+        if not result.facts:
+            return ""
+
+        facts_str = "\n- ".join(result.facts)
+        return f"\n\n=== RELEVANT CONTEXT ===\n- {facts_str}"
 
     def start_oxygen_countdown(self) -> None:
         """Start the state update task if this scene has state variables with update_rate."""
@@ -651,6 +746,9 @@ TONE: Whatever the outcome, make it meaningful."""
         }
         await self.ws.send_json(text_response)
         logger.debug("[TEXT-FIRST] Sent text with %d suggestions: '%s...'", len(suggestions), content[:50])
+
+        # Fire post-speak hooks asynchronously (runs during TTS generation)
+        asyncio.create_task(self._execute_post_speak_hooks(content))
 
         # STEP 2: Generate TTS audio asynchronously
         if self.tts_manager.is_enabled():
@@ -1283,6 +1381,10 @@ Keep it to 2-3 short sentences maximum."""
             # Generate character response with player memory context
             player_context = self.player_memory.get_full_context_for_llm(self.character_id)
 
+            # Add RAG facts relevant to player's message
+            rag_context = self._get_rag_facts_context(message)
+            player_context += rag_context
+
             # Add phase-specific context (submarine scene only, empty for other scenes)
             phase_context = self._get_phase_context()
             full_instruction_suffix = dialogue_instruction_suffix + phase_context
@@ -1689,7 +1791,17 @@ Keep response SHORT - 3-4 sentences max. Use [brackets] for emotional cues.
             game_logic_result = None
 
             if handler:
-                game_logic_result = handler.process_action(action, self.scene_state)
+                # Create scene context for handler (enables query/RAG access)
+                ctx = self._create_scene_context()
+                game_logic_result = await handler.process_action(action, self.scene_state, ctx)
+
+                # Apply any state updates from context
+                for key, value in ctx.get_state_updates().items():
+                    self.scene_state[key] = value
+
+                # Dispatch any events from context
+                for event_name in ctx.get_triggered_events():
+                    asyncio.create_task(self._dispatch_event(event_name))
 
                 if game_logic_result and game_logic_result.success:
                     # Apply state changes from handler
@@ -1861,6 +1973,10 @@ This requires everything you have. Commit fully.
 
                 # Generate character response to the action with player memory context
                 player_context = self.player_memory.get_full_context_for_llm(self.character_id)
+
+                # Add RAG facts relevant to the action
+                rag_context = self._get_rag_facts_context(action)
+                player_context += rag_context
 
                 # Add phase-specific context
                 phase_context = self._get_phase_context()
@@ -2197,6 +2313,11 @@ This requires everything you have. Commit fully.
                 self.npc_responding = True
 
                 player_context = self.player_memory.get_full_context_for_llm(self.character_id)
+
+                # Add RAG facts based on recent dialogue context
+                recent_dialogue = self.dialogue_history[-500:] if self.dialogue_history else ""
+                rag_context = self._get_rag_facts_context(recent_dialogue)
+                player_context += rag_context
 
                 # Add phase-specific context
                 phase_context = self._get_phase_context()

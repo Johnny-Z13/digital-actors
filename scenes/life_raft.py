@@ -222,6 +222,13 @@ class LifeRaft(Scene):
                 max_value=1,
                 update_rate=0.0
             ),
+            StateVariable(
+                name="daughter_mentioned",
+                initial_value=0,  # Boolean: 0 = false, 1 = true
+                min_value=0,
+                max_value=1,
+                update_rate=0.0
+            ),
         ]
 
         # Define success criteria
@@ -289,9 +296,87 @@ class LifeRaft(Scene):
             ),
         ]
 
+        # RAG facts - lore about Captain Hale, the situation, and the choice
+        facts = [
+            # Captain Hale
+            "Captain Chen Hale has commanded submarines for 18 years, starting in the Pacific Fleet.",
+            "Hale's daughter Mei is 7 years old and lives with her grandmother in San Diego.",
+            "Hale's wife passed away during childbirth. Mei is everything to him.",
+            "Hale keeps a photo of Mei in his breast pocket - he touches it when stressed.",
+            "Hale has never lost a crew member under his command. This weighs heavily on him.",
+
+            # The Submarine
+            "The submarine is a deep-diving research vessel conducting seabed surveys.",
+            "Hull integrity drops when under excessive pressure at depth.",
+            "The escape pod can only carry one person safely - it was designed as a last resort.",
+
+            # The Situation
+            "The rear compartment (where the player is) has limited oxygen reserves.",
+            "Captain Hale has more oxygen because forward control has larger reserves.",
+            "The O2 valve allows Hale to transfer his oxygen to the player at his own cost.",
+            "Hull integrity below 40% means structural collapse is imminent.",
+
+            # The Choice
+            "Safe Protocol (DETACH): The escape pod detaches with the player. Hale stays behind and dies.",
+            "Risky Maneuver (RISKY SAVE): A dangerous technique that could save both, but requires perfect timing and trust.",
+            "The risky maneuver has roughly a 1-in-10 success rate with a trained pilot.",
+            "If the player has shown empathy and commitment, Hale will attempt the risky maneuver with confidence.",
+
+            # Emotional Context
+            "Hale initially presents as professional and corporate - hiding his fear.",
+            "As the situation worsens, Hale becomes more personal and vulnerable.",
+            "Hale needs to know Mei will be told he loved her if he doesn't make it.",
+        ]
+
+        # Standard hooks for the emotional survival drama
+        from scene_hooks import create_standard_hooks
+        hooks = create_standard_hooks(
+            emotional_tracking=True,  # Track bonding moments
+            name_mentions=["Mei"],  # Track when Hale mentions his daughter
+            custom_hooks=[
+                {
+                    "name": "daughter_mentioned",
+                    "query": "Speaker mentioned their daughter, a child, or someone named Mei",
+                    "latch": True,
+                    "on_true": {
+                        "state": {"daughter_mentioned": True, "empathy_score": "+5"},
+                        "event": "personal_revelation",
+                    },
+                },
+                {
+                    "name": "fear_admitted",
+                    "query": "Speaker admitted to being scared, afraid, or frightened",
+                    "latch": False,
+                    "on_true": {
+                        "state": {"empathy_score": "+3"},
+                        "event": "vulnerability_shown",
+                    },
+                },
+                {
+                    "name": "goodbye_moment",
+                    "query": "Speaker said goodbye, farewell, or expressed final wishes",
+                    "latch": True,
+                    "on_true": {
+                        "state": {"emotional_bond": "+10"},
+                        "event": "goodbye_moment",
+                    },
+                },
+                {
+                    "name": "hope_expressed",
+                    "query": "Speaker expressed hope or belief that both might survive",
+                    "latch": False,
+                    "on_true": {
+                        "state": {"commitment_score": "+3"},
+                    },
+                },
+            ]
+        )
+
         super().__init__(
             id="life_raft",
             name="Life Raft",
+            facts=facts,
+            hooks=hooks,
             description="""SETTING: Flooding escape pod compartment of a sinking submarine.
             You (player) are trapped in the rear section with failing oxygen.
             Captain Hale is in forward control. You can hear him via intercom but cannot see him.

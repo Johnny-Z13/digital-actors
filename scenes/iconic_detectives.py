@@ -272,6 +272,20 @@ class IconicDetectives(Scene):
                 max_value=127,  # All 7 pins = 127
                 update_rate=None
             ),
+            StateVariable(
+                name="presence_revealed",
+                initial_value=0,  # Boolean: 0 = false, 1 = true
+                min_value=0,
+                max_value=1,
+                update_rate=None
+            ),
+            StateVariable(
+                name="weapon_clue",
+                initial_value=0,  # Boolean: 0 = false, 1 = true
+                min_value=0,
+                max_value=1,
+                update_rate=None
+            ),
         ]
 
         # Success criteria (multiple endings)
@@ -348,10 +362,93 @@ class IconicDetectives(Scene):
             Line(text="It wasn't valuable. It was specific. A small metal key. Something older. Like it belongs to a lockbox.", delay=9.0),
         ]
 
+        # RAG facts for the murder mystery - lore that the NPC can reference
+        facts = [
+            # Dr. Elias Crowe
+            "Dr. Elias Crowe was a respected antiquarian and document authenticator who lived at 47 Marlow Street.",
+            "Crowe was found dead in his townhouse on the evening of October 14th, 1987. Police ruled it a robbery gone wrong.",
+            "Crowe had a habit of making tea when nervous - he always reached for the kettle when frightened.",
+            "Crowe kept a small brass key that opened Box 47 at Sable Storage, a private vault service.",
+            "Crowe's last known words were 'They made a copy' - spoken during a phone call at 7:12pm.",
+
+            # The Glassworks
+            "The Old Glassworks on Riverwalk was officially abandoned in 1971 after a fire.",
+            "The Glassworks fire killed three workers, but the investigation was closed suspiciously fast.",
+            "Rumors persist that something was buried at the Glassworks - something worth killing to keep hidden.",
+            "Crowe authenticated documents related to the Glassworks fire investigation in 1985.",
+
+            # Hollis Rook
+            "Hollis Rook is a fixer who operates in Manhattan's grey economy - neither criminal nor legitimate.",
+            "Rook has connections to several unsolved cases involving document forgery and evidence tampering.",
+            "Rook was seen near Marlow Street three days before Crowe's death.",
+
+            # Mara Vane
+            "Mara Vane worked as a courier for Crowe, delivering sensitive packages for cash payment.",
+            "Mara delivered an envelope to Sable Storage on Crowe's behalf six months ago.",
+            "Mara called Crowe three times on the day of his death - the last call was at 6:45pm.",
+
+            # The Crime Scene
+            "The wall safe in Crowe's study was not cracked - it was physically removed from the wall.",
+            "Scratch marks around the front door lock suggest someone tested or copied a key.",
+            "The study door lock was broken outward, suggesting staging from inside.",
+            "A brass key blank was purchased from Kestrel Pawn two days before the murder.",
+
+            # CCTV Evidence
+            "CCTV captured a hooded figure with a reflective sleeve near Crowe's house at 7:30pm.",
+            "The reflective sleeve pattern matches cycling jackets used by Riverwalk couriers.",
+        ]
+
+        # Standard hooks for the murder mystery - detect slips, track clues
+        from scene_hooks import create_standard_hooks
+        hooks = create_standard_hooks(
+            slip_detection=True,  # Catch "when I..." slips and contradictions
+            name_mentions=["Hollis Rook", "Sable Storage"],  # Key names/places
+            location_mentions=["Glassworks"],  # Key locations
+            custom_hooks=[
+                {
+                    "name": "presence_revealed",
+                    "query": "Speaker revealed or implied they were present at the crime scene or Crowe's house",
+                    "latch": True,
+                    "on_true": {
+                        "state": {"contradictions": "+1", "presence_revealed": True},
+                        "event": "major_slip",
+                    },
+                },
+                {
+                    "name": "emotional_confession",
+                    "query": "Speaker confessed to feeling guilty, regretful, or responsible",
+                    "latch": False,
+                    "on_true": {
+                        "state": {"trust": "+5"},
+                        "event": "emotional_moment",
+                    },
+                },
+                {
+                    "name": "deflection_detected",
+                    "query": "Speaker obviously deflected, changed the subject, or refused to answer directly",
+                    "latch": False,
+                    "on_true": {
+                        "state": {"trust": "-3"},
+                    },
+                },
+                {
+                    "name": "weapon_location",
+                    "query": "Speaker mentioned where the murder weapon is or could be found",
+                    "latch": True,
+                    "on_true": {
+                        "state": {"weapon_clue": True},
+                        "event": "critical_clue",
+                    },
+                },
+            ]
+        )
+
         # Initialize the scene
         super().__init__(
             id="iconic_detectives",
             name="Iconic Detectives - Mara Vane",
+            facts=facts,
+            hooks=hooks,
             description="""SETTING: A rain-soaked night in Manhattan, 1987. The player is a detective
             sitting alone in a dimly lit office on the 12th floor of a Hell's Kitchen building.
             Venetian blinds cast striped shadows across a worn wooden desk. Through the window,

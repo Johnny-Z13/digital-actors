@@ -211,6 +211,13 @@ class Submarine(Scene):
                 max_value=10,
                 update_rate=0.0
             ),
+            StateVariable(
+                name="adrian_revealed",
+                initial_value=0,  # Boolean: 0 = false, 1 = true
+                min_value=0,
+                max_value=1,
+                update_rate=0.0
+            ),
         ]
 
         # Define success criteria
@@ -278,9 +285,79 @@ class Submarine(Scene):
             ),
         ]
 
+        # RAG facts - lore about the submarine, crew, and situation
+        facts = [
+            # The Prospero
+            "USS Prospero is a deep-sea research submarine, modified from a military design for scientific missions.",
+            "The Prospero's maximum safe depth is 2,800 feet. Current depth is 2,400 feet.",
+            "The submarine has three main compartments: forward control, mid-section with reactor, and aft systems.",
+            "Emergency ascent requires functional ballast systems and stable reactor containment.",
+
+            # Lt. Commander James Kovich
+            "Lt. Commander James Kovich is a 15-year Navy veteran who transferred to research duty.",
+            "James has a son named Adrian, a marine biologist, who is part of the research team.",
+            "James's wife Mei died of cancer two years ago. Adrian is all he has left.",
+            "James is known for staying calm under pressure, but this situation is testing his limits.",
+
+            # Dr. Adrian Kovich
+            "Dr. Adrian Kovich is a marine biologist studying deep-sea thermal vents.",
+            "Adrian was injured during the initial reactor breach and is unconscious in the med bay.",
+            "The med bay is in the flooded section. Emergency ascent protocols require flooding it completely.",
+            "Adrian is 28 years old and has his mother's eyes - something James mentions often.",
+
+            # The Crisis
+            "The reactor containment failed due to a pressure seal rupture at depth.",
+            "Radiation is spreading through the ventilation system at approximately 0.4% per second.",
+            "At 95% radiation exposure, cellular damage becomes lethal within minutes.",
+            "The VM-5 reactor uses a pressurized water design - manual shutdown requires the med bay controls.",
+
+            # Technical Details
+            "The O2 valve controls oxygen flow balance between compartments.",
+            "The ballast system adjusts buoyancy by flooding or emptying ballast tanks.",
+            "Emergency power can be generated manually via the hand crank in aft systems.",
+            "The FLOOD MED BAY control triggers emergency ascent but kills anyone in that compartment.",
+        ]
+
+        # Standard hooks for emotional tracking and key moments
+        from scene_hooks import create_standard_hooks
+        hooks = create_standard_hooks(
+            emotional_tracking=True,  # Track emotional bond moments
+            name_mentions=["Adrian", "Mei"],  # Track when James mentions family
+            custom_hooks=[
+                {
+                    "name": "adrian_revelation",
+                    "query": "Speaker revealed that someone trapped or in danger is their son or child",
+                    "latch": True,
+                    "on_true": {
+                        "state": {"adrian_revealed": True},
+                        "event": "major_revelation",
+                    },
+                },
+                {
+                    "name": "sacrifice_mentioned",
+                    "query": "Speaker mentioned sacrifice, dying, or not making it out alive",
+                    "latch": False,
+                    "on_true": {
+                        "state": {"emotional_bond": "+3"},
+                        "event": "sacrifice_moment",
+                    },
+                },
+                {
+                    "name": "gratitude_expressed",
+                    "query": "Speaker expressed gratitude or thanks to the player for being there or helping",
+                    "latch": False,
+                    "on_true": {
+                        "state": {"emotional_bond": "+5"},
+                    },
+                },
+            ]
+        )
+
         super().__init__(
             id="submarine",
             name="Submarine Emergency",
+            facts=facts,
+            hooks=hooks,
             description="""SETTING: Research submarine Prospero at 2,400 feet depth. You (player) are a
             junior systems operator trapped in the aft compartment. Lt. Commander James Kovich is
             trapped in forward control. You can communicate via radio but cannot see each other.

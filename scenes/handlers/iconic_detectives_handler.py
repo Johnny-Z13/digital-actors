@@ -2,13 +2,17 @@
 Iconic Detectives Scene Handler.
 
 Handles evidence pin interactions for the Mara Vane murder mystery scene.
+Uses standardized hooks system (scene_hooks.py) for post-speak processing.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from scenes.handlers.base import SceneHandler, ActionResult, PinReactionResult
+
+if TYPE_CHECKING:
+    from scene_context import SceneContext
 
 
 # Evidence pin reaction data
@@ -230,19 +234,61 @@ class IconicDetectivesHandler(SceneHandler):
         """
         return DIALOGUE_CHOICE_INSTRUCTIONS.get(choice_id)
 
-    def process_action(
+    async def process_action(
         self,
         action: str,
         scene_state: dict[str, Any],
+        ctx: SceneContext | None = None,
     ) -> ActionResult:
         """
         Process button actions for the detective scene.
 
-        The detective scene is primarily dialogue-based, so most
-        actions don't have special game logic beyond trust tracking.
+        Uses ctx.query() for smarter condition evaluation.
         """
-        # Phone scene has no special button actions
-        return ActionResult(success=True, state_changes={})
+        state_changes: dict[str, float] = {}
+
+        # Track hooks explored
+        if action in ("hook_identity", "hook_timeline", "hook_key"):
+            state_changes["hooks_explored"] = 1  # Delta
+
+        # Track path choice
+        if action == "follow_key":
+            state_changes["path_chosen"] = 1  # Absolute value via context
+            if ctx:
+                ctx.update_state("path_chosen", 1)
+                ctx.update_state("phase", 4)
+
+        elif action == "follow_lie":
+            state_changes["path_chosen"] = 2
+            if ctx:
+                ctx.update_state("path_chosen", 2)
+                ctx.update_state("phase", 5)
+
+        # Track path options explored
+        path_options = (
+            "p1_how_know", "p1_whats_inside", "p1_who_knows",
+            "p2_who_staged", "p2_why_argument", "p2_killer_detail"
+        )
+        if action in path_options:
+            state_changes["path_options_explored"] = 1
+
+        # Challenge Mara - use query to check if player has built a case
+        if action == "challenge_mara" and ctx:
+            # Use LLM query to evaluate if player has caught enough contradictions
+            has_case = await ctx.query(
+                ctx.dialogue_history,
+                "The player has caught Mara in at least two lies, slips, or contradictions",
+                latch=True
+            )
+            if has_case:
+                ctx.update_state("contradictions", max(scene_state.get("contradictions", 0), 2))
+                ctx.trigger_event("mara_caught")
+            else:
+                # Trust penalty for premature accusation
+                ctx.update_state("trust", scene_state.get("trust", 50) - 15)
+                ctx.trigger_event("accusation_failed")
+
+        return ActionResult(success=True, state_changes=state_changes)
 
 
 # Singleton instance
@@ -254,4 +300,6 @@ def get_handler() -> IconicDetectivesHandler:
     global _handler
     if _handler is None:
         _handler = IconicDetectivesHandler()
+    # Note: Post-speak hooks are now registered automatically via scene_hooks.py
+    # based on the hooks configuration in the scene definition.
     return _handler

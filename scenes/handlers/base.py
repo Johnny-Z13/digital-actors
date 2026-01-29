@@ -15,7 +15,11 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from post_speak_hooks import PostSpeakContext
+    from scene_context import SceneContext
 
 
 @dataclass
@@ -60,10 +64,11 @@ class SceneHandler(ABC):
         """Return the scene ID this handler is for."""
         pass
 
-    def process_action(
+    async def process_action(
         self,
         action: str,
         scene_state: dict[str, Any],
+        ctx: SceneContext | None = None,
     ) -> ActionResult:
         """
         Process a button action and return state changes.
@@ -74,6 +79,7 @@ class SceneHandler(ABC):
         Args:
             action: Button label (e.g., 'O2 VALVE')
             scene_state: Current scene state dict
+            ctx: Optional SceneContext for query/RAG access (backwards compatible)
 
         Returns:
             ActionResult with state changes to apply
@@ -116,5 +122,22 @@ class SceneHandler(ABC):
     def on_scene_end(self, scene_state: dict[str, Any]) -> None:
         """
         Called when the scene ends. Override for cleanup logic.
+        """
+        pass
+
+    async def post_speak(self, ctx: PostSpeakContext) -> None:
+        """
+        Called after NPC dialogue is sent, during TTS playback.
+
+        Override in subclasses to add custom post-response logic:
+        - Pre-compute state for next turn
+        - Trigger events based on NPC dialogue
+        - Update internal handler state
+
+        Args:
+            ctx: PostSpeakContext with dialogue info and state access
+
+        Note:
+            This method has a timeout (default 2s). Keep it fast.
         """
         pass
