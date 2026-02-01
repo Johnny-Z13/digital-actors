@@ -1,7 +1,7 @@
 import { CharacterScene } from './scene.js';
-import { SubmarineScene } from './submarine_scene.js';
-import { DetectiveScene } from './detective_scene.js';
-import { MerlinsRoomScene } from './merlins_room_scene.js';
+import { SubmarineScene } from '/scenes/submarine/submarine_scene.js';
+import { DetectiveScene } from '/scenes/detective/detective_scene.js';
+import { MerlinsRoomScene } from '/scenes/wizard/merlins_room_scene.js';
 import { LifeRaftScene } from './life_raft_scene.js';
 import { WelcomeScene } from './welcome_scene.js';
 
@@ -13,6 +13,7 @@ class ChatApp {
         this.currentCharacter = 'clippy';
         this.currentScene = 'welcome';
         this.isConnected = false;
+        this.sessionId = null; // Authentication token from server
 
         // Configuration - loaded from server (single source of truth)
         this.config = null;
@@ -202,16 +203,18 @@ class ChatApp {
         // This prevents overlapping messages
 
         // Send button action to server
-        if (this.isConnected) {
+        if (this.isConnected && this.sessionId) {
             // Check if this is an evidence pin click
             if (action.startsWith('pin_')) {
                 this.ws.send(JSON.stringify({
                     type: 'pin_referenced',
+                    session_id: this.sessionId,
                     pin_id: action
                 }));
             } else {
                 this.ws.send(JSON.stringify({
                     type: 'button_action',
+                    session_id: this.sessionId,
                     action: action
                 }));
             }
@@ -468,13 +471,14 @@ class ChatApp {
     }
 
     sendConfig() {
-        if (!this.isConnected) return;
+        if (!this.isConnected || !this.sessionId) return;
 
         const ttsModeSelect = document.getElementById('tts-mode-select');
         const ttsMode = ttsModeSelect ? ttsModeSelect.value : 'expressive';
 
         this.ws.send(JSON.stringify({
             type: 'config',
+            session_id: this.sessionId,
             character: this.currentCharacter,
             scene: this.currentScene,
             tts_mode: ttsMode
@@ -482,10 +486,11 @@ class ChatApp {
     }
 
     sendTtsMode(mode) {
-        if (!this.isConnected) return;
+        if (!this.isConnected || !this.sessionId) return;
 
         this.ws.send(JSON.stringify({
             type: 'tts_mode',
+            session_id: this.sessionId,
             mode: mode
         }));
     }
@@ -494,7 +499,7 @@ class ChatApp {
         const input = document.getElementById('chat-input');
         const message = input.value.trim();
 
-        if (!message || !this.isConnected) return;
+        if (!message || !this.isConnected || !this.sessionId) return;
 
         // Clear suggestions when sending a message
         this.clearSuggestedQuestions();
@@ -505,6 +510,7 @@ class ChatApp {
         // Send to server
         this.ws.send(JSON.stringify({
             type: 'message',
+            session_id: this.sessionId,
             content: message
         }));
 
@@ -517,6 +523,16 @@ class ChatApp {
 
     handleServerMessage(data) {
         switch (data.type) {
+            case 'session_init':
+                // Store session ID for authentication
+                this.sessionId = data.session_id;
+                console.log('[AUTH] Received session token');
+                // Acknowledge session initialization
+                this.ws.send(JSON.stringify({
+                    type: 'session_ack'
+                }));
+                break;
+
             case 'character_response':
                 // Legacy combined text+audio response (backward compatible)
                 this.hideTypingIndicator();
@@ -842,12 +858,13 @@ class ChatApp {
         this.stopAudio();
 
         // Send restart message to server (include TTS mode)
-        if (this.isConnected) {
+        if (this.isConnected && this.sessionId) {
             const ttsModeSelect = document.getElementById('tts-mode-select');
             const ttsMode = ttsModeSelect ? ttsModeSelect.value : 'expressive';
 
             this.ws.send(JSON.stringify({
                 type: 'restart',
+                session_id: this.sessionId,
                 character: this.currentCharacter,
                 scene: this.currentScene,
                 tts_mode: ttsMode
@@ -1725,15 +1742,34 @@ class ChatApp {
     }
 
     /**
+     * Escape HTML special characters to prevent XSS attacks.
+     * @param {string} unsafe - Raw text that may contain HTML
+     * @returns {string} - HTML-safe text
+     */
+    escapeHTML(unsafe) {
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    /**
      * Parse voice annotations like [static], [voice cracks], [breathing heavily]
      * and wrap them in styled spans for visual distinction.
      * Also adds data attributes for ElevenLabs TTS integration.
+     *
+     * SECURITY: Text is HTML-escaped first to prevent XSS, then annotations are processed.
      */
     parseVoiceAnnotations(text) {
+        // SECURITY: Escape HTML first to prevent XSS attacks
+        const escapedText = this.escapeHTML(text);
+
         // Match annotations in square brackets like [static], [voice cracks], etc.
         const annotationRegex = /\[([^\]]+)\]/g;
 
-        return text.replace(annotationRegex, (match, content) => {
+        return escapedText.replace(annotationRegex, (match, content) => {
             // Map common annotations to ElevenLabs/SSML effects
             const lowerContent = content.toLowerCase();
             let elevenLabsEffect = 'none';
@@ -1869,9 +1905,10 @@ class ChatApp {
         this.hideTypingIndicator();
 
         // Notify server that opening speech is complete
-        if (this.isConnected) {
+        if (this.isConnected && this.sessionId) {
             this.ws.send(JSON.stringify({
-                type: 'opening_speech_complete'
+                type: 'opening_speech_complete',
+                session_id: this.sessionId
             }));
         }
     }
@@ -1978,9 +2015,10 @@ class ChatApp {
 
         // Send a "waiting_complete" message to the server
         // This tells the World Director to move the story on
-        if (this.isConnected) {
+        if (this.isConnected && this.sessionId) {
             this.ws.send(JSON.stringify({
                 type: 'waiting_complete',
+                session_id: this.sessionId,
                 reason: 'Player waited for NPC response'
             }));
         }
@@ -2132,12 +2170,13 @@ class ChatApp {
         }
 
         // Send restart message to server (include TTS mode)
-        if (this.isConnected) {
+        if (this.isConnected && this.sessionId) {
             const ttsModeSelect = document.getElementById('tts-mode-select');
             const ttsMode = ttsModeSelect ? ttsModeSelect.value : 'expressive';
 
             this.ws.send(JSON.stringify({
                 type: 'restart',
+                session_id: this.sessionId,
                 character: this.currentCharacter,
                 scene: this.currentScene,
                 tts_mode: ttsMode

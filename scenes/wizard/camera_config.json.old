@@ -1,0 +1,19 @@
+{
+  "position": {
+    "x": 1.13,
+    "y": 2.92,
+    "z": 1.58
+  },
+  "target": {
+    "x": 0.47,
+    "y": 2.98,
+    "z": 0.83
+  },
+  "direction": {
+    "x": -0.66,
+    "y": 0.06,
+    "z": -0.75
+  },
+  "fov": 60,
+  "description": "Optimal view of Merlin's workbench with spell components visible. Found through manual WASD positioning."
+}

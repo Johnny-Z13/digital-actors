@@ -44,9 +44,9 @@ The vocalized sounds above will actually be HEARD in your voice!
 Example: "[sighs] Another dead end. [clears throat] But something doesn't add up." - the sigh and throat clear will be voiced.""",
             color=0x795548,  # Brown - earthy, gritty feeling
             emotion_expression_style={
-                'expressiveness': 0.5,        # World-weary, cynical
-                'stability_baseline': 0.6,    # Seen it all, hard to rattle
-                'emotional_range': 0.6,       # Emotions affect him, but filtered through cynicism
-                'restraint': 0.5              # Moderate control (professional detachment)
-            }
+                "expressiveness": 0.5,  # World-weary, cynical
+                "stability_baseline": 0.6,  # Seen it all, hard to rattle
+                "emotional_range": 0.6,  # Emotions affect him, but filtered through cynicism
+                "restraint": 0.5,  # Moderate control (professional detachment)
+            },
         )

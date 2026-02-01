@@ -4,11 +4,13 @@ OpenAI model wrapper.
 This module provides a LangChain-compatible wrapper for OpenAI models.
 """
 
-import os
-from typing import Any, Dict, Optional, Sequence
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import Any
 
 from langchain_core.callbacks.manager import CallbackManagerForLLMRun
-from pydantic import Field, PrivateAttr
+from pydantic import PrivateAttr
 
 from llm_prompt_core.models.base import BaseLLMModel
 
@@ -30,7 +32,7 @@ class OpenAIModel(BaseLLMModel):
     model_name: str = "gpt-4o"
     temperature: float = 0.8
     max_tokens: int = 1024
-    api_key: Optional[str] = None
+    api_key: str | None = None
 
     _client: Any = PrivateAttr()
 
@@ -39,25 +41,17 @@ class OpenAIModel(BaseLLMModel):
 
     def __init__(self, **data: Any):
         super().__init__(**data)
-        resolved_api_key = self.api_key or os.getenv("OPENAI_API_KEY")
-        if not resolved_api_key:
-            raise EnvironmentError(
-                "OPENAI_API_KEY environment variable must be set for OpenAI models."
-            )
+        resolved_api_key = self._get_api_key("OPENAI_API_KEY", "OpenAI")
 
-        try:
-            from openai import OpenAI
-            self._client = OpenAI(api_key=resolved_api_key)
-        except ImportError:
-            raise ImportError(
-                "openai package not installed. Install it with: pip install openai"
-            )
+        from openai import OpenAI
+
+        self._client = self._initialize_client(OpenAI, resolved_api_key, "openai")
 
     def _call(
         self,
         prompt: str,
-        stop: Optional[Sequence[str]] = None,
-        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        stop: Sequence[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> str:
         """
@@ -99,14 +93,14 @@ class OpenAIModel(BaseLLMModel):
             return content
 
         except Exception as e:
-            raise RuntimeError(f"OpenAI API call failed: {str(e)}")
+            self._handle_api_error(e, "OpenAI")
 
     @property
     def _llm_type(self) -> str:
         return "openai"
 
     @property
-    def _identifying_params(self) -> Dict[str, Any]:
+    def _identifying_params(self) -> dict[str, Any]:
         return {
             "model_name": self.model_name,
             "temperature": self.temperature,

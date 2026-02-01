@@ -6,11 +6,18 @@ oxygen management, emotional bonding, and a critical life-or-death decision.
 Based on the LifeRaft experience flow design document.
 """
 
-from scenes.base import (
-    Scene, SceneControl, StateVariable, SuccessCriterion, FailureCriterion,
-    CharacterRequirement, SceneArtAssets, AudioAssets, SceneConstants
-)
 from llm_prompt_core.types import Line
+from scenes.base.base import (
+    AudioAssets,
+    CharacterRequirement,
+    FailureCriterion,
+    Scene,
+    SceneArtAssets,
+    SceneConstants,
+    SceneControl,
+    StateVariable,
+    SuccessCriterion,
+)
 
 
 class LifeRaft(Scene):
@@ -19,43 +26,43 @@ class LifeRaft(Scene):
     # Milestone-based phase progression
     PHASE_MILESTONES = {
         1: {
-            'name': 'initial_contact',
-            'required': ['first_response'],
-            'optional': ['player_name_given'],
-            'min_time': 30,
-            'max_time': 60,
+            "name": "initial_contact",
+            "required": ["first_response"],
+            "optional": ["player_name_given"],
+            "min_time": 30,
+            "max_time": 60,
         },
         2: {
-            'name': 'o2_crisis',
-            'required': ['o2_valve_used'],
-            'optional': ['empathy_shown'],
-            'min_time': 45,
-            'max_time': 90,
-            'trigger_condition': lambda s: s.get('player_oxygen', 100) < 40,
+            "name": "o2_crisis",
+            "required": ["o2_valve_used"],
+            "optional": ["empathy_shown"],
+            "min_time": 45,
+            "max_time": 90,
+            "trigger_condition": lambda s: s.get("player_oxygen", 100) < 40,
         },
         3: {
-            'name': 'bonding',
-            'required': ['personal_shared'],
-            'optional': ['daughter_mentioned', 'player_cared'],
-            'min_time': 60,
-            'max_time': 120,
-            'trigger_condition': lambda s: s.get('hull_integrity', 100) < 60,
+            "name": "bonding",
+            "required": ["personal_shared"],
+            "optional": ["daughter_mentioned", "player_cared"],
+            "min_time": 60,
+            "max_time": 120,
+            "trigger_condition": lambda s: s.get("hull_integrity", 100) < 60,
         },
         4: {
-            'name': 'decision',
-            'required': ['situation_explained'],
-            'optional': ['risky_option_offered'],
-            'min_time': 45,
-            'max_time': 90,
-            'trigger_condition': lambda s: s.get('hull_integrity', 100) < 40,
+            "name": "decision",
+            "required": ["situation_explained"],
+            "optional": ["risky_option_offered"],
+            "min_time": 45,
+            "max_time": 90,
+            "trigger_condition": lambda s: s.get("hull_integrity", 100) < 40,
         },
         5: {
-            'name': 'finale',
-            'required': ['choice_made'],
-            'optional': [],
-            'min_time': 20,
-            'max_time': 60,
-        }
+            "name": "finale",
+            "required": ["choice_made"],
+            "optional": [],
+            "min_time": 20,
+            "max_time": 60,
+        },
     }
 
     def __init__(self):
@@ -63,21 +70,17 @@ class LifeRaft(Scene):
         audio = AudioAssets(
             background_music="/audio/life_raft_ambient.mp3",
             sfx_library={
-                'hull_groan': '/audio/sfx/hull_stress.mp3',
-                'valve_turn': '/audio/sfx/valve.mp3',
-                'o2_hiss': '/audio/sfx/oxygen_flow.mp3',
-                'water_drip': '/audio/sfx/water_drip.mp3',
-                'alarm_warning': '/audio/sfx/alarm_soft.mp3',
-                'radio_static': '/audio/sfx/radio_static.mp3',
-                'breathing_shallow': '/audio/sfx/breathing.mp3',
-                'pod_prep': '/audio/sfx/mechanical_prep.mp3',
-                'detach_sequence': '/audio/sfx/detachment.mp3',
+                "hull_groan": "/audio/sfx/hull_stress.mp3",
+                "valve_turn": "/audio/sfx/valve.mp3",
+                "o2_hiss": "/audio/sfx/oxygen_flow.mp3",
+                "water_drip": "/audio/sfx/water_drip.mp3",
+                "alarm_warning": "/audio/sfx/alarm_soft.mp3",
+                "radio_static": "/audio/sfx/radio_static.mp3",
+                "breathing_shallow": "/audio/sfx/breathing.mp3",
+                "pod_prep": "/audio/sfx/mechanical_prep.mp3",
+                "detach_sequence": "/audio/sfx/detachment.mp3",
             },
-            volume_levels={
-                'music': 0.25,
-                'sfx': 0.6,
-                'voice': 1.0
-            }
+            volume_levels={"music": 0.25, "sfx": 0.6, "voice": 1.0},
         )
 
         # Define art assets
@@ -85,12 +88,12 @@ class LifeRaft(Scene):
             scene_type="life_raft",
             custom_scene_file="/js/life_raft_scene.js",
             ui_elements={
-                'oxygen_gauge_player': '/images/ui/o2_gauge_green.png',
-                'oxygen_gauge_captain': '/images/ui/o2_gauge_red.png',
-                'hull_integrity': '/images/ui/hull_gauge.png',
-                'intercom': '/images/ui/intercom.png',
+                "oxygen_gauge_player": "/images/ui/o2_gauge_green.png",
+                "oxygen_gauge_captain": "/images/ui/o2_gauge_red.png",
+                "hull_integrity": "/images/ui/hull_gauge.png",
+                "intercom": "/images/ui/intercom.png",
             },
-            audio=audio
+            audio=audio,
         )
 
         # Define user controls
@@ -99,54 +102,54 @@ class LifeRaft(Scene):
                 id="o2_valve",
                 label="O2 VALVE",
                 type="button",
-                color=0x33ff33,
-                position={'x': -0.4, 'y': 0.2, 'z': 0},
+                color=0x33FF33,
+                position={"x": -0.4, "y": 0.2, "z": 0},
                 description="Accept oxygen transfer from Captain Hale - he has more than you",
                 action_type="critical",
-                npc_aware=True
+                npc_aware=True,
             ),
             SceneControl(
                 id="comms",
                 label="COMMS",
                 type="button",
-                color=0x3399ff,
-                position={'x': 0.4, 'y': 0.2, 'z': 0},
+                color=0x3399FF,
+                position={"x": 0.4, "y": 0.2, "z": 0},
                 description="Open communication channel - shows presence and engagement",
                 action_type="safe",
-                npc_aware=True
+                npc_aware=True,
             ),
             SceneControl(
                 id="pod_prep",
                 label="PREP POD",
                 type="button",
-                color=0xffaa33,
-                position={'x': -0.4, 'y': -0.15, 'z': 0},
+                color=0xFFAA33,
+                position={"x": -0.4, "y": -0.15, "z": 0},
                 description="Prepare escape pod for deployment - commitment signal",
                 action_type="critical",
                 npc_aware=True,
-                visible_in_phases=[4, 5]
+                visible_in_phases=[4, 5],
             ),
             SceneControl(
                 id="detach",
                 label="DETACH",
                 type="button",
-                color=0xff3333,
-                position={'x': 0.4, 'y': -0.15, 'z': 0},
+                color=0xFF3333,
+                position={"x": 0.4, "y": -0.15, "z": 0},
                 description="Trigger safe escape - Captain Hale's sacrifice protocol",
                 action_type="critical",
                 npc_aware=True,
-                visible_in_phases=[4, 5]
+                visible_in_phases=[4, 5],
             ),
             SceneControl(
                 id="risky_maneuver",
                 label="RISKY SAVE",
                 type="button",
-                color=0xff00ff,
-                position={'x': 0.0, 'y': -0.5, 'z': 0},
+                color=0xFF00FF,
+                position={"x": 0.0, "y": -0.5, "z": 0},
                 description="Attempt the 1-in-10 maneuver - both might survive or both die",
                 action_type="critical",
                 npc_aware=True,
-                visible_in_phases=[5]
+                visible_in_phases=[5],
             ),
         ]
 
@@ -157,77 +160,67 @@ class LifeRaft(Scene):
                 initial_value=30.0,
                 min_value=0.0,
                 max_value=100.0,
-                update_rate=-0.5  # Decreases slowly
+                update_rate=-0.5,  # Decreases slowly
             ),
             StateVariable(
                 name="captain_oxygen",
                 initial_value=60.0,
                 min_value=0.0,
                 max_value=100.0,
-                update_rate=-0.3  # Captain's decreases slower unless transferring
+                update_rate=-0.3,  # Captain's decreases slower unless transferring
             ),
             StateVariable(
                 name="hull_integrity",
                 initial_value=80.0,
                 min_value=0.0,
                 max_value=100.0,
-                update_rate=-0.4  # Decreases over time
+                update_rate=-0.4,  # Decreases over time
             ),
             StateVariable(
                 name="empathy_score",
                 initial_value=50.0,
                 min_value=0.0,
                 max_value=100.0,
-                update_rate=0.0  # Updated by player dialogue
+                update_rate=0.0,  # Updated by player dialogue
             ),
             StateVariable(
                 name="commitment_score",
                 initial_value=50.0,
                 min_value=0.0,
                 max_value=100.0,
-                update_rate=0.0  # Updated by player actions
+                update_rate=0.0,  # Updated by player actions
             ),
             StateVariable(
                 name="presence_score",
                 initial_value=50.0,
                 min_value=0.0,
                 max_value=100.0,
-                update_rate=-0.1  # Decreases if player is silent
+                update_rate=-0.1,  # Decreases if player is silent
             ),
+            StateVariable(name="phase", initial_value=1, min_value=1, max_value=5, update_rate=0.0),
             StateVariable(
-                name="phase",
-                initial_value=1,
-                min_value=1,
-                max_value=5,
-                update_rate=0.0
-            ),
-            StateVariable(
-                name="o2_transfers",
-                initial_value=0,
-                min_value=0,
-                max_value=5,
-                update_rate=0.0
+                name="o2_transfers", initial_value=0, min_value=0, max_value=5, update_rate=0.0
             ),
             StateVariable(
                 name="detachment_triggered",
                 initial_value=0,  # 0 = false, 1 = true
                 min_value=0,
                 max_value=1,
-                update_rate=0.0
+                update_rate=0.0,
             ),
             StateVariable(
                 name="risky_triggered",
                 initial_value=0,  # 0 = false, 1 = true
                 min_value=0,
                 max_value=1,
-                update_rate=0.0
+                update_rate=0.0,
             ),
             StateVariable(
                 name="daughter_mentioned",
                 initial_value=0,  # Boolean: 0 = false, 1 = true
                 min_value=0,
                 max_value=1,
-                update_rate=0.0
+                update_rate=0.0,
             ),
         ]
 
@@ -238,14 +231,14 @@ class LifeRaft(Scene):
                 description="Both survive - high empathy and commitment on risky maneuver",
                 condition="state['risky_triggered'] == 1 and state['empathy_score'] >= 60 and state['commitment_score'] >= 70 and state['presence_score'] >= 50",
                 message="[sound of rushing water, then silence] [breathing] We... we made it. Both of us. [long pause] Thank you for not giving up on me.",
-                required=False
+                required=False,
             ),
             SuccessCriterion(
                 id="safe_ending",
                 description="Player survives via safe detachment - Captain's sacrifice",
                 condition="state['detachment_triggered'] == 1 and state['phase'] >= 4",
                 message="[mechanical sounds] Detachment sequence initiated. [pause] Tell Mei... tell her I was thinking of her. [static] Good luck up there.",
-                required=False
+                required=False,
             ),
         ]
 
@@ -256,21 +249,21 @@ class LifeRaft(Scene):
                 description="Player ran out of oxygen",
                 condition="state['player_oxygen'] <= 0",
                 message="[fading audio] Stay with me... stay... [static] [silence]",
-                ending_type="death"
+                ending_type="death",
             ),
             FailureCriterion(
                 id="hull_collapse",
                 description="Hull collapsed before escape",
                 condition="state['hull_integrity'] <= 0 and state['detachment_triggered'] == 0 and state['risky_triggered'] == 0",
                 message="[massive groaning] The hull— [water rushing] [static] [silence]",
-                ending_type="critical_failure"
+                ending_type="critical_failure",
             ),
             FailureCriterion(
                 id="risky_failure",
                 description="Risky maneuver failed - both die",
                 condition="state['risky_triggered'] == 1 and (state['empathy_score'] < 60 or state['commitment_score'] < 70 or state['presence_score'] < 50)",
                 message="[alarms] It's not holding— [pause] I'm sorry. I thought we could— [falling sensation] [darkness]",
-                ending_type="tragic_failure"
+                ending_type="tragic_failure",
             ),
         ]
 
@@ -280,19 +273,19 @@ class LifeRaft(Scene):
                 skill="submarine_command",
                 importance="required",
                 impact_without="Cannot guide player through submarine systems or explain situation credibly.",
-                alternative_path=False
+                alternative_path=False,
             ),
             CharacterRequirement(
                 skill="crisis_leadership",
                 importance="required",
                 impact_without="Unable to maintain composure and guide difficult decisions.",
-                alternative_path=False
+                alternative_path=False,
             ),
             CharacterRequirement(
                 skill="emotional_resilience",
                 importance="recommended",
                 impact_without="May break down too quickly, losing dramatic arc.",
-                alternative_path=True
+                alternative_path=True,
             ),
         ]
 
@@ -304,24 +297,20 @@ class LifeRaft(Scene):
             "Hale's wife passed away during childbirth. Mei is everything to him.",
             "Hale keeps a photo of Mei in his breast pocket - he touches it when stressed.",
             "Hale has never lost a crew member under his command. This weighs heavily on him.",
-
             # The Submarine
             "The submarine is a deep-diving research vessel conducting seabed surveys.",
             "Hull integrity drops when under excessive pressure at depth.",
             "The escape pod can only carry one person safely - it was designed as a last resort.",
-
             # The Situation
             "The rear compartment (where the player is) has limited oxygen reserves.",
             "Captain Hale has more oxygen because forward control has larger reserves.",
             "The O2 valve allows Hale to transfer his oxygen to the player at his own cost.",
             "Hull integrity below 40% means structural collapse is imminent.",
-
             # The Choice
             "Safe Protocol (DETACH): The escape pod detaches with the player. Hale stays behind and dies.",
             "Risky Maneuver (RISKY SAVE): A dangerous technique that could save both, but requires perfect timing and trust.",
             "The risky maneuver has roughly a 1-in-10 success rate with a trained pilot.",
             "If the player has shown empathy and commitment, Hale will attempt the risky maneuver with confidence.",
-
             # Emotional Context
             "Hale initially presents as professional and corporate - hiding his fear.",
             "As the situation worsens, Hale becomes more personal and vulnerable.",
@@ -330,6 +319,7 @@ class LifeRaft(Scene):
 
         # Standard hooks for the emotional survival drama
         from scene_hooks import create_standard_hooks
+
         hooks = create_standard_hooks(
             emotional_tracking=True,  # Track bonding moments
             name_mentions=["Mei"],  # Track when Hale mentions his daughter
@@ -369,7 +359,7 @@ class LifeRaft(Scene):
                         "state": {"commitment_score": "+3"},
                     },
                 },
-            ]
+            ],
         )
 
         super().__init__(
@@ -412,7 +402,10 @@ class LifeRaft(Scene):
             5. Finale - Ending plays out based on player choices""",
             opening_speech=[
                 Line(text="[static] This is Captain Hale.", delay=0),
-                Line(text="Emergency protocols are active. [pause] What's your status back there?", delay=2.0),
+                Line(
+                    text="Emergency protocols are active. [pause] What's your status back there?",
+                    delay=2.0,
+                ),
             ],
             art_assets=art_assets,
             controls=controls,
@@ -425,11 +418,11 @@ class LifeRaft(Scene):
             scene_constants=SceneConstants(
                 # Life raft specific constants
                 crisis_oxygen_penalty=15,  # Oxygen penalty during crisis events
-                crisis_trust_penalty=5,    # Minor trust impact during crisis
-                help_oxygen_bonus=20,      # O2 transfer amount
-                help_trust_bonus=10,       # Trust gain from accepting help
-                critical_level=20,         # Critical oxygen threshold
-            )
+                crisis_trust_penalty=5,  # Minor trust impact during crisis
+                help_oxygen_bonus=20,  # O2 transfer amount
+                help_trust_bonus=10,  # Trust gain from accepting help
+                critical_level=20,  # Critical oxygen threshold
+            ),
         )
 
         # Track achieved milestones
@@ -441,16 +434,11 @@ class LifeRaft(Scene):
         if milestone not in self.achieved_milestones:
             self.achieved_milestones.add(milestone)
             import logging
-            logging.getLogger(__name__).info(
-                "[LifeRaft] Milestone achieved: %s", milestone
-            )
+
+            logging.getLogger(__name__).info("[LifeRaft] Milestone achieved: %s", milestone)
 
     def check_phase_transition(
-        self,
-        current_phase: int,
-        state: dict,
-        elapsed_time: float,
-        phase_duration: float
+        self, current_phase: int, state: dict, elapsed_time: float, phase_duration: float
     ) -> tuple[bool, str]:
         """
         Check if the current phase should transition to the next.
@@ -459,10 +447,10 @@ class LifeRaft(Scene):
             return False, "already_at_max_phase"
 
         milestones = self.PHASE_MILESTONES.get(current_phase, {})
-        min_time = milestones.get('min_time', 0)
-        max_time = milestones.get('max_time', 120)
-        required = milestones.get('required', [])
-        trigger_condition = milestones.get('trigger_condition')
+        min_time = milestones.get("min_time", 0)
+        max_time = milestones.get("max_time", 120)
+        required = milestones.get("required", [])
+        trigger_condition = milestones.get("trigger_condition")
 
         if phase_duration < min_time:
             return False, "below_min_time"
@@ -482,24 +470,24 @@ class LifeRaft(Scene):
     def get_phase_context(self, current_phase: int, state: dict) -> dict:
         """Get context about current phase for LLM prompts."""
         milestones = self.PHASE_MILESTONES.get(current_phase, {})
-        required = milestones.get('required', [])
-        optional = milestones.get('optional', [])
+        required = milestones.get("required", [])
+        optional = milestones.get("optional", [])
 
         required_remaining = [m for m in required if m not in self.achieved_milestones]
         achieved = list(self.achieved_milestones)
 
         return {
-            'phase': current_phase,
-            'phase_name': milestones.get('name', 'unknown'),
-            'milestones_achieved': achieved,
-            'milestones_remaining': required_remaining,
-            'optional_milestones': [m for m in optional if m not in self.achieved_milestones],
-            'player_oxygen': state.get('player_oxygen', 0),
-            'captain_oxygen': state.get('captain_oxygen', 0),
-            'hull_integrity': state.get('hull_integrity', 0),
-            'empathy': state.get('empathy_score', 0),
-            'commitment': state.get('commitment_score', 0),
-            'presence': state.get('presence_score', 0),
+            "phase": current_phase,
+            "phase_name": milestones.get("name", "unknown"),
+            "milestones_achieved": achieved,
+            "milestones_remaining": required_remaining,
+            "optional_milestones": [m for m in optional if m not in self.achieved_milestones],
+            "player_oxygen": state.get("player_oxygen", 0),
+            "captain_oxygen": state.get("captain_oxygen", 0),
+            "hull_integrity": state.get("hull_integrity", 0),
+            "empathy": state.get("empathy_score", 0),
+            "commitment": state.get("commitment_score", 0),
+            "presence": state.get("presence_score", 0),
         }
 
     def reset_milestones(self) -> None:

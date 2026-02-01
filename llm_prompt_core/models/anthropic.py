@@ -4,11 +4,13 @@ Anthropic Claude model wrapper.
 This module provides a LangChain-compatible wrapper for Claude models.
 """
 
-import os
-from typing import Any, Dict, Optional, Sequence
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import Any
 
 from langchain_core.callbacks.manager import CallbackManagerForLLMRun
-from pydantic import Field, PrivateAttr
+from pydantic import PrivateAttr
 
 from llm_prompt_core.models.base import BaseLLMModel
 
@@ -30,7 +32,7 @@ class ClaudeModel(BaseLLMModel):
     model_name: str = "claude-sonnet-4.5-20250929"
     temperature: float = 0.8
     max_tokens: int = 1024
-    api_key: Optional[str] = None
+    api_key: str | None = None
 
     _client: Any = PrivateAttr()
 
@@ -39,25 +41,17 @@ class ClaudeModel(BaseLLMModel):
 
     def __init__(self, **data: Any):
         super().__init__(**data)
-        resolved_api_key = self.api_key or os.getenv("ANTHROPIC_API_KEY")
-        if not resolved_api_key:
-            raise EnvironmentError(
-                "ANTHROPIC_API_KEY environment variable must be set for Claude models."
-            )
+        resolved_api_key = self._get_api_key("ANTHROPIC_API_KEY", "Claude")
 
-        try:
-            from anthropic import Anthropic
-            self._client = Anthropic(api_key=resolved_api_key)
-        except ImportError:
-            raise ImportError(
-                "anthropic package not installed. Install it with: pip install anthropic"
-            )
+        from anthropic import Anthropic
+
+        self._client = self._initialize_client(Anthropic, resolved_api_key, "anthropic")
 
     def _call(
         self,
         prompt: str,
-        stop: Optional[Sequence[str]] = None,
-        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        stop: Sequence[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> str:
         """
@@ -94,14 +88,14 @@ class ClaudeModel(BaseLLMModel):
             return response.content[0].text
 
         except Exception as e:
-            raise RuntimeError(f"Claude API call failed: {str(e)}")
+            self._handle_api_error(e, "Claude")
 
     @property
     def _llm_type(self) -> str:
         return "anthropic-claude"
 
     @property
-    def _identifying_params(self) -> Dict[str, Any]:
+    def _identifying_params(self) -> dict[str, Any]:
         return {
             "model_name": self.model_name,
             "temperature": self.temperature,

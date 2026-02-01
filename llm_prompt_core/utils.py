@@ -6,10 +6,8 @@ and LangChain chain building.
 """
 
 import os
-import sys
-from typing import List
-from langchain_core.prompts import ChatPromptTemplate
 
+from langchain_core.prompts import ChatPromptTemplate
 
 # Color constants for CLI output
 RED = "\033[91m"
@@ -24,7 +22,7 @@ BLACK = "\033[90m"
 ORANGE = "\033[33m"
 
 
-def list_to_conjunction(L: List[str]) -> str:
+def list_to_conjunction(L: list[str]) -> str:
     """
     Takes a list of strings and returns a string with every element in the list
     separated by commas, with 'and' before the last element.

@@ -1,9 +1,11 @@
-from protocol import Protocol
 import abc
-import re
+
+from protocol import Protocol
+
 
 class AntServerBase:
     __metaclass__ = abc.ABCMeta
+
     def __init__(self, websocket, console, voice_client):
         self.websocket = websocket
         self.console = console
@@ -21,7 +23,9 @@ class AntServerBase:
 
     async def send_state_update(self, type, state, value):
         self.console.print("[blue]->[/blue] [bold]STATE_UPDATE[/bold]", type, state, value)
-        await self.websocket.send(Protocol.STATE_UPDATE + type + Protocol.SEP + state + Protocol.SEP + value)
+        await self.websocket.send(
+            Protocol.STATE_UPDATE + type + Protocol.SEP + state + Protocol.SEP + value
+        )
 
     async def send_event(self, event_name):
         self.console.print("[blue]->[/blue] [bold]EVENT_TRIGGER[/bold]", event_name)

@@ -22,7 +22,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from post_speak_hooks import PostSpeakHook, PostSpeakContext, register_hook
+from post_speak_hooks import PostSpeakContext, PostSpeakHook, register_hook
 
 logger = logging.getLogger(__name__)
 
@@ -148,8 +148,9 @@ class StandardSceneHook(PostSpeakHook):
         if action.event:
             ctx.trigger_event(action.event)
 
-        logger.debug("Hook %s applied: state=%s, event=%s",
-                     hook_name, action.state_updates, action.event)
+        logger.debug(
+            "Hook %s applied: state=%s, event=%s", hook_name, action.state_updates, action.event
+        )
 
     def reset(self) -> None:
         """Reset latched hooks (e.g., on scene restart)."""
@@ -198,14 +199,16 @@ def register_scene_hooks(scene_id: str, hooks_config: list[dict[str, Any]]) -> N
                 milestone=on_false_cfg.get("milestone"),
             )
 
-        hooks.append(SceneHookConfig(
-            name=cfg.get("name", f"hook_{len(hooks)}"),
-            query=cfg["query"],
-            latch=cfg.get("latch", False),
-            on_true=on_true,
-            on_false=on_false,
-            enabled=cfg.get("enabled", True),
-        ))
+        hooks.append(
+            SceneHookConfig(
+                name=cfg.get("name", f"hook_{len(hooks)}"),
+                query=cfg["query"],
+                latch=cfg.get("latch", False),
+                on_true=on_true,
+                on_false=on_false,
+                enabled=cfg.get("enabled", True),
+            )
+        )
 
     # Create and register the hook
     hook = StandardSceneHook(scene_id, hooks)
@@ -241,68 +244,80 @@ def create_standard_hooks(
 
     # Slip detection - catches "when I..." type reveals
     if slip_detection:
-        hooks.append({
-            "name": "presence_slip",
-            "query": "Speaker accidentally revealed they were present at the scene or event, such as saying 'when I' then correcting themselves",
-            "latch": True,
-            "on_true": {
-                "state": {"contradictions": "+1"},
-                "event": "slip_detected",
-            },
-        })
-        hooks.append({
-            "name": "obvious_lie",
-            "query": "Speaker gave an obviously weak excuse or contradicted something they said earlier",
-            "latch": False,
-            "on_true": {
-                "state": {"contradictions": "+1"},
-            },
-        })
+        hooks.append(
+            {
+                "name": "presence_slip",
+                "query": "Speaker accidentally revealed they were present at the scene or event, such as saying 'when I' then correcting themselves",
+                "latch": True,
+                "on_true": {
+                    "state": {"contradictions": "+1"},
+                    "event": "slip_detected",
+                },
+            }
+        )
+        hooks.append(
+            {
+                "name": "obvious_lie",
+                "query": "Speaker gave an obviously weak excuse or contradicted something they said earlier",
+                "latch": False,
+                "on_true": {
+                    "state": {"contradictions": "+1"},
+                },
+            }
+        )
 
     # Emotional tracking
     if emotional_tracking:
-        hooks.append({
-            "name": "emotional_moment",
-            "query": "Speaker showed strong emotion like voice breaking, crying, long pauses, or confessing something painful",
-            "latch": False,
-            "on_true": {
-                "state": {"emotional_bond": "+5"},
-                "event": "emotional_moment",
-            },
-        })
-        hooks.append({
-            "name": "vulnerability_shown",
-            "query": "Speaker revealed something personal or vulnerable about themselves",
-            "latch": False,
-            "on_true": {
-                "state": {"emotional_bond": "+3"},
-            },
-        })
+        hooks.append(
+            {
+                "name": "emotional_moment",
+                "query": "Speaker showed strong emotion like voice breaking, crying, long pauses, or confessing something painful",
+                "latch": False,
+                "on_true": {
+                    "state": {"emotional_bond": "+5"},
+                    "event": "emotional_moment",
+                },
+            }
+        )
+        hooks.append(
+            {
+                "name": "vulnerability_shown",
+                "query": "Speaker revealed something personal or vulnerable about themselves",
+                "latch": False,
+                "on_true": {
+                    "state": {"emotional_bond": "+3"},
+                },
+            }
+        )
 
     # Name mention tracking
     if name_mentions:
         for name in name_mentions:
-            hooks.append({
-                "name": f"mentioned_{name.lower().replace(' ', '_')}",
-                "query": f"Speaker mentioned someone named {name}",
-                "latch": True,
-                "on_true": {
-                    "state": {f"{name.lower().replace(' ', '_')}_mentioned": True},
-                    "event": "clue_unlocked",
-                },
-            })
+            hooks.append(
+                {
+                    "name": f"mentioned_{name.lower().replace(' ', '_')}",
+                    "query": f"Speaker mentioned someone named {name}",
+                    "latch": True,
+                    "on_true": {
+                        "state": {f"{name.lower().replace(' ', '_')}_mentioned": True},
+                        "event": "clue_unlocked",
+                    },
+                }
+            )
 
     # Location mention tracking
     if location_mentions:
         for location in location_mentions:
-            hooks.append({
-                "name": f"mentioned_{location.lower().replace(' ', '_')}",
-                "query": f"Speaker mentioned {location} or a place matching that description",
-                "latch": True,
-                "on_true": {
-                    "state": {f"{location.lower().replace(' ', '_')}_mentioned": True},
-                },
-            })
+            hooks.append(
+                {
+                    "name": f"mentioned_{location.lower().replace(' ', '_')}",
+                    "query": f"Speaker mentioned {location} or a place matching that description",
+                    "latch": True,
+                    "on_true": {
+                        "state": {f"{location.lower().replace(' ', '_')}_mentioned": True},
+                    },
+                }
+            )
 
     # Add any custom hooks
     if custom_hooks:

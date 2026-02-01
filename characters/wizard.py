@@ -41,11 +41,11 @@ Non-vocal actions like [eyes twinkling] or [strokes beard] will be removed from 
 The vocalized sounds above will actually be HEARD in your voice!
 
 Example: "[chuckles] Ah, young one, the answer you seek lies within." - the chuckle will be voiced.""",
-            color=0x9c27b0,  # Purple - mystical/magical feeling
+            color=0x9C27B0,  # Purple - mystical/magical feeling
             emotion_expression_style={
-                'expressiveness': 0.9,        # Theatrical, dramatic
-                'stability_baseline': 0.6,    # Naturally stable when calm
-                'emotional_range': 1.0,       # Emotions FULLY affect voice
-                'restraint': 0.1              # No restraint, wears heart on sleeve
-            }
+                "expressiveness": 0.9,  # Theatrical, dramatic
+                "stability_baseline": 0.6,  # Naturally stable when calm
+                "emotional_range": 1.0,  # Emotions FULLY affect voice
+                "restraint": 0.1,  # No restraint, wears heart on sleeve
+            },
         )

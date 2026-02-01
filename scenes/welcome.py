@@ -5,11 +5,13 @@ The first scene users see when starting Digital Actors. Features Clippy
 the paper clip assistant who helps users understand the platform.
 """
 
-from scenes.base import (
-    Scene, SceneControl, StateVariable,
-    CharacterRequirement, SceneArtAssets, AudioAssets
+from scenes.base.base import (
+    AudioAssets,
+    CharacterRequirement,
+    Scene,
+    SceneArtAssets,
+    StateVariable,
 )
-from llm_prompt_core.types import Line
 
 
 class Welcome(Scene):
@@ -20,14 +22,10 @@ class Welcome(Scene):
         audio = AudioAssets(
             background_music=None,  # No background music for welcome
             sfx_library={
-                'click': '/audio/sfx/click.mp3',
-                'success': '/audio/sfx/success.mp3',
+                "click": "/audio/sfx/click.mp3",
+                "success": "/audio/sfx/success.mp3",
             },
-            volume_levels={
-                'music': 0.0,
-                'sfx': 0.5,
-                'voice': 1.0
-            }
+            volume_levels={"music": 0.0, "sfx": 0.5, "voice": 1.0},
         )
 
         # Define art assets
@@ -35,7 +33,7 @@ class Welcome(Scene):
             scene_type="welcome",
             custom_scene_file="/js/welcome_scene.js",
             ui_elements={},
-            audio=audio
+            audio=audio,
         )
 
         # No 3D controls - welcome scene uses UI menus for navigation
@@ -44,11 +42,7 @@ class Welcome(Scene):
         # Minimal state for welcome scene
         state_variables = [
             StateVariable(
-                name="topics_explored",
-                initial_value=0,
-                min_value=0,
-                max_value=10,
-                update_rate=0.0
+                name="topics_explored", initial_value=0, min_value=0, max_value=10, update_rate=0.0
             ),
         ]
 
@@ -58,7 +52,7 @@ class Welcome(Scene):
                 skill="user_assistance",
                 importance="required",
                 impact_without="Cannot guide users through the platform.",
-                alternative_path=False
+                alternative_path=False,
             ),
         ]
 
@@ -89,5 +83,5 @@ class Welcome(Scene):
             failure_criteria=[],
             character_requirements=character_requirements,
             time_limit=None,  # No time limit for welcome
-            allow_freeform_dialogue=True
+            allow_freeform_dialogue=True,
         )

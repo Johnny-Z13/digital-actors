@@ -39,11 +39,11 @@ As an AI, your vocalizations should feel warm but measured.
 Non-vocal cues like [system beep] will be converted to pauses.
 
 Example: "[sighs gently] I understand. [soft laugh] That's a very human thing to worry about." - the sigh and laugh will be voiced.""",
-            color=0x4fc3f7,  # Cyan - tech/AI feeling
+            color=0x4FC3F7,  # Cyan - tech/AI feeling
             emotion_expression_style={
-                'expressiveness': 0.7,        # Warm, nurturing
-                'stability_baseline': 0.5,    # Balanced
-                'emotional_range': 0.8,       # Emotionally responsive
-                'restraint': 0.2              # Low restraint (designed to connect emotionally)
-            }
+                "expressiveness": 0.7,  # Warm, nurturing
+                "stability_baseline": 0.5,  # Balanced
+                "emotional_range": 0.8,  # Emotionally responsive
+                "restraint": 0.2,  # Low restraint (designed to connect emotionally)
+            },
         )

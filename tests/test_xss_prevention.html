@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XSS Prevention Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-case {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-case.pass {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .test-case.fail {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        .test-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .test-input {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            margin: 5px 0;
+        }
+        .test-output {
+            margin: 5px 0;
+        }
+        h1 {
+            color: #333;
+        }
+        .summary {
+            margin: 30px 0;
+            padding: 20px;
+            background: #e9ecef;
+            border-radius: 5px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🛡️ XSS Prevention Test Suite</h1>
+    <p>Testing that HTML escaping prevents XSS attacks in NPC responses.</p>
+
+    <div id="test-results"></div>
+    <div id="summary" class="summary"></div>
+
+    <script>
+        // Import the escapeHTML and parseVoiceAnnotations functions
+        // (Simulating the app.js functions)
+        function escapeHTML(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function parseVoiceAnnotations(text) {
+            // SECURITY: Escape HTML first to prevent XSS attacks
+            const escapedText = escapeHTML(text);
+
+            // Match annotations in square brackets
+            const annotationRegex = /\[([^\]]+)\]/g;
+
+            return escapedText.replace(annotationRegex, (match, content) => {
+                const lowerContent = content.toLowerCase();
+                let elevenLabsEffect = 'none';
+
+                if (lowerContent.includes('static')) {
+                    elevenLabsEffect = 'radio_static';
+                } else if (lowerContent.includes('breathing')) {
+                    elevenLabsEffect = 'breathing';
+                }
+
+                return `<span class="voice-annotation" data-elevenlabs-effect="${elevenLabsEffect}">${match}</span>`;
+            });
+        }
+
+        // Test cases
+        const testCases = [
+            {
+                name: "Script tag injection",
+                input: "<script>alert('XSS')</script>Hello",
+                shouldNotContain: "<script>",
+                shouldContain: "&lt;script&gt;",
+                description: "Script tags should be escaped"
+            },
+            {
+                name: "Image tag with onerror",
+                input: '<img src=x onerror="alert(1)">',
+                shouldNotContain: "<img",
+                shouldContain: "&lt;img",
+                description: "Image tags with event handlers should be escaped"
+            },
+            {
+                name: "Event handler injection",
+                input: '<div onload="alert(1)">Text</div>',
+                shouldNotContain: "onload=",
+                shouldContain: "&lt;div",
+                description: "Event handlers should be escaped"
+            },
+            {
+                name: "JavaScript URL",
+                input: '<a href="javascript:alert(1)">Click</a>',
+                shouldNotContain: "javascript:",
+                shouldContain: "javascript:",  // Will be escaped
+                description: "JavaScript URLs should be escaped"
+            },
+            {
+                name: "Data URL with script",
+                input: '<iframe src="data:text/html,<script>alert(1)</script>">',
+                shouldNotContain: "<iframe",
+                shouldContain: "&lt;iframe",
+                description: "Data URLs should be escaped"
+            },
+            {
+                name: "Safe text with annotation",
+                input: "The oxygen is low [static] We need to act fast!",
+                shouldContain: '<span class="voice-annotation"',
+                shouldContain: "[static]",
+                description: "Safe annotations should work correctly"
+            },
+            {
+                name: "Mixed: annotation + malicious code",
+                input: "Warning! [alarm] <script>alert('pwned')</script>",
+                shouldContain: '<span class="voice-annotation"',
+                shouldNotContain: "<script>alert",
+                shouldContain: "&lt;script&gt;",
+                description: "Annotations should work while scripts are escaped"
+            },
+            {
+                name: "HTML entity injection",
+                input: "Text &#60;script&#62;alert(1)&#60;/script&#62;",
+                shouldNotContain: "<script",
+                description: "Already-encoded entities should remain escaped"
+            }
+        ];
+
+        // Run tests
+        const resultsDiv = document.getElementById('test-results');
+        let passCount = 0;
+        let failCount = 0;
+
+        testCases.forEach((test, index) => {
+            const output = parseVoiceAnnotations(test.input);
+
+            let passed = true;
+            let failures = [];
+
+            if (test.shouldContain) {
+                const contains = Array.isArray(test.shouldContain) ? test.shouldContain : [test.shouldContain];
+                contains.forEach(str => {
+                    if (!output.includes(str)) {
+                        passed = false;
+                        failures.push(`Missing: "${str}"`);
+                    }
+                });
+            }
+
+            if (test.shouldNotContain) {
+                const notContains = Array.isArray(test.shouldNotContain) ? test.shouldNotContain : [test.shouldNotContain];
+                notContains.forEach(str => {
+                    if (output.includes(str)) {
+                        passed = false;
+                        failures.push(`Should not contain: "${str}"`);
+                    }
+                });
+            }
+
+            const testDiv = document.createElement('div');
+            testDiv.className = `test-case ${passed ? 'pass' : 'fail'}`;
+
+            testDiv.innerHTML = `
+                <div class="test-title">
+                    ${passed ? '✅' : '❌'} Test ${index + 1}: ${test.name}
+                </div>
+                <div>${test.description}</div>
+                <div class="test-input"><strong>Input:</strong> ${escapeHTML(test.input)}</div>
+                <div class="test-output"><strong>Output:</strong> ${escapeHTML(output)}</div>
+                ${failures.length > 0 ? `<div style="color: red; margin-top: 10px;"><strong>Failures:</strong><br>${failures.join('<br>')}</div>` : ''}
+            `;
+
+            resultsDiv.appendChild(testDiv);
+
+            if (passed) {
+                passCount++;
+            } else {
+                failCount++;
+            }
+        });
+
+        // Show summary
+        const summaryDiv = document.getElementById('summary');
+        const totalTests = testCases.length;
+        const allPassed = failCount === 0;
+
+        summaryDiv.innerHTML = `
+            <strong>Test Summary:</strong><br>
+            ${allPassed ? '✅' : '❌'} ${passCount} / ${totalTests} tests passed<br>
+            ${failCount > 0 ? `${failCount} tests failed` : 'All XSS attacks successfully blocked!'}
+        `;
+
+        summaryDiv.style.backgroundColor = allPassed ? '#d4edda' : '#f8d7da';
+        summaryDiv.style.borderColor = allPassed ? '#c3e6cb' : '#f5c6cb';
+        summaryDiv.style.border = '2px solid';
+
+        console.log(`XSS Prevention Tests: ${passCount}/${totalTests} passed`);
+    </script>
+</body>
+</html>

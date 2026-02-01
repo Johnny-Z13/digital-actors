@@ -1,0 +1,33 @@
+# Prometheus configuration for Digital Actors monitoring
+
+global:
+  scrape_interval: 15s       # Set the scrape interval to every 15 seconds
+  evaluation_interval: 15s   # Evaluate rules every 15 seconds
+  external_labels:
+    cluster: 'digital-actors'
+    environment: 'production'
+
+# Alertmanager configuration (optional)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['localhost:9093']
+
+# Load rules once and periodically evaluate them
+# rule_files:
+#   - 'alerts.yml'
+
+# Scrape configurations
+scrape_configs:
+  # Digital Actors application metrics
+  - job_name: 'digital-actors'
+    static_configs:
+      - targets: ['digital-actors:8888']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

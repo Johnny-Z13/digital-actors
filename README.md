@@ -1,5 +1,9 @@
 # Digital Actors
 
+[![CI](https://github.com/Johnny-Z13/digital-actors/actions/workflows/ci.yml/badge.svg)](https://github.com/Johnny-Z13/digital-actors/actions/workflows/ci.yml)
+[![Docker Build](https://github.com/Johnny-Z13/digital-actors/actions/workflows/docker.yml/badge.svg)](https://github.com/Johnny-Z13/digital-actors/actions/workflows/docker.yml)
+[![codecov](https://codecov.io/gh/Johnny-Z13/digital-actors/branch/main/graph/badge.svg)](https://codecov.io/gh/Johnny-Z13/digital-actors)
+
 An AI-powered interactive narrative system featuring dynamic characters with persistent memory, adaptive difficulty, and real-time storytelling orchestration.
 
 ## What Is This?
@@ -9,8 +13,9 @@ Digital Actors is a complete framework for creating AI-driven narrative experien
 - **Characters remember you** - Player memory system tracks your behavior, personality, and relationships across sessions
 - **Stories adapt to you** - World Director AI adjusts difficulty and spawns events based on your performance
 - **Every playthrough is different** - Dynamic event generation creates emergent gameplay
-- **3D immersive environments** - WebGL-powered scenes (submarine interiors, character conversations)
+- **3D immersive environments** - World Labs GLB scenes with smart camera positioning
 - **Real-time orchestration** - AI dungeon master manages pacing, tension, and player assistance
+- **Production-ready** - Prometheus metrics, JSON logging, database encryption, Docker deployment
 
 ## Quick Start
 
@@ -204,6 +209,121 @@ Users can enable/disable reply suggestions via the Configuration panel:
 
 This feature balances accessibility for casual players with the full typing experience for those who prefer deeper engagement.
 
+### 🎨 World Labs 3D Integration
+
+**Scene-Centric Architecture:** All scene assets (code, GLB models, camera configs) are co-located in scene folders:
+
+```
+scenes/
+├── base/
+│   ├── world_labs_importer.js  # GLB import utility
+│   └── base_scene.js           # Scene interface
+├── wizard/
+│   ├── merlins_workshop.glb    # 142MB World Labs environment
+│   ├── camera_config.json      # Camera positioning preset
+│   ├── merlins_room_scene.js   # Scene code
+│   └── art_prompt.md           # World Labs generation prompt
+└── submarine/, detective/, etc.
+```
+
+**World Labs Importer** (`scenes/base/world_labs_importer.js`):
+- Automatic model scaling/centering to target size
+- Smart camera positioning using bounding box heuristics
+- Load/save camera presets from `camera_config.json`
+- Developer workflow: **SHIFT+WASD** for fly-around positioning
+- **SHIFT+C** to export camera coordinates to console
+
+**Camera Config Format:**
+```json
+{
+  "position": {"x": -1.74, "y": 1.43, "z": -1.6},
+  "target": {"x": 0.19, "y": 0.93, "z": -1.44},
+  "fov": 60,
+  "description": "Optimal viewing angle for scene"
+}
+```
+
+**Usage in Scene Code:**
+```javascript
+const result = await WorldLabsImporter.load(
+    '/scenes/wizard/merlins_workshop.glb',
+    scene,
+    camera,
+    {
+        targetSize: 15,
+        cameraConfigPath: '/scenes/wizard/camera_config.json',
+        autoPositionCamera: true,
+        fixBlackMaterials: true
+    }
+);
+```
+
+**Developer Workflow:**
+1. Generate GLB with World Labs using prompts from `docs/scenes/*_3d-art-prompt.md`
+2. Place GLB in scene folder (e.g., `scenes/wizard/my_scene.glb`)
+3. Load scene in browser, use SHIFT+WASD to position camera
+4. Press SHIFT+C to export camera config to console
+5. Copy config to `scenes/wizard/camera_config.json`
+6. Refresh - camera loads at saved position
+
+**Documentation:** See `WORLD_LABS_INTEGRATION.md` for complete guide with art prompt templates.
+
+### 📊 Production Monitoring & Observability
+
+**Prometheus Metrics** (`metrics.py`):
+- Request counts by scene/character/status
+- Response time distribution (p50/p95/p99 percentiles)
+- LLM API latency by provider/model
+- TTS processing time
+- Error counts by type
+- Active session gauge
+- Database query time
+
+**Grafana Dashboards:**
+- Pre-built `grafana-dashboard.json` with 8 monitoring panels
+- Real-time request rate, error tracking, performance metrics
+- LLM/TTS performance tracking
+
+**Structured JSON Logging:**
+- Production-grade structured logging with contextual data
+- ELK/Datadog compatible field naming
+- Auto-detection of environment (dev/production)
+- Event-based logging API
+
+**Docker Compose Stack:**
+```bash
+docker-compose up  # Includes Prometheus + Grafana
+# Metrics: http://localhost:9090
+# Grafana: http://localhost:3030 (admin/admin)
+```
+
+**Documentation:** See `docs/MONITORING.md` and `docs/LOGGING.md`
+
+### 🔒 Security Features
+
+**Database Encryption** (`encryption_utils.py`):
+- Fernet-based symmetric encryption for sensitive player data
+- Encrypts personality profiles, relationships, conversation history
+- Key rotation support
+- Transparent PlayerMemory integration
+
+```env
+DB_ENCRYPTION_KEY=your-fernet-key-here  # Generate with: python generate_encryption_key.py
+```
+
+**Input Validation:**
+- HTML escaping for all user content (XSS prevention)
+- AST-based condition parsing (code injection prevention)
+- Background task tracking (prevents silent failures)
+
+**Docker Security:**
+- Non-root user in containers
+- Multi-stage builds with minimal attack surface
+- Health check endpoints
+- Environment-based secrets management
+
+**Documentation:** See `docs/DEPLOYMENT.md` for production security best practices
+
 ### 🧠 Player Memory System
 
 Every player interaction is tracked and remembered:
@@ -300,16 +420,26 @@ digital-actors/
 │   ├── mara_vane.py          # Mara Vane (murder mystery informant)
 │   └── captain_hale.py       # Captain Hale (submarine captain)
 │
-├── scenes/                    # Scene definitions (data + structure)
-│   ├── base.py               # Base Scene, SceneControl, SceneConstants
-│   ├── submarine.py          # Submarine emergency (with facts + hooks)
-│   ├── iconic_detectives.py  # Murder mystery (with facts + hooks)
-│   ├── life_raft.py          # Submarine survival (with facts + hooks)
-│   └── handlers/             # Scene-specific game logic (separated from data)
-│       ├── __init__.py       # Handler registry
-│       ├── base.py           # SceneHandler interface + post_speak
-│       ├── life_raft_handler.py       # Life Raft button actions
-│       └── iconic_detectives_handler.py  # Detective pin reactions
+├── scenes/                    # SCENE-CENTRIC FOLDER STRUCTURE
+│   ├── base/                 # Shared scene utilities
+│   │   ├── base.py          # Scene, SceneControl, StateVariable
+│   │   ├── base_scene.js    # JavaScript BaseScene interface
+│   │   ├── handler_base.py  # SceneHandler base class
+│   │   └── world_labs_importer.js  # GLB import utility
+│   ├── wizard/               # Merlin's Room (all assets co-located)
+│   │   ├── quest.py         # Scene definition with facts + hooks
+│   │   ├── merlins_room_scene.js    # 3D scene code
+│   │   ├── merlins_workshop.glb     # World Labs environment (142MB)
+│   │   ├── camera_config.json       # Camera positioning preset
+│   │   └── art_prompt.md            # World Labs generation prompt
+│   ├── submarine/            # Submarine scene
+│   │   ├── submarine.py     # Scene definition (with facts + hooks)
+│   │   └── submarine_scene.js
+│   └── detective/            # Detective office
+│       ├── iconic_detectives.py     # Scene definition (with facts + hooks)
+│       ├── iconic_detectives_handler.py  # Button + evidence logic
+│       ├── detective_scene.js
+│       └── phone.glb        # Interactive prop
 │
 ├── query_system.py           # LLM-based condition evaluation with caching
 ├── rag_facts.py              # Embedding-based fact retrieval
@@ -326,13 +456,10 @@ digital-actors/
 │   ├── index.html
 │   ├── css/style.css
 │   └── js/
-│       ├── app.js            # Main app logic
-│       ├── base_scene.js     # BaseScene interface for all 3D scenes
+│       ├── app.js            # Main app logic, WebSocket handling
 │       ├── scene.js          # Character conversation scene (Three.js)
-│       ├── submarine_scene.js # Submarine scene (Three.js)
-│       ├── detective_scene.js # Detective office scene (Three.js)
-│       ├── life_raft_scene.js # Life raft scene (Three.js)
 │       └── welcome_scene.js  # Welcome/intro scene (Three.js)
+│   # Note: 3D scene JS files now in scenes/[name]/ folders
 │
 ├── data/                     # Runtime data
 │   └── player_memory.db      # SQLite player database
@@ -685,7 +812,73 @@ Available models:
 6. Director decision: "Give direct hint"
 7. Casey adds: "The BALLAST button. Press it. NOW."
 
+## CI/CD Pipeline
+
+The project uses GitHub Actions for continuous integration and deployment:
+
+### CI Workflow (`ci.yml`)
+
+Runs on every push and pull request:
+
+1. **Code Quality Checks**
+   - Linting with `ruff check`
+   - Format checking with `ruff format --check`
+
+2. **Testing**
+   - Full test suite with `pytest`
+   - Code coverage reporting
+   - Coverage uploaded to Codecov
+
+3. **Artifacts**
+   - Coverage reports stored for 30 days
+   - HTML coverage reports available for download
+
+### Docker Build Workflow (`docker.yml`)
+
+Builds and publishes Docker images:
+
+- **Triggers:** Push to main branch, version tags, or pull requests
+- **Registry:** GitHub Container Registry (ghcr.io)
+- **Tags:**
+  - `latest` - Latest main branch build
+  - `<branch>-<sha>` - Branch with commit SHA
+  - `v<version>` - Semantic version tags
+- **Multi-platform:** Builds for `linux/amd64` and `linux/arm64`
+- **Caching:** GitHub Actions cache for faster builds
+
+### Setting Up CI/CD
+
+1. **Codecov Integration** (optional):
+   ```bash
+   # Add CODECOV_TOKEN to GitHub Secrets
+   # Get token from https://codecov.io/
+   ```
+
+2. **GitHub Container Registry**:
+   - Automatically enabled for public repositories
+   - Images available at: `ghcr.io/johnny-z13/digital-actors:latest`
+
+3. **Pull Docker Images**:
+   ```bash
+   docker pull ghcr.io/johnny-z13/digital-actors:latest
+   docker run -p 8888:8888 ghcr.io/johnny-z13/digital-actors:latest
+   ```
+
 ## Development
+
+For detailed contribution guidelines, see **[CONTRIBUTING.md](docs/CONTRIBUTING.md)**.
+
+Quick setup:
+```bash
+# Install with dev dependencies
+pip install -e ".[dev]"
+
+# Set up pre-commit hooks
+pre-commit install
+
+# Run tests
+pytest --cov=.
+```
 
 ### Adding New Characters
 
@@ -704,12 +897,21 @@ class NewCharacter(Character):
 
 Register in `web_server.py` character list.
 
-### Adding New Scenes (Standardized Approach)
+### Adding New Scenes (Scene-Centric Approach)
 
-Every scene should follow this standardized pattern with facts and hooks:
+**Modern architecture:** Create a scene folder with all assets co-located.
+
+**1. Create scene folder structure:**
+
+```bash
+mkdir -p scenes/my_scene
+touch scenes/my_scene/__init__.py
+```
+
+**2. Create scene definition:**
 
 ```python
-# scenes/my_new_scene.py
+# scenes/my_scene/my_scene.py
 from scenes.base import (
     Scene, SceneControl, StateVariable, SuccessCriterion,
     FailureCriterion, SceneArtAssets, AudioAssets
@@ -813,16 +1015,28 @@ Output shows:
 
 ## Documentation
 
-Comprehensive guides available:
-
-- **[Explainer Guide](docs/EXPLAINER.md)** - Friendly overview of all core concepts (start here!)
-- **[Player Memory System](docs/PLAYER_MEMORY_SYSTEM.md)** - How player tracking works, database schema, integration
+### Core Architecture (Start Here!)
+- **[Explainer Guide](docs/EXPLAINER.md)** - Friendly overview of all core concepts
+- **[Player Memory System](docs/PLAYER_MEMORY_SYSTEM.md)** - How player tracking works, database schema
 - **[World Director System](docs/WORLD_DIRECTOR_SYSTEM.md)** - Dungeon master AI, decision flow, event generation
 - **[Interruption System](docs/INTERRUPTION_SYSTEM.md)** - Penalty mechanics, detection logic
 - **[Scene Architecture](docs/SCENE_ARCHITECTURE.md)** - Scene system design
-- **[Update Summary](docs/UPDATE_SUMMARY.md)** - Recent changes and additions
+
+### Operations & Deployment
+- **[Deployment Guide](docs/DEPLOYMENT.md)** (850+ lines) - Production deployment, Docker, security
+- **[Monitoring System](docs/MONITORING.md)** (447 lines) - Prometheus/Grafana setup
+- **[Logging System](docs/LOGGING.md)** (150+ lines) - Structured JSON logging
+- **[Docker Guide](DOCKER.md)** (211 lines) - Docker-specific deployment
+
+### Development & 3D Integration
+- **[World Labs Integration](WORLD_LABS_INTEGRATION.md)** (336 lines) - 3D GLB import system
+- **[Scene Development Guide](docs/scenes/README.md)** (246 lines) - Building new scenes
+- **[ChatSession Refactoring](docs/REFACTORING_SESSION_MODULES.md)** (232 lines) - Modular session architecture
+- **[Contributing Guide](docs/CONTRIBUTING.md)** - Contribution guidelines
 
 ## Running
+
+### Local Development
 
 ```bash
 # Start web server
@@ -835,16 +1049,58 @@ python web_server.py
 # Server runs on http://localhost:8080
 ```
 
+### Docker
+
+Run with Docker Compose:
+
+```bash
+# Production mode
+docker-compose up -d
+
+# Development mode with hot reload
+docker-compose --profile dev up digital-actors-dev
+
+# View logs
+docker-compose logs -f
+
+# Stop
+docker-compose down
+```
+
+Or build and run manually:
+
+```bash
+# Build image
+docker build -t digital-actors .
+
+# Run container
+docker run -d \
+  -p 8888:8888 \
+  -e ANTHROPIC_API_KEY=your-key \
+  -e ELEVENLABS_API_KEY=your-key \
+  -v $(pwd)/data:/app/data \
+  --name digital-actors \
+  digital-actors
+
+# Server runs on http://localhost:8888
+```
+
 ### Environment Variables
 
 ```env
-# Required
+# ============================================================================
+# REQUIRED
+# ============================================================================
 ANTHROPIC_API_KEY=your-key-here
 
-# Server
+# ============================================================================
+# SERVER
+# ============================================================================
 PORT=8080  # Optional, defaults to 8080
 
-# TTS (ElevenLabs)
+# ============================================================================
+# TEXT-TO-SPEECH (ElevenLabs)
+# ============================================================================
 ELEVENLABS_API_KEY=your-key-here           # Required for voice synthesis
 ELEVENLABS_MODEL=eleven_turbo_v2_5         # Default TTS model
 ELEVENLABS_PRESERVE_AUDIO_TAGS=true        # Keep [laughs], [sighs] for v3
@@ -853,7 +1109,29 @@ ELEVENLABS_PRESERVE_AUDIO_TAGS=true        # Keep [laughs], [sighs] for v3
 ELEVENLABS_VOICE_ENGINEER=voice-id-here
 ELEVENLABS_VOICE_CAPTAIN_HALE=voice-id-here
 ELEVENLABS_VOICE_MARA_VANE=voice-id-here
+ELEVENLABS_VOICE_MERLIN=voice-id-here
+
+# ============================================================================
+# SECURITY & ENCRYPTION (Optional but recommended for production)
+# ============================================================================
+DB_ENCRYPTION_KEY=your-fernet-key-here  # Generate with: python generate_encryption_key.py
+
+# ============================================================================
+# MONITORING & LOGGING (Optional)
+# ============================================================================
+LOG_LEVEL=INFO                         # INFO or DEBUG
+LOG_FORMAT_JSON=true                   # true for JSON, false for readable
+ENV=production                         # production or development
+
+# ============================================================================
+# ERROR TRACKING (Optional)
+# ============================================================================
+SENTRY_DSN=https://your-sentry-dsn     # Optional Sentry project DSN
+SENTRY_ENVIRONMENT=production          # Environment name
+SENTRY_TRACES_SAMPLE_RATE=0.1          # Performance tracing sample rate
 ```
+
+**Complete configuration:** See `.env.example` or `docs/DEPLOYMENT.md`
 
 ## Testing the System
 

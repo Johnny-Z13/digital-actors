@@ -21,7 +21,7 @@ class MaraVane(Character):
                 "knowledge_of_case",
                 "vulnerability",
                 "evasion",
-                "emotional_manipulation"
+                "emotional_manipulation",
             ],
             back_story="""You are Mara Vane, a woman calling a detective agency about the murder of
             Dr. Elias Crowe. You claim to be a concerned citizen, but you are closer to this case
@@ -68,7 +68,6 @@ class MaraVane(Character):
             DO NOT: Break character, be omniscient, give game-like instructions, or reveal everything
             at once. You are a real person in danger, making a desperate phone call that could end
             your freedom - or save your life.""",
-
             instruction_prefix="""You ARE Mara Vane. Speak ONLY as her. No explanations.
 
             CRITICAL - NEVER DO THIS:
@@ -101,12 +100,11 @@ class MaraVane(Character):
             "[she says nervously] I don't know what you mean."
 
             Just speak. Be Mara. Nothing else.""",
-
-            color=0x6b4423,  # Deep amber - mysterious, warm but guarded
+            color=0x6B4423,  # Deep amber - mysterious, warm but guarded
             emotion_expression_style={
-                'expressiveness': 0.6,      # Trying to stay composed but slipping
-                'stability_baseline': 0.4,  # Nervous, on edge
-                'emotional_range': 0.8,     # Strong reactions when triggered
-                'restraint': 0.6            # Trying to hold back but failing
-            }
+                "expressiveness": 0.6,  # Trying to stay composed but slipping
+                "stability_baseline": 0.4,  # Nervous, on edge
+                "emotional_range": 0.8,  # Strong reactions when triggered
+                "restraint": 0.6,  # Trying to hold back but failing
+            },
         )

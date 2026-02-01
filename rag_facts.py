@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -22,6 +22,7 @@ np: Any = None
 
 try:
     import numpy as _np
+
     np = _np
     _numpy_available = True
 except ImportError:
@@ -241,17 +242,92 @@ class RAGFactsEngine:
 
         # Remove common stop words
         stop_words = {
-            "the", "a", "an", "is", "are", "was", "were", "be", "been",
-            "being", "have", "has", "had", "do", "does", "did", "will",
-            "would", "could", "should", "may", "might", "must", "can",
-            "of", "in", "to", "for", "with", "on", "at", "by", "from",
-            "as", "into", "about", "like", "through", "after", "over",
-            "between", "out", "against", "during", "without", "before",
-            "under", "around", "among", "and", "or", "but", "if", "then",
-            "so", "that", "this", "what", "which", "who", "whom", "whose",
-            "when", "where", "why", "how", "all", "each", "every", "both",
-            "few", "more", "most", "other", "some", "such", "no", "not",
-            "only", "same", "than", "too", "very", "just", "also", "now",
+            "the",
+            "a",
+            "an",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "must",
+            "can",
+            "of",
+            "in",
+            "to",
+            "for",
+            "with",
+            "on",
+            "at",
+            "by",
+            "from",
+            "as",
+            "into",
+            "about",
+            "like",
+            "through",
+            "after",
+            "over",
+            "between",
+            "out",
+            "against",
+            "during",
+            "without",
+            "before",
+            "under",
+            "around",
+            "among",
+            "and",
+            "or",
+            "but",
+            "if",
+            "then",
+            "so",
+            "that",
+            "this",
+            "what",
+            "which",
+            "who",
+            "whom",
+            "whose",
+            "when",
+            "where",
+            "why",
+            "how",
+            "all",
+            "each",
+            "every",
+            "both",
+            "few",
+            "more",
+            "most",
+            "other",
+            "some",
+            "such",
+            "no",
+            "not",
+            "only",
+            "same",
+            "than",
+            "too",
+            "very",
+            "just",
+            "also",
+            "now",
         }
         query_words = query_words - stop_words
 

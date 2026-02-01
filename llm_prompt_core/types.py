@@ -8,13 +8,16 @@ This module defines the core data structures used throughout the prompt system:
 - SceneData: Container for all scene-related context and configuration
 """
 
+from __future__ import annotations
+
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import List, Callable, Optional, Tuple
+
 from llm_prompt_core.prompts.templates import (
-    preamble_template,
-    preamble_plus_template,
-    query_preamble_template,
     merge_preamble_template,
+    preamble_plus_template,
+    preamble_template,
+    query_preamble_template,
 )
 from llm_prompt_core.utils import list_to_conjunction
 
@@ -65,7 +68,7 @@ class Query:
     """
 
     text: str
-    state_changes: List[StateChange]
+    state_changes: list[StateChange]
     handled: bool = False
     query_printed: bool = False
     query_printed_text_true: str = ""
@@ -108,9 +111,9 @@ class SceneData:
     dialogue_instruction_prefix: str
     summary_instruction_prefix: str
     merge_instruction_prefix: str
-    opening_speech: List[Line]
-    queries: List[Query]
-    actors: List[str] = field(default_factory=lambda: ["NPC", "Player"])
+    opening_speech: list[Line]
+    queries: list[Query]
+    actors: list[str] = field(default_factory=lambda: ["NPC", "Player"])
 
     dialogue_preamble: str = ""
     query_preamble: str = ""
@@ -174,7 +177,7 @@ class SceneData:
         """
         return all(query.handled for query in self.queries)
 
-    def get_initial_dialog(self, print_callback: Optional[Callable[[str], None]] = None) -> str:
+    def get_initial_dialog(self, print_callback: Callable[[str], None] | None = None) -> str:
         """
         Get the initial dialogue for this scene (opening speech).
 
@@ -199,8 +202,8 @@ class SceneData:
         self,
         dialogue: str,
         query_model,
-        print_callback: Optional[Callable[[str], None]] = None,
-    ) -> Tuple[List[StateChange], str]:
+        print_callback: Callable[[str], None] | None = None,
+    ) -> tuple[list[StateChange], str]:
         """
         Evaluate all unhandled queries against the current dialogue.
 
@@ -213,8 +216,8 @@ class SceneData:
             Tuple of (state_changes, text_to_print)
         """
         from llm_prompt_core.prompts.templates import (
-            query_instruction_suffix_template,
             instruction_template,
+            query_instruction_suffix_template,
         )
         from llm_prompt_core.utils import prompt_llm
 
@@ -223,9 +226,7 @@ class SceneData:
 
         for query in self.queries:
             if query.handled == False:
-                instruction = query_instruction_suffix_template.format(
-                    statement=query.text
-                )
+                instruction = query_instruction_suffix_template.format(statement=query.text)
                 prompt = instruction_template.format(
                     preamble=self.query_preamble,
                     dialogue=dialogue,

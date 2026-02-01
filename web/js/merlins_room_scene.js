@@ -46,8 +46,9 @@ export class MerlinsRoomScene {
             0.1,
             1000
         );
-        // Start camera at a good viewing position
-        this.camera.position.set(0, 1.5, 4);
+        // Camera position from SHIFT+C export
+        this.camera.position.set(-1.87, 1.68, 1.06);
+        console.log('[MERLIN_INIT] Camera position set to:', this.camera.position);
 
         // Renderer
         this.renderer = new THREE.WebGLRenderer({
@@ -75,8 +76,14 @@ export class MerlinsRoomScene {
         this.controls.maxPolarAngle = Math.PI;  // Full vertical look
         this.controls.minPolarAngle = 0;
 
-        // Store fixed camera position
-        this.fixedCameraPos = new THREE.Vector3(1.13, 2.92, 1.58);
+        // Store fixed camera position (from SHIFT+C export)
+        this.fixedCameraPos = new THREE.Vector3(-1.87, 1.68, 1.06);
+        // Camera target (where camera looks at)
+        this.fixedCameraTarget = new THREE.Vector3(-2.56, 1.44, -0.8);
+
+        // Set initial camera target
+        this.controls.target.copy(this.fixedCameraTarget);
+        this.controls.update();
 
         // Magical lighting
         this.setupLights();
@@ -192,14 +199,15 @@ export class MerlinsRoomScene {
                 this.scene.add(this.model);
 
                 // Position camera at user-defined sweet spot
-                this.camera.position.set(1.13, 2.92, 1.58);
-                this.fixedCameraPos.set(1.13, 2.92, 1.58);
+                this.camera.position.set(-1.87, 1.68, 1.06);
+                this.fixedCameraPos.set(-1.87, 1.68, 1.06);
 
-                // Set orbit target slightly in front of camera (for in-place rotation)
-                const dir = new THREE.Vector3(-0.66, 0.06, -0.75).normalize();
-                this.controls.target.copy(this.camera.position).add(dir.multiplyScalar(0.01));
+                // Set orbit target from SHIFT+C export
+                this.controls.target.copy(this.fixedCameraTarget);
                 this.controls.update();
 
+                console.log('[MERLIN_LOADMODEL] Camera positioned at:', this.camera.position);
+                console.log('[MERLIN_LOADMODEL] Camera target:', this.controls.target);
                 console.log('[MERLIN_SCENE] Camera fixed - drag to look, scroll to zoom FOV');
 
                 console.log('[MERLIN_SCENE] Model positioned. Camera at:', this.camera.position);

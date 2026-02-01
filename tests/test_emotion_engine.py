@@ -4,18 +4,19 @@ Unit tests for EmotionEngine
 Tests emotion-to-parameter mapping, phase context, and character style application.
 """
 
-import sys
 import os
+import sys
 
 # Add parent directory to path so we can import modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import unittest
-from emotion_engine import EmotionEngine, EmotionProfile
+
 from characters.base import Character
 from characters.engineer import Engineer
 from characters.judge import Judge
 from characters.wizard import Wizard
+from emotion_engine import EmotionEngine, EmotionProfile
 
 
 class TestEmotionProfile(unittest.TestCase):
@@ -36,11 +37,7 @@ class TestEmotionProfile(unittest.TestCase):
 
     def test_custom_profile(self):
         """Test creating a custom EmotionProfile."""
-        profile = EmotionProfile(
-            primary_emotion="distress",
-            intensity=0.8,
-            stability_modifier=-0.3
-        )
+        profile = EmotionProfile(primary_emotion="distress", intensity=0.8, stability_modifier=-0.3)
 
         self.assertEqual(profile.primary_emotion, "distress")
         self.assertEqual(profile.intensity, 0.8)
@@ -64,8 +61,8 @@ class TestEmotionEngine(unittest.TestCase):
     def test_analyze_cues_distress(self):
         """Test analyzing distress cues."""
         cues = [
-            {'category': 'emotion', 'emotion': 'distress', 'intensity': 0.8},
-            {'category': 'physical', 'emotion': 'distress', 'intensity': 0.9}
+            {"category": "emotion", "emotion": "distress", "intensity": 0.8},
+            {"category": "physical", "emotion": "distress", "intensity": 0.9},
         ]
 
         profile = self.engine.analyze_cues(cues)
@@ -73,24 +70,27 @@ class TestEmotionEngine(unittest.TestCase):
         self.assertEqual(profile.primary_emotion, "distress")
         self.assertGreater(profile.intensity, 0.7)
         self.assertLess(profile.stability_modifier, 0.0)  # Distress reduces stability
-        self.assertGreater(profile.style_modifier, 0.6)   # Distress is expressive
+        self.assertGreater(profile.style_modifier, 0.6)  # Distress is expressive
 
     def test_analyze_cues_calm(self):
         """Test analyzing calm cues."""
-        cues = [
-            {'category': 'emotion', 'emotion': 'calm', 'intensity': 0.6}
-        ]
+        cues = [{"category": "emotion", "emotion": "calm", "intensity": 0.6}]
 
         profile = self.engine.analyze_cues(cues)
 
         self.assertEqual(profile.primary_emotion, "calm")
         self.assertGreater(profile.stability_modifier, 0.0)  # Calm increases stability
-        self.assertLess(profile.style_modifier, 0.4)         # Calm is less expressive
+        self.assertLess(profile.style_modifier, 0.4)  # Calm is less expressive
 
     def test_analyze_cues_voice_breaking(self):
         """Test analyzing voice breaking (vocal quality)."""
         cues = [
-            {'category': 'vocal_quality', 'emotion': 'distress', 'intensity': 0.8, 'raw': 'voice breaking'}
+            {
+                "category": "vocal_quality",
+                "emotion": "distress",
+                "intensity": 0.8,
+                "raw": "voice breaking",
+            }
         ]
 
         profile = self.engine.analyze_cues(cues)
@@ -102,7 +102,12 @@ class TestEmotionEngine(unittest.TestCase):
     def test_analyze_cues_whisper(self):
         """Test analyzing whisper cues."""
         cues = [
-            {'category': 'vocal_quality', 'emotion': 'secretive', 'intensity': 0.6, 'raw': 'whisper'}
+            {
+                "category": "vocal_quality",
+                "emotion": "secretive",
+                "intensity": 0.6,
+                "raw": "whisper",
+            }
         ]
 
         profile = self.engine.analyze_cues(cues)
@@ -113,7 +118,12 @@ class TestEmotionEngine(unittest.TestCase):
     def test_analyze_cues_coughing(self):
         """Test analyzing coughing (physical state)."""
         cues = [
-            {'category': 'physical', 'emotion': 'distress', 'intensity': 0.9, 'raw': 'coughing violently'}
+            {
+                "category": "physical",
+                "emotion": "distress",
+                "intensity": 0.9,
+                "raw": "coughing violently",
+            }
         ]
 
         profile = self.engine.analyze_cues(cues)
@@ -125,9 +135,9 @@ class TestEmotionEngine(unittest.TestCase):
     def test_analyze_cues_multiple_emotions(self):
         """Test analyzing multiple different emotions (most common wins)."""
         cues = [
-            {'category': 'emotion', 'emotion': 'distress', 'intensity': 0.8},
-            {'category': 'emotion', 'emotion': 'distress', 'intensity': 0.9},
-            {'category': 'emotion', 'emotion': 'calm', 'intensity': 0.5}
+            {"category": "emotion", "emotion": "distress", "intensity": 0.8},
+            {"category": "emotion", "emotion": "distress", "intensity": 0.9},
+            {"category": "emotion", "emotion": "calm", "intensity": 0.5},
         ]
 
         profile = self.engine.analyze_cues(cues)
@@ -139,9 +149,14 @@ class TestEmotionEngine(unittest.TestCase):
         """Test that stability modifier is clamped to valid range."""
         # Create extreme cues that would exceed limits
         cues = [
-            {'category': 'emotion', 'emotion': 'panic', 'intensity': 1.0},
-            {'category': 'physical', 'emotion': 'distress', 'intensity': 1.0},
-            {'category': 'vocal_quality', 'emotion': 'distress', 'intensity': 1.0, 'raw': 'breaking'}
+            {"category": "emotion", "emotion": "panic", "intensity": 1.0},
+            {"category": "physical", "emotion": "distress", "intensity": 1.0},
+            {
+                "category": "vocal_quality",
+                "emotion": "distress",
+                "intensity": 1.0,
+                "raw": "breaking",
+            },
         ]
 
         profile = self.engine.analyze_cues(cues)
@@ -152,9 +167,7 @@ class TestEmotionEngine(unittest.TestCase):
 
     def test_style_modifier_clamping(self):
         """Test that style modifier is clamped to valid range."""
-        cues = [
-            {'category': 'emotion', 'emotion': 'panic', 'intensity': 1.0}
-        ]
+        cues = [{"category": "emotion", "emotion": "panic", "intensity": 1.0}]
 
         profile = self.engine.analyze_cues(cues)
 
@@ -171,31 +184,31 @@ class TestPhaseContext(unittest.TestCase):
 
     def test_get_phase_config_submarine(self):
         """Test getting submarine phase configuration."""
-        config = self.engine.get_phase_config('submarine', 1)
+        config = self.engine.get_phase_config("submarine", 1)
 
-        self.assertIn('baseline_intensity', config)
-        self.assertIn('stability_modifier', config)
-        self.assertIn('style_modifier', config)
+        self.assertIn("baseline_intensity", config)
+        self.assertIn("stability_modifier", config)
+        self.assertIn("style_modifier", config)
 
     def test_get_phase_config_crown_court(self):
         """Test getting crown court phase configuration."""
-        config = self.engine.get_phase_config('crown_court', 1)
+        config = self.engine.get_phase_config("crown_court", 1)
 
-        self.assertIn('baseline_intensity', config)
+        self.assertIn("baseline_intensity", config)
         # Crown court phase 1 should have higher stability (formal setting)
-        self.assertGreater(config['stability_modifier'], 0.0)
+        self.assertGreater(config["stability_modifier"], 0.0)
 
     def test_phase_progression_submarine(self):
         """Test that submarine phases increase in intensity."""
-        phase1_config = self.engine.get_phase_config('submarine', 1)
-        phase2_config = self.engine.get_phase_config('submarine', 2)
-        phase3_config = self.engine.get_phase_config('submarine', 3)
-        phase4_config = self.engine.get_phase_config('submarine', 4)
+        phase1_config = self.engine.get_phase_config("submarine", 1)
+        phase2_config = self.engine.get_phase_config("submarine", 2)
+        phase3_config = self.engine.get_phase_config("submarine", 3)
+        phase4_config = self.engine.get_phase_config("submarine", 4)
 
         # Intensity should increase with each phase
-        self.assertLess(phase1_config['baseline_intensity'], phase2_config['baseline_intensity'])
-        self.assertLess(phase2_config['baseline_intensity'], phase3_config['baseline_intensity'])
-        self.assertLess(phase3_config['baseline_intensity'], phase4_config['baseline_intensity'])
+        self.assertLess(phase1_config["baseline_intensity"], phase2_config["baseline_intensity"])
+        self.assertLess(phase2_config["baseline_intensity"], phase3_config["baseline_intensity"])
+        self.assertLess(phase3_config["baseline_intensity"], phase4_config["baseline_intensity"])
 
     def test_apply_phase_context(self):
         """Test applying phase context to emotion profile."""
@@ -203,11 +216,11 @@ class TestPhaseContext(unittest.TestCase):
             primary_emotion="distress",
             intensity=0.6,
             stability_modifier=-0.1,  # Changed from -0.2 to avoid clamping
-            style_modifier=0.5         # Changed from 0.7 to see increase
+            style_modifier=0.5,  # Changed from 0.7 to see increase
         )
 
         # Apply submarine phase 3 (high stress)
-        enhanced_profile = self.engine.apply_phase_context(base_profile, 3, 'submarine')
+        enhanced_profile = self.engine.apply_phase_context(base_profile, 3, "submarine")
 
         # Intensity should be blended with phase baseline (0.85 for phase 3)
         # 0.6 * 0.7 + 0.85 * 0.3 = 0.42 + 0.255 = 0.675
@@ -222,7 +235,7 @@ class TestPhaseContext(unittest.TestCase):
     def test_phase_clamping(self):
         """Test that phase numbers are clamped to valid range."""
         # Test with out-of-range phase
-        config = self.engine.get_phase_config('submarine', 99)
+        config = self.engine.get_phase_config("submarine", 99)
 
         # Should default to phase 4 (clamped)
         self.assertIsNotNone(config)
@@ -240,11 +253,7 @@ class TestCharacterStyle(unittest.TestCase):
 
     def test_engineer_restraint(self):
         """Test that Engineer shows military restraint."""
-        base_profile = EmotionProfile(
-            primary_emotion="distress",
-            intensity=0.8,
-            style_modifier=0.8
-        )
+        base_profile = EmotionProfile(primary_emotion="distress", intensity=0.8, style_modifier=0.8)
 
         styled_profile = self.engine.apply_character_style(base_profile, self.engineer)
 
@@ -258,11 +267,7 @@ class TestCharacterStyle(unittest.TestCase):
 
     def test_judge_high_restraint(self):
         """Test that Judge shows high judicial restraint."""
-        base_profile = EmotionProfile(
-            primary_emotion="anger",
-            intensity=0.8,
-            style_modifier=0.7
-        )
+        base_profile = EmotionProfile(primary_emotion="anger", intensity=0.8, style_modifier=0.7)
 
         styled_profile = self.engine.apply_character_style(base_profile, self.judge)
 
@@ -276,9 +281,7 @@ class TestCharacterStyle(unittest.TestCase):
     def test_wizard_theatrical(self):
         """Test that Wizard is highly theatrical."""
         base_profile = EmotionProfile(
-            primary_emotion="excitement",
-            intensity=0.7,
-            style_modifier=0.7
+            primary_emotion="excitement", intensity=0.7, style_modifier=0.7
         )
 
         styled_profile = self.engine.apply_character_style(base_profile, self.wizard)
@@ -294,15 +297,9 @@ class TestCharacterStyle(unittest.TestCase):
     def test_character_without_emotion_style(self):
         """Test handling of character without emotion_expression_style."""
         # Create a basic character without emotion style
-        basic_character = Character(
-            id="test",
-            name="Test Character"
-        )
+        basic_character = Character(id="test", name="Test Character")
 
-        base_profile = EmotionProfile(
-            primary_emotion="neutral",
-            intensity=0.5
-        )
+        base_profile = EmotionProfile(primary_emotion="neutral", intensity=0.5)
 
         # Should handle gracefully and return unchanged (except for default style)
         styled_profile = self.engine.apply_character_style(base_profile, basic_character)
@@ -316,7 +313,7 @@ class TestCharacterStyle(unittest.TestCase):
         # Judge has high stability_baseline (0.7)
         base_profile = EmotionProfile(
             primary_emotion="distress",
-            stability_modifier=-0.3  # Distress normally reduces stability
+            stability_modifier=-0.3,  # Distress normally reduces stability
         )
 
         styled_profile = self.engine.apply_character_style(base_profile, self.judge)
@@ -336,58 +333,56 @@ class TestVoiceParameters(unittest.TestCase):
     def test_get_voice_parameters_basic(self):
         """Test basic voice parameter generation."""
         profile = EmotionProfile(
-            stability_modifier=-0.3,
-            style_modifier=0.8,
-            similarity_modifier=-0.1
+            stability_modifier=-0.3, style_modifier=0.8, similarity_modifier=-0.1
         )
 
         base_params = {
-            'stability': 0.5,
-            'similarity_boost': 0.75,
-            'style': 0.2,
-            'use_speaker_boost': True
+            "stability": 0.5,
+            "similarity_boost": 0.75,
+            "style": 0.2,
+            "use_speaker_boost": True,
         }
 
         final_params = self.engine.get_voice_parameters(profile, base_params)
 
         # stability: 0.5 + (-0.3) = 0.2
-        self.assertAlmostEqual(final_params['stability'], 0.2, places=2)
+        self.assertAlmostEqual(final_params["stability"], 0.2, places=2)
 
         # similarity: 0.75 + (-0.1) = 0.65
-        self.assertAlmostEqual(final_params['similarity_boost'], 0.65, places=2)
+        self.assertAlmostEqual(final_params["similarity_boost"], 0.65, places=2)
 
         # style: overridden by profile
-        self.assertEqual(final_params['style'], 0.8)
+        self.assertEqual(final_params["style"], 0.8)
 
         # use_speaker_boost: preserved
-        self.assertTrue(final_params['use_speaker_boost'])
+        self.assertTrue(final_params["use_speaker_boost"])
 
     def test_voice_parameters_clamping(self):
         """Test that voice parameters are clamped to valid ranges."""
         profile = EmotionProfile(
             stability_modifier=-0.8,  # Would result in negative stability
-            style_modifier=1.2,       # Would exceed 1.0
-            similarity_modifier=0.5   # Would exceed 1.0
+            style_modifier=1.2,  # Would exceed 1.0
+            similarity_modifier=0.5,  # Would exceed 1.0
         )
 
         base_params = {
-            'stability': 0.3,
-            'similarity_boost': 0.8,
-            'style': 0.0,
-            'use_speaker_boost': True
+            "stability": 0.3,
+            "similarity_boost": 0.8,
+            "style": 0.0,
+            "use_speaker_boost": True,
         }
 
         final_params = self.engine.get_voice_parameters(profile, base_params)
 
         # All values should be clamped to [0.0, 1.0]
-        self.assertGreaterEqual(final_params['stability'], 0.0)
-        self.assertLessEqual(final_params['stability'], 1.0)
+        self.assertGreaterEqual(final_params["stability"], 0.0)
+        self.assertLessEqual(final_params["stability"], 1.0)
 
-        self.assertGreaterEqual(final_params['similarity_boost'], 0.0)
-        self.assertLessEqual(final_params['similarity_boost'], 1.0)
+        self.assertGreaterEqual(final_params["similarity_boost"], 0.0)
+        self.assertLessEqual(final_params["similarity_boost"], 1.0)
 
-        self.assertGreaterEqual(final_params['style'], 0.0)
-        self.assertLessEqual(final_params['style'], 1.0)
+        self.assertGreaterEqual(final_params["style"], 0.0)
+        self.assertLessEqual(final_params["style"], 1.0)
 
 
 class TestIntegration(unittest.TestCase):
@@ -402,39 +397,44 @@ class TestIntegration(unittest.TestCase):
         """Test full pipeline: cues -> profile -> phase -> character -> parameters."""
         # Simulate Engineer in submarine phase 3 with distress cues
         cues = [
-            {'category': 'physical', 'emotion': 'distress', 'intensity': 0.9, 'raw': 'coughing'},
-            {'category': 'vocal_quality', 'emotion': 'distress', 'intensity': 0.8, 'raw': 'strained'}
+            {"category": "physical", "emotion": "distress", "intensity": 0.9, "raw": "coughing"},
+            {
+                "category": "vocal_quality",
+                "emotion": "distress",
+                "intensity": 0.8,
+                "raw": "strained",
+            },
         ]
 
         # Analyze cues
         profile = self.engine.analyze_cues(cues)
 
         # Apply phase context (submarine phase 3)
-        profile = self.engine.apply_phase_context(profile, 3, 'submarine')
+        profile = self.engine.apply_phase_context(profile, 3, "submarine")
 
         # Apply character style (Engineer)
         profile = self.engine.apply_character_style(profile, self.engineer)
 
         # Generate final parameters
         base_params = {
-            'stability': 0.4,
-            'similarity_boost': 0.8,
-            'style': 0.2,
-            'use_speaker_boost': True
+            "stability": 0.4,
+            "similarity_boost": 0.8,
+            "style": 0.2,
+            "use_speaker_boost": True,
         }
 
         final_params = self.engine.get_voice_parameters(profile, base_params)
 
         # Verify final parameters are in valid ranges
-        self.assertGreaterEqual(final_params['stability'], 0.0)
-        self.assertLessEqual(final_params['stability'], 1.0)
+        self.assertGreaterEqual(final_params["stability"], 0.0)
+        self.assertLessEqual(final_params["stability"], 1.0)
 
         # Distress should result in low stability
-        self.assertLess(final_params['stability'], 0.4)
+        self.assertLess(final_params["stability"], 0.4)
 
         # Distress should result in high style (expressiveness)
-        self.assertGreater(final_params['style'], 0.5)
+        self.assertGreater(final_params["style"], 0.5)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

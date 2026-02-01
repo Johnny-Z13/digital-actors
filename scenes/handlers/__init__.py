@@ -17,11 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from scenes.handlers.base import SceneHandler, ActionResult, PinReactionResult
-
-if TYPE_CHECKING:
-    pass
-
+from scenes.handlers.base import ActionResult, PinReactionResult, SceneHandler
 
 # Handler registry - maps scene_id to handler getter function
 _HANDLER_REGISTRY: dict[str, callable] = {}
@@ -58,11 +54,13 @@ def _register_builtin_handlers() -> None:
     """Register all built-in scene handlers."""
     # Life Raft handler
     from scenes.handlers.life_raft_handler import get_handler as get_life_raft_handler
-    register_handler('life_raft', get_life_raft_handler)
+
+    register_handler("life_raft", get_life_raft_handler)
 
     # Iconic Detectives handler
     from scenes.handlers.iconic_detectives_handler import get_handler as get_detectives_handler
-    register_handler('iconic_detectives', get_detectives_handler)
+
+    register_handler("iconic_detectives", get_detectives_handler)
 
 
 # Auto-register on import
@@ -70,10 +68,10 @@ _register_builtin_handlers()
 
 
 __all__ = [
-    'SceneHandler',
-    'ActionResult',
-    'PinReactionResult',
-    'get_scene_handler',
-    'get_all_handler_scene_ids',
-    'register_handler',
+    "ActionResult",
+    "PinReactionResult",
+    "SceneHandler",
+    "get_all_handler_scene_ids",
+    "get_scene_handler",
+    "register_handler",
 ]

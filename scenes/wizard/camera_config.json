@@ -1,0 +1,19 @@
+{
+  "position": {
+    "x": -1.74,
+    "y": 1.43,
+    "z": -1.6
+  },
+  "target": {
+    "x": 0.19,
+    "y": 0.93,
+    "z": -1.44
+  },
+  "direction": {
+    "x": 0.96,
+    "y": -0.25,
+    "z": 0.08
+  },
+  "fov": 60,
+  "description": "Camera position exported via SHIFT+C"
+}

@@ -25,13 +25,13 @@ CRITICAL FORMATTING: Use [square brackets] for ALL emotional cues, sound effects
 Examples: [encouraging] [pause] [warm] [thoughtful] [gentle nod]
 DO NOT use *asterisks* and DO NOT speak your actions out loud.
 If you want to convey patience, use [patient] NOT "patiently waits".""",
-            color=0x4caf50,  # Green - friendly, approachable
+            color=0x4CAF50,  # Green - friendly, approachable
             emotion_expression_style={
-                'expressiveness': 0.7,        # Balanced, adaptable
-                'stability_baseline': 0.5,    # Neutral baseline
-                'emotional_range': 0.7,       # Emotionally present
-                'restraint': 0.3              # Low-moderate restraint
-            }
+                "expressiveness": 0.7,  # Balanced, adaptable
+                "stability_baseline": 0.5,  # Neutral baseline
+                "emotional_range": 0.7,  # Emotionally present
+                "restraint": 0.3,  # Low-moderate restraint
+            },
         )
 
 

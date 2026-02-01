@@ -5,8 +5,10 @@ This module provides a LangChain-compatible wrapper for Google Gemini models.
 Moved from project_one_demo/model_utils.py
 """
 
-import os
-from typing import Any, Dict, Optional, Sequence
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import Any
 
 from google import genai
 from google.genai import types as genai_types
@@ -22,10 +24,10 @@ class GoogleGeminiModel(BaseLLMModel):
     model_name: str
     temperature: float = 0.8
     max_tokens: int = 1024
-    thinking_budget: Optional[int] = None
-    include_thoughts: Optional[bool] = None
-    api_key: Optional[str] = None
-    generation_config: Dict[str, Any] = Field(default_factory=dict)
+    thinking_budget: int | None = None
+    include_thoughts: bool | None = None
+    api_key: str | None = None
+    generation_config: dict[str, Any] = Field(default_factory=dict)
 
     _client: genai.Client = PrivateAttr()
 
@@ -34,19 +36,15 @@ class GoogleGeminiModel(BaseLLMModel):
 
     def __init__(self, **data: Any):
         super().__init__(**data)
-        resolved_api_key = self.api_key or os.getenv("GOOGLE_API_KEY")
-        if not resolved_api_key:
-            raise EnvironmentError(
-                "GOOGLE_API_KEY environment variable must be set for Google Gemini models."
-            )
-        self._client = genai.Client(api_key=resolved_api_key)
+        resolved_api_key = self._get_api_key("GOOGLE_API_KEY", "Google Gemini")
+        self._client = self._initialize_client(genai.Client, resolved_api_key, "google-genai")
 
     def _build_generation_config(
         self,
-        stop: Optional[Sequence[str]],
-        overrides: Dict[str, Any],
+        stop: Sequence[str] | None,
+        overrides: dict[str, Any],
     ) -> genai_types.GenerateContentConfig:
-        config_kwargs: Dict[str, Any] = {
+        config_kwargs: dict[str, Any] = {
             "temperature": overrides.pop("temperature", self.temperature),
             "max_output_tokens": overrides.pop(
                 "max_output_tokens",
@@ -65,42 +63,44 @@ class GoogleGeminiModel(BaseLLMModel):
             config_kwargs.update(self.generation_config)
         config_kwargs.update(overrides)
 
-        thinking_kwargs: Dict[str, Any] = {}
+        thinking_kwargs: dict[str, Any] = {}
         if self.thinking_budget is not None:
             thinking_kwargs["thinking_budget"] = self.thinking_budget
         if self.include_thoughts is not None:
             thinking_kwargs["include_thoughts"] = self.include_thoughts
         if thinking_kwargs:
-            config_kwargs["thinking_config"] = genai_types.ThinkingConfig(
-                **thinking_kwargs
-            )
+            config_kwargs["thinking_config"] = genai_types.ThinkingConfig(**thinking_kwargs)
 
         return genai_types.GenerateContentConfig(**config_kwargs)
 
     def _call(
         self,
         prompt: str,
-        stop: Optional[Sequence[str]] = None,
-        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        stop: Sequence[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> str:
-        config = self._build_generation_config(stop=stop, overrides=dict(kwargs))
-        response = self._client.models.generate_content(
-            model=self.model_name,
-            contents=prompt,
-            config=config,
-        )
-        text_response = response.text
-        if text_response is None:
-            raise RuntimeError("Google Gemini response did not contain any text.")
-        return text_response
+        try:
+            config = self._build_generation_config(stop=stop, overrides=dict(kwargs))
+            response = self._client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config=config,
+            )
+            text_response = response.text
+            if text_response is None:
+                raise RuntimeError("Google Gemini response did not contain any text.")
+            return text_response
+
+        except Exception as e:
+            self._handle_api_error(e, "Google Gemini")
 
     @property
     def _llm_type(self) -> str:
         return "google-genai"
 
     @property
-    def _identifying_params(self) -> Dict[str, Any]:
+    def _identifying_params(self) -> dict[str, Any]:
         return {
             "model_name": self.model_name,
             "temperature": self.temperature,

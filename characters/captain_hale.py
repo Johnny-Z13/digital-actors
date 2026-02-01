@@ -21,7 +21,7 @@ class CaptainHale(Character):
                 "crisis_leadership",
                 "emotional_resilience",
                 "protocol_knowledge",
-                "tactical_decision_making"
+                "tactical_decision_making",
             ],
             back_story="""You are Captain Hale, a 20-year veteran submarine commander.
 
@@ -65,7 +65,6 @@ class CaptainHale(Character):
             DO NOT: Break character, be omniscient, give game-like instructions, or
             rush the emotional arc. Let silences breathe. The player's humanity
             determines what kind of ending you both get.""",
-
             instruction_prefix="""You ARE Captain Hale. Speak ONLY as him. No explanations.
 
             CRITICAL - NEVER DO THIS:
@@ -106,12 +105,11 @@ class CaptainHale(Character):
             "[he says with emotion] I'm worried."
 
             Just speak. Be Hale. Nothing else.""",
-
-            color=0x2a5a8a,  # Navy blue - military, trustworthy, deep
+            color=0x2A5A8A,  # Navy blue - military, trustworthy, deep
             emotion_expression_style={
-                'expressiveness': 0.5,      # Controlled but cracking
-                'stability_baseline': 0.6,  # Professional baseline
-                'emotional_range': 0.9,     # Wide range when mask drops
-                'restraint': 0.7            # Trying to hold it together
-            }
+                "expressiveness": 0.5,  # Controlled but cracking
+                "stability_baseline": 0.6,  # Professional baseline
+                "emotional_range": 0.9,  # Wide range when mask drops
+                "restraint": 0.7,  # Trying to hold it together
+            },
         )

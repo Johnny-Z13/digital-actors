@@ -13,13 +13,14 @@ import logging
 import os
 import re
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any
 
 from dotenv import load_dotenv
 
+from emotion_engine import EmotionEngine
+
 # Import emotion processing modules
 from emotion_extractor import EmotionExtractor
-from emotion_engine import EmotionEngine
 
 load_dotenv()
 
@@ -32,6 +33,7 @@ ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 if ELEVENLABS_API_KEY and ELEVENLABS_API_KEY != "your-elevenlabs-api-key-here":
     try:
         from elevenlabs.client import ElevenLabs
+
         ELEVENLABS_AVAILABLE = True
         logger.info("ElevenLabs TTS enabled")
     except ImportError:
@@ -108,70 +110,147 @@ VOICE_SETTINGS = {
 # ElevenLabs model configuration
 # NOTE: Audio tags like [laughs], [sighs] ONLY work with v3 models!
 ELEVENLABS_MODELS = {
-    'eleven_v3': {
-        'description': 'V3 - Most expressive, supports audio tags',
-        'supports_audio_tags': True,
+    "eleven_v3": {
+        "description": "V3 - Most expressive, supports audio tags",
+        "supports_audio_tags": True,
     },
-    'eleven_turbo_v2_5': {
-        'description': 'Fast, good quality, NO audio tag support',
-        'supports_audio_tags': False,
+    "eleven_turbo_v2_5": {
+        "description": "Fast, good quality, NO audio tag support",
+        "supports_audio_tags": False,
     },
-    'eleven_flash_v2_5': {
-        'description': 'Fastest, lower latency, NO audio tag support',
-        'supports_audio_tags': False,
+    "eleven_flash_v2_5": {
+        "description": "Fastest, lower latency, NO audio tag support",
+        "supports_audio_tags": False,
     },
-    'eleven_multilingual_v2': {
-        'description': 'Multilingual, NO audio tag support',
-        'supports_audio_tags': False,
+    "eleven_multilingual_v2": {
+        "description": "Multilingual, NO audio tag support",
+        "supports_audio_tags": False,
     },
 }
 # Smart model selection: use v3 for audio tags, turbo for speed
-DEFAULT_TTS_MODEL = os.getenv('ELEVENLABS_MODEL', 'eleven_turbo_v2_5')
-AUDIO_TAG_MODEL = 'eleven_v3'  # Use v3 when audio tags are present
+DEFAULT_TTS_MODEL = os.getenv("ELEVENLABS_MODEL", "eleven_turbo_v2_5")
+AUDIO_TAG_MODEL = "eleven_v3"  # Use v3 when audio tags are present
 
 # Feature flag for audio tag preservation (enabled by default)
-PRESERVE_AUDIO_TAGS = os.getenv('ELEVENLABS_PRESERVE_AUDIO_TAGS', 'true').lower() == 'true'
+PRESERVE_AUDIO_TAGS = os.getenv("ELEVENLABS_PRESERVE_AUDIO_TAGS", "true").lower() == "true"
 
 # Audio tags that ElevenLabs can vocalize natively
 # These will be preserved in the text sent to the API
 # IMPORTANT: Include both singular and plural forms for flexibility
 ELEVENLABS_AUDIO_TAGS = {
     # Laughter variations
-    'laugh', 'laughs', 'laughing', 'giggle', 'giggles', 'giggling',
-    'chuckle', 'chuckles', 'chuckling',
+    "laugh",
+    "laughs",
+    "laughing",
+    "giggle",
+    "giggles",
+    "giggling",
+    "chuckle",
+    "chuckles",
+    "chuckling",
     # Sighing
-    'sigh', 'sighs', 'sighing',
+    "sigh",
+    "sighs",
+    "sighing",
     # Coughing/clearing (singular AND plural)
-    'cough', 'coughs', 'coughing', 'clears throat', 'clearing throat',
+    "cough",
+    "coughs",
+    "coughing",
+    "clears throat",
+    "clearing throat",
     # Gasping/breathing
-    'gasp', 'gasps', 'gasping', 'exhale', 'exhales', 'inhale', 'inhales',
+    "gasp",
+    "gasps",
+    "gasping",
+    "exhale",
+    "exhales",
+    "inhale",
+    "inhales",
     # Crying/emotion
-    'cry', 'crying', 'sob', 'sobbing', 'sniffle', 'sniffling', 'sobs',
+    "cry",
+    "crying",
+    "sob",
+    "sobbing",
+    "sniffle",
+    "sniffling",
+    "sobs",
     # Speech style modifiers
-    'whisper', 'whispers', 'whispering', 'shout', 'shouts', 'shouting',
-    'yell', 'yells', 'yelling',
+    "whisper",
+    "whispers",
+    "whispering",
+    "shout",
+    "shouts",
+    "shouting",
+    "yell",
+    "yells",
+    "yelling",
     # Emotional states (ElevenLabs can interpret these)
-    'sad', 'angry', 'excited', 'happy', 'nervous', 'scared',
+    "sad",
+    "angry",
+    "excited",
+    "happy",
+    "nervous",
+    "scared",
     # Groans/grunts (singular AND plural)
-    'groan', 'groans', 'groaning', 'grunt', 'grunts', 'grunting',
+    "groan",
+    "groans",
+    "groaning",
+    "grunt",
+    "grunts",
+    "grunting",
     # Death sounds (for all actors)
-    'ugh', 'argh', 'gagging', 'choking', 'wheeze', 'wheezing',
-    'death rattle', 'final breath', 'dying breath',
+    "ugh",
+    "argh",
+    "gagging",
+    "choking",
+    "wheeze",
+    "wheezing",
+    "death rattle",
+    "final breath",
+    "dying breath",
 }
 
 # Tags that should become pauses (SFX, environmental, non-vocal)
 PAUSE_TAGS = {
-    'static', 'crackle', 'crackling', 'alarm', 'warning',
-    'pause', 'silence', 'long pause', 'beat',
-    'signal lost', 'signal', 'radio static',
+    "static",
+    "crackle",
+    "crackling",
+    "alarm",
+    "warning",
+    "pause",
+    "silence",
+    "long pause",
+    "beat",
+    "signal lost",
+    "signal",
+    "radio static",
 }
 
 # Tags that should be removed entirely (non-vocal actions, stage directions)
 REMOVE_TAGS = {
-    'nods', 'nodding', 'shakes head', 'looks away', 'looks up', 'looks down',
-    'eyes twinkling', 'smiles', 'smiling', 'frowns', 'frowning',
-    'gestures', 'points', 'waves', 'turns', 'stands', 'sits',
-    'walks', 'steps', 'moves', 'reaches', 'grabs', 'holds',
+    "nods",
+    "nodding",
+    "shakes head",
+    "looks away",
+    "looks up",
+    "looks down",
+    "eyes twinkling",
+    "smiles",
+    "smiling",
+    "frowns",
+    "frowning",
+    "gestures",
+    "points",
+    "waves",
+    "turns",
+    "stands",
+    "sits",
+    "walks",
+    "steps",
+    "moves",
+    "reaches",
+    "grabs",
+    "holds",
 }
 
 
@@ -213,7 +292,7 @@ class TTSManager:
         """Check if text contains ElevenLabs-performable audio tags."""
         text_lower = text.lower()
         for tag in ELEVENLABS_AUDIO_TAGS:
-            if f'[{tag}]' in text_lower or f'[{tag} ' in text_lower:
+            if f"[{tag}]" in text_lower or f"[{tag} " in text_lower:
                 return True
         return False
 
@@ -253,12 +332,12 @@ class TTSManager:
             # Check if this is a pause/SFX tag
             for pause_tag in PAUSE_TAGS:
                 if pause_tag in content:
-                    return '...'
+                    return "..."
 
             # Check if this is a removable action tag
             for remove_tag in REMOVE_TAGS:
                 if remove_tag in content:
-                    return ''
+                    return ""
 
             # Check if this is a performable audio tag (and we want to preserve them)
             if preserve_audio_tags:
@@ -268,14 +347,14 @@ class TTSManager:
                         return match.group(0)
 
             # Default: remove unrecognized brackets
-            return ''
+            return ""
 
         # Process all bracketed content
-        text = re.sub(r'\[([^\]]+)\]', process_bracket, text)
+        text = re.sub(r"\[([^\]]+)\]", process_bracket, text)
 
         # Clean up multiple spaces and ellipses
-        text = re.sub(r'\.{4,}', '...', text)
-        text = re.sub(r'\s+', ' ', text)
+        text = re.sub(r"\.{4,}", "...", text)
+        text = re.sub(r"\s+", " ", text)
         text = text.strip()
 
         return text
@@ -284,9 +363,9 @@ class TTSManager:
         self,
         text: str,
         character_id: str = "default",
-        emotion_context: Optional[str] = None,
-        scene_phase: Optional[int] = None,
-        scene_type: Optional[str] = None,
+        emotion_context: str | None = None,
+        scene_phase: int | None = None,
+        scene_type: str | None = None,
         tts_mode: str = "expressive",
     ) -> bytes | None:
         """
@@ -330,8 +409,7 @@ class TTSManager:
             try:
                 # Categorize cues
                 categorized_cues = [
-                    self.emotion_extractor.categorize_cue(cue)
-                    for cue in emotional_cues
+                    self.emotion_extractor.categorize_cue(cue) for cue in emotional_cues
                 ]
 
                 # Analyze cues and generate emotion profile
@@ -345,6 +423,7 @@ class TTSManager:
 
                 # Apply character-specific emotion style
                 from characters import CHARACTERS
+
                 character = CHARACTERS.get(character_id)
                 if character:
                     emotion_profile = self.emotion_engine.apply_character_style(
@@ -352,16 +431,14 @@ class TTSManager:
                     )
 
                 # Generate final voice parameters from emotion profile
-                settings = self.emotion_engine.get_voice_parameters(
-                    emotion_profile, base_settings
-                )
+                settings = self.emotion_engine.get_voice_parameters(emotion_profile, base_settings)
 
                 logger.debug(
                     "Emotion processing: %s (intensity %.2f) -> stability=%.2f, style=%.2f",
                     emotion_profile.primary_emotion,
                     emotion_profile.intensity,
-                    settings['stability'],
-                    settings['style']
+                    settings["stability"],
+                    settings["style"],
                 )
 
             except Exception as e:
@@ -369,17 +446,21 @@ class TTSManager:
                 settings = base_settings
 
         # Select model based on tts_mode setting
-        if tts_mode == 'fast':
+        if tts_mode == "fast":
             # Fast mode: always use turbo, strip audio tags
-            settings['model_id'] = DEFAULT_TTS_MODEL
+            settings["model_id"] = DEFAULT_TTS_MODEL
             # Re-clean text without preserving audio tags for fast mode
             tts_text = self.clean_text_for_tts(text, preserve_audio_tags=False)
         else:
             # Expressive mode: use v3 for audio tags, turbo otherwise
-            settings['model_id'] = self._select_model_for_text(tts_text)
+            settings["model_id"] = self._select_model_for_text(tts_text)
 
         try:
             # Run synthesis in thread pool to avoid blocking
+            import time
+            from metrics import tts_latency_seconds, track_error
+
+            start_time = time.time()
             loop = asyncio.get_event_loop()
             audio_bytes = await loop.run_in_executor(
                 None,
@@ -388,10 +469,18 @@ class TTSManager:
                 voice_id,
                 settings,
             )
+
+            # Track TTS latency
+            duration = time.time() - start_time
+            tts_latency_seconds.observe(duration)
+
             return audio_bytes
 
         except Exception as e:
             logger.error("TTS synthesis failed: %s", e)
+            # Track TTS error
+            from metrics import track_error
+            track_error("tts_synthesis_error")
             return None
 
     def _sync_synthesize(
@@ -448,9 +537,9 @@ class TTSManager:
         self,
         text: str,
         character_id: str = "default",
-        emotion_context: Optional[str] = None,
-        scene_phase: Optional[int] = None,
-        scene_type: Optional[str] = None,
+        emotion_context: str | None = None,
+        scene_phase: int | None = None,
+        scene_type: str | None = None,
         tts_mode: str = "expressive",
     ) -> str | None:
         """
@@ -462,12 +551,7 @@ class TTSManager:
             Base64-encoded audio string or None if TTS is disabled/failed
         """
         audio_bytes = await self.synthesize_speech(
-            text,
-            character_id,
-            emotion_context,
-            scene_phase,
-            scene_type,
-            tts_mode
+            text, character_id, emotion_context, scene_phase, scene_type, tts_mode
         )
 
         if audio_bytes:
@@ -490,9 +574,9 @@ def get_tts_manager() -> TTSManager:
 async def synthesize_npc_speech(
     text: str,
     character_id: str,
-    emotion_context: Optional[str] = None,
-    scene_phase: Optional[int] = None,
-    scene_type: Optional[str] = None,
+    emotion_context: str | None = None,
+    scene_phase: int | None = None,
+    scene_type: str | None = None,
     tts_mode: str = "expressive",
 ) -> str | None:
     """
@@ -511,10 +595,5 @@ async def synthesize_npc_speech(
     """
     manager = get_tts_manager()
     return await manager.synthesize_speech_base64(
-        text,
-        character_id,
-        emotion_context,
-        scene_phase,
-        scene_type,
-        tts_mode
+        text, character_id, emotion_context, scene_phase, scene_type, tts_mode
     )

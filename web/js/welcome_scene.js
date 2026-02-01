@@ -38,9 +38,55 @@ export class WelcomeScene {
     }
 
     init() {
-        // Scene with clean, dark background
+        // Scene with retro Windows 95 background (for Clippy!)
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x1a1a2e);
+
+        // Load Windows 95 desktop background texture with proper aspect handling
+        const textureLoader = new THREE.TextureLoader();
+
+        console.log('[WelcomeScene] Attempting to load background from: /art/win95DeskTop.jpg');
+
+        textureLoader.load(
+            '/art/win95DeskTop.jpg',
+            (texture) => {
+                // Success - calculate aspect ratio and create proper background
+                console.log('[WelcomeScene] Background texture loaded successfully!');
+                const img = texture.image;
+                const imgAspect = img.width / img.height;
+                const windowAspect = window.innerWidth / window.innerHeight;
+
+                console.log('[WelcomeScene] Image dimensions:', img.width, 'x', img.height, 'Aspect:', imgAspect);
+
+                // Adjust texture repeat/offset to fill screen while maintaining aspect
+                if (windowAspect > imgAspect) {
+                    // Window is wider - fit to width
+                    texture.repeat.y = imgAspect / windowAspect;
+                    texture.offset.y = (1 - texture.repeat.y) / 2;
+                } else {
+                    // Window is taller - fit to height
+                    texture.repeat.x = windowAspect / imgAspect;
+                    texture.offset.x = (1 - texture.repeat.x) / 2;
+                }
+
+                this.scene.background = texture;
+                console.log('[WelcomeScene] ✓ Win95 background applied to scene');
+            },
+            (progress) => {
+                // Progress callback
+                if (progress.lengthComputable) {
+                    const percentComplete = (progress.loaded / progress.total) * 100;
+                    console.log('[WelcomeScene] Loading background:', percentComplete.toFixed(0) + '%');
+                }
+            },
+            (error) => {
+                // Fallback to solid color if image fails to load
+                console.error('[WelcomeScene] ❌ Failed to load Win95 background:', error);
+                console.error('[WelcomeScene] Error type:', error.type);
+                console.error('[WelcomeScene] Error target:', error.target);
+                console.error('[WelcomeScene] Error message:', error.message || 'No message');
+                this.scene.background = new THREE.Color(0x1a1a2e);
+            }
+        );
 
         // Camera
         this.camera = new THREE.PerspectiveCamera(
@@ -282,8 +328,12 @@ export class WelcomeScene {
         // Handle blinking
         this.handleBlinking();
 
-        this.controls.update();
-        this.renderer.render(this.scene, this.camera);
+        if (this.controls) {
+            this.controls.update();
+        }
+        if (this.renderer && this.scene && this.camera) {
+            this.renderer.render(this.scene, this.camera);
+        }
     }
 
     animateEyes() {

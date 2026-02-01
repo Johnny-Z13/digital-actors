@@ -4,14 +4,13 @@ Unit tests for TTS Audio Tag Preservation
 Tests the clean_text_for_tts() function and audio tag classification.
 """
 
-import sys
 import os
+import sys
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import unittest
-from unittest.mock import patch
 
 
 class TestCleanTextForTTS(unittest.TestCase):
@@ -21,6 +20,7 @@ class TestCleanTextForTTS(unittest.TestCase):
         """Set up test fixtures."""
         # Import here to avoid issues with module-level imports
         from tts_elevenlabs import TTSManager
+
         self.manager = TTSManager()
 
     def test_preserves_laughs_when_enabled(self):
@@ -146,33 +146,38 @@ class TestAudioTagClassification(unittest.TestCase):
     def test_audio_tags_contains_laughs(self):
         """Verify ELEVENLABS_AUDIO_TAGS contains laugh variations."""
         from tts_elevenlabs import ELEVENLABS_AUDIO_TAGS
-        self.assertIn('laughs', ELEVENLABS_AUDIO_TAGS)
-        self.assertIn('laughing', ELEVENLABS_AUDIO_TAGS)
-        self.assertIn('giggles', ELEVENLABS_AUDIO_TAGS)
+
+        self.assertIn("laughs", ELEVENLABS_AUDIO_TAGS)
+        self.assertIn("laughing", ELEVENLABS_AUDIO_TAGS)
+        self.assertIn("giggles", ELEVENLABS_AUDIO_TAGS)
 
     def test_audio_tags_contains_sighs(self):
         """Verify ELEVENLABS_AUDIO_TAGS contains sigh variations."""
         from tts_elevenlabs import ELEVENLABS_AUDIO_TAGS
-        self.assertIn('sighs', ELEVENLABS_AUDIO_TAGS)
-        self.assertIn('sigh', ELEVENLABS_AUDIO_TAGS)
+
+        self.assertIn("sighs", ELEVENLABS_AUDIO_TAGS)
+        self.assertIn("sigh", ELEVENLABS_AUDIO_TAGS)
 
     def test_audio_tags_contains_coughs(self):
         """Verify ELEVENLABS_AUDIO_TAGS contains cough variations."""
         from tts_elevenlabs import ELEVENLABS_AUDIO_TAGS
-        self.assertIn('coughs', ELEVENLABS_AUDIO_TAGS)
-        self.assertIn('coughing', ELEVENLABS_AUDIO_TAGS)
+
+        self.assertIn("coughs", ELEVENLABS_AUDIO_TAGS)
+        self.assertIn("coughing", ELEVENLABS_AUDIO_TAGS)
 
     def test_pause_tags_contains_static(self):
         """Verify PAUSE_TAGS contains static/sfx."""
         from tts_elevenlabs import PAUSE_TAGS
-        self.assertIn('static', PAUSE_TAGS)
-        self.assertIn('alarm', PAUSE_TAGS)
+
+        self.assertIn("static", PAUSE_TAGS)
+        self.assertIn("alarm", PAUSE_TAGS)
 
     def test_remove_tags_contains_actions(self):
         """Verify REMOVE_TAGS contains non-vocal actions."""
         from tts_elevenlabs import REMOVE_TAGS
-        self.assertIn('nods', REMOVE_TAGS)
-        self.assertIn('smiles', REMOVE_TAGS)
+
+        self.assertIn("nods", REMOVE_TAGS)
+        self.assertIn("smiles", REMOVE_TAGS)
 
 
 class TestRealWorldScenarios(unittest.TestCase):
@@ -181,6 +186,7 @@ class TestRealWorldScenarios(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         from tts_elevenlabs import TTSManager
+
         self.manager = TTSManager()
 
     def test_engineer_distress_dialogue(self):
@@ -237,6 +243,7 @@ class TestEnvVarConfiguration(unittest.TestCase):
     def test_preserve_audio_tags_default_false(self):
         """Test that PRESERVE_AUDIO_TAGS defaults to False."""
         from tts_elevenlabs import PRESERVE_AUDIO_TAGS
+
         # Default should be False for backwards compatibility
         # (unless env var is set in test environment)
         self.assertIsInstance(PRESERVE_AUDIO_TAGS, bool)
@@ -244,21 +251,24 @@ class TestEnvVarConfiguration(unittest.TestCase):
     def test_default_model_exists(self):
         """Test that DEFAULT_TTS_MODEL is set."""
         from tts_elevenlabs import DEFAULT_TTS_MODEL
+
         self.assertIsNotNone(DEFAULT_TTS_MODEL)
-        self.assertIn(DEFAULT_TTS_MODEL, ['eleven_turbo_v2_5', 'eleven_flash_v2_5', 'eleven_multilingual_v2'])
+        self.assertIn(
+            DEFAULT_TTS_MODEL, ["eleven_turbo_v2_5", "eleven_flash_v2_5", "eleven_multilingual_v2"]
+        )
 
     def test_models_dict_structure(self):
         """Test ELEVENLABS_MODELS has expected structure."""
         from tts_elevenlabs import ELEVENLABS_MODELS
 
-        self.assertIn('eleven_turbo_v2_5', ELEVENLABS_MODELS)
-        self.assertIn('eleven_flash_v2_5', ELEVENLABS_MODELS)
-        self.assertIn('eleven_multilingual_v2', ELEVENLABS_MODELS)
+        self.assertIn("eleven_turbo_v2_5", ELEVENLABS_MODELS)
+        self.assertIn("eleven_flash_v2_5", ELEVENLABS_MODELS)
+        self.assertIn("eleven_multilingual_v2", ELEVENLABS_MODELS)
 
         for model_id, config in ELEVENLABS_MODELS.items():
-            self.assertIn('description', config)
-            self.assertIn('supports_audio_tags', config)
+            self.assertIn("description", config)
+            self.assertIn("supports_audio_tags", config)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

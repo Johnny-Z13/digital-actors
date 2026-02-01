@@ -11,7 +11,7 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from query_system import QuerySystem
@@ -215,7 +215,7 @@ async def execute_hooks(
                 hook.execute(ctx),
                 timeout=timeout,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 "Post-speak hook timed out after %.1fs: %s.%s",
                 timeout,

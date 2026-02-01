@@ -4,6 +4,9 @@ Project-wide constants.
 Centralizes magic numbers and configuration values for maintainability.
 """
 
+from __future__ import annotations
+
+import os
 from typing import Final
 
 # =============================================================================
@@ -64,8 +67,8 @@ FAMILIARITY_MODERATE: Final[int] = 5
 # World Director - Cooldowns
 # =============================================================================
 DIRECTOR_COOLDOWN_SPAWN_EVENT: Final[int] = 10  # Increased to reduce interruptions
-DIRECTOR_COOLDOWN_ADJUST_NPC: Final[int] = 8    # Increased to reduce interruptions
-DIRECTOR_COOLDOWN_GIVE_HINT: Final[int] = 8     # Increased to reduce interruptions
+DIRECTOR_COOLDOWN_ADJUST_NPC: Final[int] = 8  # Increased to reduce interruptions
+DIRECTOR_COOLDOWN_GIVE_HINT: Final[int] = 8  # Increased to reduce interruptions
 
 # =============================================================================
 # World Director - Dynamic Events
@@ -122,3 +125,25 @@ RAG_SIMILARITY_THRESHOLD: Final[float] = 0.3  # Minimum similarity for inclusion
 # Post-Speak Hooks Configuration
 # =============================================================================
 POST_SPEAK_HOOK_TIMEOUT: Final[float] = 2.0  # Max time per hook in seconds
+
+# =============================================================================
+# Logging Configuration
+# =============================================================================
+LOG_LEVEL_PRODUCTION: Final[str] = "INFO"
+LOG_LEVEL_DEVELOPMENT: Final[str] = "DEBUG"
+LOG_FORMAT_JSON: Final[bool] = True  # Set to False for development readable format
+
+# =============================================================================
+# Sentry Error Tracking Configuration
+# =============================================================================
+# Read from environment variable (optional - Sentry disabled if not set)
+SENTRY_DSN: Final[str | None] = os.getenv("SENTRY_DSN")
+SENTRY_ENVIRONMENT: Final[str] = os.getenv("SENTRY_ENVIRONMENT", "development")
+SENTRY_TRACES_SAMPLE_RATE: Final[float] = float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1"))
+
+# =============================================================================
+# Database Encryption Configuration
+# =============================================================================
+# Read from environment variable (optional - encryption disabled if not set)
+# Generate a key with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+DB_ENCRYPTION_KEY: Final[str | None] = os.getenv("DB_ENCRYPTION_KEY")

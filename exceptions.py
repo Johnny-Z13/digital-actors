@@ -96,6 +96,18 @@ class DatabaseError(PlayerMemoryError):
     pass
 
 
+class DatabaseIntegrityError(DatabaseError):
+    """Raised when database integrity constraints are violated."""
+
+    pass
+
+
+class DatabaseOperationalError(DatabaseError):
+    """Raised when database operational errors occur (e.g., locked database)."""
+
+    pass
+
+
 class WebSocketError(DigitalActorsError):
     """Base exception for WebSocket communication errors."""
 

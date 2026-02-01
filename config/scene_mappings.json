@@ -48,7 +48,7 @@
       "requiresCustomScene": false,
       "category": "drama"
     },
-    "quest": {
+    "merlins_room": {
       "character": "wizard",
       "characterName": "Merlin",
       "sceneClass": "MerlinsRoomScene",

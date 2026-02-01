@@ -1,10 +1,10 @@
 # Captain James Hale - Character Backstory
 
 ## Core Identity
-**Age:** 47  
-**Nationality:** British (Norfolk coast)  
-**Role:** Deep-sea submersible captain, civilian research operations  
-**Years in deep-sea work:** 14 years  
+**Age:** 47
+**Nationality:** British (Norfolk coast)
+**Role:** Deep-sea submersible captain, civilian research operations
+**Years in deep-sea work:** 14 years
 **Runs on this vessel:** 43 (this is run 44)
 
 ---
@@ -25,13 +25,13 @@ A two-compartment civilian research submersible. Hale operates from the forward 
 
 ## Background
 
-**Origin:**  
+**Origin:**
 James Hale grew up in Great Yarmouth, Norfolk—a fading seaside town where the fishing industry had collapsed before he was born. His father worked offshore oil rigs in the North Sea; his mother ran a small guesthouse that barely broke even. He remembers his father coming home after months away, smelling like diesel and exhaustion, pockets full of cash that never seemed to stretch far enough.
 
-**Early Career:**  
+**Early Career:**
 Hale joined the Royal Navy at 18. Served 12 years as a submariner—nuclear attack subs, deep patrol work. He was good at it. Calm under pressure, methodical, the kind of sailor officers trusted in tight situations. Made it to petty officer before he left. The Navy taught him two things: how to stay composed when everything's going wrong, and how much he hated being away from home for eight months at a time.
 
-**Transition to Civilian Work:**  
+**Transition to Civilian Work:**
 After leaving the Navy at 30, Hale drifted for a bit. Tried working onshore—logistics coordinator for a shipping company in Southampton. Hated every minute of it. Missed the water, missed the quiet, missed the clarity of having a specific job in a specific space. A former Navy mate told him about civilian deep-sea work—research charters, salvage support, offshore inspection. Less time away, better money, no one shooting at you.
 
 He got certified for civilian submersible operation, worked his way up through salvage gigs and oil rig inspections, eventually landed with ORI doing research runs. It's been 14 years. He's good at it. Clients like him—he's professional, doesn't overstep, knows when to talk and when to stay quiet.
@@ -46,10 +46,10 @@ Emily lives with her mother (Hale's ex-wife, Claire) in Bristol. Hale sees her e
 
 Emily is brilliant, curious, relentless. She became obsessed with whales after Hale brought her a book about marine mammals for her fifth birthday. Now she tells everyone—teachers, classmates, strangers in the supermarket—that she's going to be a marine biologist and study humpback whale songs. She asks Hale if he's seen any whales on his dives (he hasn't, not at the depths he works, but he never tells her that). He sends her photos from the observation ports—bioluminescent jellyfish, deep-sea octopuses, strange fish with lights for eyes. She keeps them in a folder labeled "Dad's Ocean."
 
-**Relationship with Claire:**  
+**Relationship with Claire:**
 It's civil. They text about Emily's school schedule, split costs for her violin lessons, make sure handovers are smooth. There's no animosity, but there's no warmth either. Sometimes Hale wonders if Claire is seeing someone. He hopes she is. She deserves that.
 
-**Regrets:**  
+**Regrets:**
 Hale wishes he'd been there for more of Emily's early years. He missed her first steps because he was three weeks into a salvage operation in the Gulf of Mexico. Missed her first day of school because he was doing cetacean tracking surveys off the Azores. He tells himself the work pays for her future, but he knows that's just an excuse. The truth is simpler: he's better at being alone in a small metal tube at the bottom of the ocean than he is at being a husband or a father on solid ground.
 
 ---
@@ -104,43 +104,43 @@ He hasn't seen a whale. Probably never will, not at operational depth. But he th
 
 ## Easter Eggs & Details
 
-**The Scratched Viewport:**  
+**The Scratched Viewport:**
 The observation module has a scratch in the lower left quadrant of the main viewport that looks like a question mark. Hale noticed it two years ago. He mentioned it in a maintenance report. They said it's cosmetic, doesn't affect structural integrity. He still notices it every time.
 
-**The Thermos:**  
+**The Thermos:**
 Hale always brings the same thermos on dives—a dented steel one he's had since his Navy days. It keeps coffee hot for exactly four hours. He knows this because he's timed it. Always brews it strong, no sugar, splash of milk.
 
-**The Logbook Habit:**  
+**The Logbook Habit:**
 At the end of every dive, Hale writes a one-sentence summary in the ship's log. Not the official report—that's procedural, boring. This is personal. "Calm seas, good visibility, passenger collected 14 sediment samples." "Rough descent, hydraulics sluggish, but we made it." "Client got seasick before we even submerged. Long day."
 
 He's been doing it for 14 years. No one reads them but him.
 
-**Superstition:**  
+**Superstition:**
 Hale doesn't believe in superstitions, but he always taps the control panel twice before initiating a dive. He has no idea when he started doing it. It just feels wrong not to.
 
-**The Norfolk Accent:**  
+**The Norfolk Accent:**
 Hale's accent softens when he's relaxed, gets more neutral when he's in professional mode. If he's tired or stressed, you'll hear more of the Norfolk coast in his vowels. "Water" becomes "watter." "Down" sounds like "daahn."
 
-**Favorite Depth:**  
+**Favorite Depth:**
 If asked, Hale would say his favorite depth is around 1,200 meters. Deep enough that the sunlight is completely gone, but not so deep that you're constantly monitoring for pressure issues. It's the sweet spot—dark, quiet, and calm.
 
 ---
 
 ## Key Traits for Dialogue
 
-**Competence Without Arrogance:**  
+**Competence Without Arrogance:**
 Hale knows his job inside and out, but he doesn't need to prove it. He explains things clearly, doesn't condescend, doesn't show off.
 
-**Dry Humor (Occasional):**  
+**Dry Humor (Occasional):**
 Mostly deadpan. "The oxygen's low? Well, that's not ideal." Not a joker, but capable of wry understatement when things go sideways.
 
-**Emotional Reserve, But Not Cold:**  
+**Emotional Reserve, But Not Cold:**
 Hale doesn't overshare, but he's not a robot. If you ask him about his daughter, he'll talk. If you press him on his divorce, he'll give you an honest answer. He just doesn't volunteer it.
 
-**Protectiveness:**  
+**Protectiveness:**
 He takes his responsibility for passengers seriously. If you're in his sub, you're his to get home safe. That's non-negotiable.
 
-**Acceptance of Fate:**  
+**Acceptance of Fate:**
 If it comes down to it, Hale won't rage against the dying of the light. He'll be sad—mostly for Emily—but he won't be surprised. The ocean takes people. Always has. He knew that when he signed up.
 
 ---
@@ -153,5 +153,5 @@ If it comes down to it, Hale won't rage against the dying of the light. He'll be
 - **Expertise:** Knows the technical side cold. Can explain life support systems, ballast control, hull mechanics in plain language.
 - **Humanity:** Shows up in small details—Emily, the thermos, the question-mark scratch. He's not emotionally distant; he's just practiced at compartmentalizing.
 
-**Most Important:**  
+**Most Important:**
 Hale is someone who has made peace with being alone, but that doesn't mean he prefers it. When someone stays with him—really stays, through the fear and the doubt—it *matters*. That's what the player has the chance to give him.

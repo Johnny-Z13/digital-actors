@@ -4,8 +4,8 @@ General Conversation Scene
 Casual, open-ended conversation.
 """
 
-from scenes.base import Scene
 from llm_prompt_core.types import Line
+from scenes.base.base import Scene
 
 
 class Conversation(Scene):
@@ -17,6 +17,6 @@ class Conversation(Scene):
             name="General Conversation",
             description="Casual conversation.",
             opening_speech=[
-                Line(text='What would you like to talk about?', delay=0),
-            ]
+                Line(text="What would you like to talk about?", delay=0),
+            ],
         )

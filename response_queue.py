@@ -20,9 +20,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Optional, Callable, Any, Awaitable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -35,19 +36,19 @@ class ResponsePriority(IntEnum):
     Higher priority responses can supersede lower priority ones.
     """
 
-    CRITICAL = 0    # Death speeches, game over - never cancelled, blocks all others
-    URGENT = 1      # Major story beats (Phase 3 revelation, flooding decision)
-    NORMAL = 2      # Player-triggered responses (messages, button presses)
+    CRITICAL = 0  # Death speeches, game over - never cancelled, blocks all others
+    URGENT = 1  # Major story beats (Phase 3 revelation, flooding decision)
+    NORMAL = 2  # Player-triggered responses (messages, button presses)
     BACKGROUND = 3  # Director events, hints, waiting responses - easily cancelled
 
 
 # Dynamic timing gaps based on priority (in seconds)
 # Lower priority = longer gap to allow more important responses through
 PRIORITY_TIMING_GAPS = {
-    ResponsePriority.CRITICAL: 0.3,   # Death sequences, emergencies - near instant
-    ResponsePriority.URGENT: 1.0,     # Important story beats - brief pause
-    ResponsePriority.NORMAL: 2.0,     # Standard dialogue - natural conversational gap
-    ResponsePriority.BACKGROUND: 3.0  # Ambient/flavor - longer gap, easily interrupted
+    ResponsePriority.CRITICAL: 0.3,  # Death sequences, emergencies - near instant
+    ResponsePriority.URGENT: 1.0,  # Important story beats - brief pause
+    ResponsePriority.NORMAL: 2.0,  # Standard dialogue - natural conversational gap
+    ResponsePriority.BACKGROUND: 3.0,  # Ambient/flavor - longer gap, easily interrupted
 }
 
 
@@ -65,10 +66,11 @@ class ResponseItem:
         source: Description of what generated this response (for debugging)
         timestamp: When this response was created (auto-generated)
     """
+
     content: str
     priority: ResponsePriority
     sequence_id: int
-    emotion_context: Optional[str] = None
+    emotion_context: str | None = None
     cancellable: bool = True
     source: str = "unknown"
     timestamp: float = field(default_factory=lambda: asyncio.get_event_loop().time())
@@ -100,9 +102,9 @@ class ResponseQueue:
 
     def __init__(
         self,
-        send_callback: Callable[[str, Optional[str]], Awaitable[None]],
+        send_callback: Callable[[str, str | None], Awaitable[None]],
         min_gap_seconds: float = 2.0,
-        use_dynamic_timing: bool = True
+        use_dynamic_timing: bool = True,
     ) -> None:
         """
         Initialize the response queue.
@@ -128,11 +130,15 @@ class ResponseQueue:
 
         # Sequence tracking
         self._global_sequence = 0
+        self._sequence_lock = asyncio.Lock()  # Protects sequence ID generation
+
+        # Background task tracking
+        self._processing_task: asyncio.Task | None = None
 
         logger.info(
             "[ResponseQueue] Initialized with dynamic_timing=%s (default_gap=%.1fs)",
             use_dynamic_timing,
-            min_gap_seconds
+            min_gap_seconds,
         )
 
     def _get_timing_gap(self, priority: ResponsePriority) -> float:
@@ -150,11 +156,7 @@ class ResponseQueue:
 
         return PRIORITY_TIMING_GAPS.get(priority, self._min_gap_seconds)
 
-    async def enqueue(
-        self,
-        item: ResponseItem,
-        supersede_lower_priority: bool = True
-    ) -> None:
+    async def enqueue(self, item: ResponseItem, supersede_lower_priority: bool = True) -> None:
         """
         Add a response to the queue with priority handling.
 
@@ -172,33 +174,27 @@ class ResponseQueue:
         """
         async with self._lock:
             logger.debug(
-                "[ResponseQueue] Enqueuing: %s (current queue size: %d)",
-                item,
-                len(self._queue)
+                "[ResponseQueue] Enqueuing: %s (current queue size: %d)", item, len(self._queue)
             )
 
             # Rule 1: Supersede lower priority items (if enabled)
             if supersede_lower_priority and item.priority <= ResponsePriority.NORMAL:
                 original_size = len(self._queue)
                 self._queue = [
-                    r for r in self._queue
-                    if r.priority <= item.priority or not r.cancellable
+                    r for r in self._queue if r.priority <= item.priority or not r.cancellable
                 ]
                 removed = original_size - len(self._queue)
                 if removed > 0:
                     logger.info(
                         "[ResponseQueue] Superseded %d lower-priority items with %s",
                         removed,
-                        item.priority.name
+                        item.priority.name,
                     )
 
             # Rule 2: Consolidate background responses
             # Keep only the newest BACKGROUND item to prevent chatter buildup
             if item.priority == ResponsePriority.BACKGROUND:
-                self._queue = [
-                    r for r in self._queue
-                    if r.priority != ResponsePriority.BACKGROUND
-                ]
+                self._queue = [r for r in self._queue if r.priority != ResponsePriority.BACKGROUND]
                 logger.debug("[ResponseQueue] Consolidated background responses")
 
             # Rule 3: Add item to queue in priority order
@@ -209,12 +205,23 @@ class ResponseQueue:
                 "[ResponseQueue] Queued %s response from '%s' (queue size: %d)",
                 item.priority.name,
                 item.source,
-                len(self._queue)
+                len(self._queue),
             )
 
         # Start processing if not already running
         if not self._is_processing:
-            asyncio.create_task(self._process_queue())
+            self._processing_task = asyncio.create_task(self._process_queue())
+
+            # Add error handling callback
+            def _on_task_done(task: asyncio.Task) -> None:
+                try:
+                    task.result()
+                except asyncio.CancelledError:
+                    logger.debug("[ResponseQueue] Processing task was cancelled")
+                except Exception as e:
+                    logger.error("[ResponseQueue] Processing task failed: %s", e, exc_info=True)
+
+            self._processing_task.add_done_callback(_on_task_done)
 
     async def cancel_by_sequence(self, sequence_id: int) -> int:
         """
@@ -232,8 +239,7 @@ class ResponseQueue:
         async with self._lock:
             original_size = len(self._queue)
             self._queue = [
-                r for r in self._queue
-                if r.sequence_id != sequence_id or not r.cancellable
+                r for r in self._queue if r.sequence_id != sequence_id or not r.cancellable
             ]
             cancelled = original_size - len(self._queue)
 
@@ -241,7 +247,7 @@ class ResponseQueue:
                 logger.info(
                     "[ResponseQueue] Cancelled %d responses with sequence_id=%d",
                     cancelled,
-                    sequence_id
+                    sequence_id,
                 )
 
             return cancelled
@@ -259,16 +265,14 @@ class ResponseQueue:
         async with self._lock:
             original_size = len(self._queue)
             self._queue = [
-                r for r in self._queue
+                r
+                for r in self._queue
                 if r.priority != ResponsePriority.BACKGROUND or not r.cancellable
             ]
             removed = original_size - len(self._queue)
 
             if removed > 0:
-                logger.info(
-                    "[ResponseQueue] Cleared %d background responses",
-                    removed
-                )
+                logger.info("[ResponseQueue] Cleared %d background responses", removed)
 
             return removed
 
@@ -284,30 +288,30 @@ class ResponseQueue:
         """
         async with self._lock:
             original_size = len(self._queue)
-            self._queue = [
-                r for r in self._queue
-                if r.priority == ResponsePriority.CRITICAL
-            ]
+            self._queue = [r for r in self._queue if r.priority == ResponsePriority.CRITICAL]
             removed = original_size - len(self._queue)
 
             if removed > 0:
                 logger.info(
                     "[ResponseQueue] Cleared %d non-critical responses (kept %d critical)",
                     removed,
-                    len(self._queue)
+                    len(self._queue),
                 )
 
             return removed
 
-    def get_next_sequence_id(self) -> int:
+    async def get_next_sequence_id(self) -> int:
         """
         Get the next sequence ID for response tracking.
+
+        Thread-safe: Uses lock to ensure atomic increment across concurrent calls.
 
         Returns:
             Monotonically increasing sequence ID
         """
-        self._global_sequence += 1
-        return self._global_sequence
+        async with self._sequence_lock:
+            self._global_sequence += 1
+            return self._global_sequence
 
     async def _process_queue(self) -> None:
         """
@@ -337,9 +341,7 @@ class ResponseQueue:
 
                     item = self._queue.pop(0)
                     logger.debug(
-                        "[ResponseQueue] Processing: %s (remaining: %d)",
-                        item,
-                        len(self._queue)
+                        "[ResponseQueue] Processing: %s (remaining: %d)", item, len(self._queue)
                     )
 
                 # Enforce timing gap based on priority (dynamic or fixed)
@@ -352,7 +354,7 @@ class ResponseQueue:
                     logger.debug(
                         "[ResponseQueue] Waiting %.1fs before %s response (priority-based)",
                         gap_needed,
-                        item.priority.name
+                        item.priority.name,
                     )
                     await asyncio.sleep(gap_needed)
 
@@ -360,7 +362,7 @@ class ResponseQueue:
                 logger.info(
                     "[ResponseQueue] Sending %s response: '%s...'",
                     item.priority.name,
-                    item.content[:50]
+                    item.content[:50],
                 )
 
                 try:
@@ -368,11 +370,7 @@ class ResponseQueue:
                     self._last_send_time = asyncio.get_event_loop().time()
                     self._last_sent_priority = item.priority
                 except Exception as e:
-                    logger.error(
-                        "[ResponseQueue] Error sending response: %s",
-                        e,
-                        exc_info=True
-                    )
+                    logger.error("[ResponseQueue] Error sending response: %s", e, exc_info=True)
 
         finally:
             self._is_processing = False
@@ -389,15 +387,17 @@ class ResponseQueue:
             "size": len(self._queue),
             "is_processing": self._is_processing,
             "dynamic_timing_enabled": self._use_dynamic_timing,
-            "last_sent_priority": self._last_sent_priority.name if self._last_sent_priority else None,
+            "last_sent_priority": self._last_sent_priority.name
+            if self._last_sent_priority
+            else None,
             "items": [
                 {
                     "priority": item.priority.name,
                     "sequence": item.sequence_id,
                     "source": item.source,
                     "timing_gap": self._get_timing_gap(item.priority),
-                    "preview": item.content[:50] + "..."
+                    "preview": item.content[:50] + "...",
                 }
                 for item in self._queue
-            ]
+            ],
         }

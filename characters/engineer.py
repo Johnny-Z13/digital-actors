@@ -21,7 +21,7 @@ class Engineer(Character):
                 "crisis_management",
                 "technical_communication",
                 "reactor_systems",
-                "leadership_under_pressure"
+                "leadership_under_pressure",
             ],
             back_story="""You are Lieutenant Commander James Kovich, commanding officer of the research
             submarine Prospero. You have 15 years of naval service and extensive deep-sea experience.
@@ -124,11 +124,11 @@ class Engineer(Character):
             Repeating the exact same warning multiple times
 
             FLOW NATURALLY. Check what you just said. Say something DIFFERENT this time.""",
-            color=0xff6b35,  # Orange/red - danger, urgency, warmth
+            color=0xFF6B35,  # Orange/red - danger, urgency, warmth
             emotion_expression_style={
-                'expressiveness': 0.6,        # Military restraint, but human
-                'stability_baseline': 0.4,    # Naturally more variable (stress of command)
-                'emotional_range': 0.7,       # Emotions DO affect him, but controlled
-                'restraint': 0.4              # Moderate self-control (military training)
-            }
+                "expressiveness": 0.6,  # Military restraint, but human
+                "stability_baseline": 0.4,  # Naturally more variable (stress of command)
+                "emotional_range": 0.7,  # Emotions DO affect him, but controlled
+                "restraint": 0.4,  # Moderate self-control (military training)
+            },
         )

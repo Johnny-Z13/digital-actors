@@ -5,19 +5,18 @@ This module provides the PromptBuilder class for constructing prompts
 from scene data, dialogue history, and other context.
 """
 
-from typing import List
 from llm_prompt_core.prompts.templates import (
-    preamble_template,
-    preamble_plus_template,
-    query_preamble_template,
-    merge_preamble_template,
-    instruction_template,
-    query_instruction_suffix_template,
     dialogue_instruction_suffix,
-    summary_instruction_suffix,
-    merge_instruction_template,
+    instruction_template,
     merge_instruction_suffix,
+    merge_instruction_template,
+    merge_preamble_template,
+    preamble_plus_template,
+    preamble_template,
     query_instruction_prefix,
+    query_instruction_suffix_template,
+    query_preamble_template,
+    summary_instruction_suffix,
 )
 from llm_prompt_core.utils import list_to_conjunction
 
@@ -41,7 +40,7 @@ class PromptBuilder:
         previous_scenes_description: str,
         steer_back_instructions: str,
         scene_supplement: str,
-        actors: List[str],
+        actors: list[str],
         dialogue_summary: str = "",
     ) -> str:
         """
@@ -85,7 +84,7 @@ class PromptBuilder:
     @staticmethod
     def build_query_preamble(
         back_story: str,
-        actors: List[str],
+        actors: list[str],
         previous_scenes_description: str = "",
     ) -> str:
         """
@@ -186,9 +185,7 @@ class PromptBuilder:
         )
 
     @staticmethod
-    def build_merge_prompt(
-        preamble: str, prev_summary: str, new_summary: str
-    ) -> str:
+    def build_merge_prompt(preamble: str, prev_summary: str, new_summary: str) -> str:
         """
         Build a complete prompt for merging two summaries.
 

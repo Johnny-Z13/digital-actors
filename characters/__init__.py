@@ -6,27 +6,39 @@ and configuration.
 """
 
 from characters.base import Character
-from characters.eliza import Eliza
-from characters.wizard import Wizard
-from characters.detective import Detective
+from characters.captain_hale import CaptainHale
+from characters.clippy import Clippy
 from characters.custom import Custom
+from characters.detective import Detective
+from characters.eliza import Eliza
 from characters.engineer import Engineer
 from characters.judge import Judge
 from characters.mara_vane import MaraVane
-from characters.captain_hale import CaptainHale
-from characters.clippy import Clippy
+from characters.wizard import Wizard
 
 # Registry of all available characters
 CHARACTERS = {
-    'clippy': Clippy(),
-    'eliza': Eliza(),
-    'wizard': Wizard(),
-    'detective': Detective(),
-    'custom': Custom(),
-    'engineer': Engineer(),
-    'judge': Judge(),
-    'mara_vane': MaraVane(),
-    'captain_hale': CaptainHale(),
+    "clippy": Clippy(),
+    "eliza": Eliza(),
+    "wizard": Wizard(),
+    "detective": Detective(),
+    "custom": Custom(),
+    "engineer": Engineer(),
+    "judge": Judge(),
+    "mara_vane": MaraVane(),
+    "captain_hale": CaptainHale(),
 }
 
-__all__ = ['Character', 'CHARACTERS', 'Eliza', 'Wizard', 'Detective', 'Custom', 'Engineer', 'Judge', 'MaraVane', 'CaptainHale', 'Clippy']
+__all__ = [
+    "CHARACTERS",
+    "CaptainHale",
+    "Character",
+    "Clippy",
+    "Custom",
+    "Detective",
+    "Eliza",
+    "Engineer",
+    "Judge",
+    "MaraVane",
+    "Wizard",
+]

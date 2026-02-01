@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from llm_prompt_core.models.base import BaseLLMModel
@@ -174,18 +174,22 @@ class QuerySystem:
         ]
 
         if context:
-            prompt_parts.extend([
-                "=== ADDITIONAL CONTEXT ===",
-                context,
-                "",
-            ])
+            prompt_parts.extend(
+                [
+                    "=== ADDITIONAL CONTEXT ===",
+                    context,
+                    "",
+                ]
+            )
 
-        prompt_parts.extend([
-            "=== CONDITION TO CHECK ===",
-            query_text,
-            "",
-            "Is this condition TRUE based on the text above? Respond YES or NO:",
-        ])
+        prompt_parts.extend(
+            [
+                "=== CONDITION TO CHECK ===",
+                query_text,
+                "",
+                "Is this condition TRUE based on the text above? Respond YES or NO:",
+            ]
+        )
 
         return "\n".join(prompt_parts)
 

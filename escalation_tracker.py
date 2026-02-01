@@ -14,8 +14,8 @@ Key Features:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from typing import Any, Optional
+from dataclasses import dataclass
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class EscalationLevel:
     """Represents a single escalation level with response guidance."""
+
     level: int
     tone: str  # e.g., "concerned", "frustrated", "resigned"
     intensity: float  # 0.0 to 1.0
@@ -48,51 +49,70 @@ class EscalationTracker:
 
     # Escalation strategies for common warning types
     ESCALATION_STRATEGIES = {
-        'crank_warning': [
-            EscalationLevel(1, "concerned", 0.4, "Warn gently about the crank. 'Easy on the crank. Quarter turns.'"),
+        "crank_warning": [
+            EscalationLevel(
+                1,
+                "concerned",
+                0.4,
+                "Warn gently about the crank. 'Easy on the crank. Quarter turns.'",
+            ),
             EscalationLevel(2, "firm", 0.6, "Be more direct. 'You're pushing it too hard.'"),
             EscalationLevel(3, "frustrated", 0.8, "Show frustration. 'You're not listening.'"),
-            EscalationLevel(4, "resigned", 0.3, "Give up warning. Just react to consequences.", give_up=True),
+            EscalationLevel(
+                4, "resigned", 0.3, "Give up warning. Just react to consequences.", give_up=True
+            ),
         ],
-        'o2_warning': [
+        "o2_warning": [
             EscalationLevel(1, "alert", 0.5, "Note the oxygen level. 'Watch the O2.'"),
             EscalationLevel(2, "worried", 0.7, "Show more concern. 'Oxygen's dropping.'"),
             EscalationLevel(3, "urgent", 0.9, "Be urgent. 'We're losing air.'"),
             EscalationLevel(4, "desperate", 0.95, "Last warning. 'I can't keep warning you.'"),
             EscalationLevel(5, "resigned", 0.5, "Stop warning, focus on survival.", give_up=True),
         ],
-        'radiation_warning': [
-            EscalationLevel(1, "concerned", 0.5, "Note radiation exposure. 'Radiation's climbing.'"),
-            EscalationLevel(2, "worried", 0.7, "Express physical discomfort. '[coughing] Getting worse.'"),
-            EscalationLevel(3, "distressed", 0.85, "Show physical effects. '[voice weakening] Can feel it.'"),
-            EscalationLevel(4, "resigned", 0.6, "Accept fate, focus on what matters.", give_up=True),
+        "radiation_warning": [
+            EscalationLevel(
+                1, "concerned", 0.5, "Note radiation exposure. 'Radiation's climbing.'"
+            ),
+            EscalationLevel(
+                2, "worried", 0.7, "Express physical discomfort. '[coughing] Getting worse.'"
+            ),
+            EscalationLevel(
+                3, "distressed", 0.85, "Show physical effects. '[voice weakening] Can feel it.'"
+            ),
+            EscalationLevel(
+                4, "resigned", 0.6, "Accept fate, focus on what matters.", give_up=True
+            ),
         ],
-        'interruption': [
+        "interruption": [
             EscalationLevel(1, "patient", 0.3, "Acknowledge interruption. 'Let me finish.'"),
             EscalationLevel(2, "firm", 0.5, "Be more direct. 'You need to listen.'"),
             EscalationLevel(3, "frustrated", 0.7, "Show frustration. 'Stop interrupting!'"),
             EscalationLevel(4, "cold", 0.6, "Withdraw slightly. Shorter responses.", give_up=True),
         ],
-        'button_mashing': [
+        "button_mashing": [
             EscalationLevel(1, "concerned", 0.4, "Warn about rapid actions. 'Slow down.'"),
             EscalationLevel(2, "stern", 0.6, "Be firm. 'Stop. Think before you act.'"),
             EscalationLevel(3, "frustrated", 0.8, "Express frustration. 'You're making it worse!'"),
             EscalationLevel(4, "resigned", 0.4, "Give up. 'Fine. Do what you want.'", give_up=True),
         ],
-        'wrong_action': [
+        "wrong_action": [
             EscalationLevel(1, "helpful", 0.4, "Correct gently. 'Not that one. Try...'"),
             EscalationLevel(2, "patient", 0.5, "Guide more explicitly. 'Listen carefully...'"),
             EscalationLevel(3, "direct", 0.7, "Be very direct. Give exact instructions."),
-            EscalationLevel(4, "resigned", 0.5, "Accept they'll fail. 'I've told you what to do.'", give_up=True),
+            EscalationLevel(
+                4, "resigned", 0.5, "Accept they'll fail. 'I've told you what to do.'", give_up=True
+            ),
         ],
-        'idle_prompt': [
+        "idle_prompt": [
             EscalationLevel(1, "gentle", 0.3, "Prompt softly. 'Still there?'"),
             EscalationLevel(2, "concerned", 0.5, "Show concern. 'Talk to me.'"),
             EscalationLevel(3, "worried", 0.7, "Express worry. 'I need to hear your voice.'"),
-            EscalationLevel(4, "resigned", 0.4, "Accept silence. Continue monologue.", give_up=True),
+            EscalationLevel(
+                4, "resigned", 0.4, "Accept silence. Continue monologue.", give_up=True
+            ),
         ],
         # Generic fallback
-        'default': [
+        "default": [
             EscalationLevel(1, "neutral", 0.4, "Address the issue calmly."),
             EscalationLevel(2, "firm", 0.6, "Be more direct."),
             EscalationLevel(3, "resigned", 0.4, "Accept the situation.", give_up=True),
@@ -117,7 +137,7 @@ class EscalationTracker:
             EscalationLevel with response guidance
         """
         count = self.warnings_given.get(topic, 0)
-        strategy = self.ESCALATION_STRATEGIES.get(topic, self.ESCALATION_STRATEGIES['default'])
+        strategy = self.ESCALATION_STRATEGIES.get(topic, self.ESCALATION_STRATEGIES["default"])
 
         # Get the appropriate level (clamped to max)
         level_index = min(count, len(strategy) - 1)
@@ -145,7 +165,7 @@ class EscalationTracker:
             topic,
             level.level,
             level.tone,
-            level.give_up
+            level.give_up,
         )
 
         return level
@@ -191,7 +211,7 @@ class EscalationTracker:
             f"Guidance: {level.instruction}"
         )
 
-    def get_response_variation(self, topic: str) -> Optional[str]:
+    def get_response_variation(self, topic: str) -> str | None:
         """
         Get a pre-written response variation for common warnings.
 
@@ -205,13 +225,13 @@ class EscalationTracker:
         """
         # Pre-written response variations for rapid feedback
         variations = {
-            'crank_warning': [
+            "crank_warning": [
                 "Easy on the crank. Quarter turns.",
                 "You're pushing it too hard.",
                 "You're not listening.",
                 None,  # Give up - use silence or LLM
             ],
-            'o2_warning': [
+            "o2_warning": [
                 "Watch the O2.",
                 "Oxygen's dropping.",
                 "We're losing air.",
@@ -248,16 +268,15 @@ class EscalationTracker:
     def get_status(self) -> dict[str, Any]:
         """Get current status for debugging."""
         return {
-            'warnings_given': dict(self.warnings_given),
-            'topics_at_give_up': [
-                topic for topic in self.warnings_given
-                if not self.should_warn(topic)
-            ]
+            "warnings_given": dict(self.warnings_given),
+            "topics_at_give_up": [
+                topic for topic in self.warnings_given if not self.should_warn(topic)
+            ],
         }
 
 
 # Global instance
-_escalation_tracker: Optional[EscalationTracker] = None
+_escalation_tracker: EscalationTracker | None = None
 
 
 def get_escalation_tracker() -> EscalationTracker:

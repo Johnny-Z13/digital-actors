@@ -8,12 +8,14 @@ This allows characters to remember players and adapt to their play style.
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from constants import (
+    DB_ENCRYPTION_KEY,
     FAMILIARITY_MODERATE,
     FAMILIARITY_NEW,
     HINT_SCENE_ATTEMPTS_THRESHOLD,
@@ -32,6 +34,17 @@ from constants import (
     TRUST_NEGATIVE_THRESHOLD,
     TRUST_POSITIVE_THRESHOLD,
 )
+from encryption_utils import (
+    DecryptionError,
+    EncryptionError,
+    EncryptionKeyError,
+    decrypt_data,
+    encrypt_data,
+    is_encryption_enabled,
+)
+from exceptions import DatabaseError, DatabaseIntegrityError, DatabaseOperationalError
+
+logger = logging.getLogger(__name__)
 
 
 class PlayerMemory:
@@ -48,10 +61,10 @@ class PlayerMemory:
 
         # Behavioral patterns (0-100 scale)
         self.personality_profile = {
-            'impulsiveness': 50,      # Button mashing, interrupting
-            'cooperation': 50,         # Listening, following instructions
-            'problem_solving': 50,     # Correct actions, creative solutions
-            'patience': 50,            # Waiting for instructions
+            "impulsiveness": 50,  # Button mashing, interrupting
+            "cooperation": 50,  # Listening, following instructions
+            "problem_solving": 50,  # Correct actions, creative solutions
+            "patience": 50,  # Waiting for instructions
         }
 
         # Story progress
@@ -73,177 +86,284 @@ class PlayerMemory:
 
     def _init_database(self):
         """Create database tables if they don't exist."""
-        # Ensure data directory exists
-        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
+        try:
+            # Ensure data directory exists
+            Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
 
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
 
-        # Players table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS players (
-                player_id TEXT PRIMARY KEY,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                total_sessions INTEGER DEFAULT 0,
-                total_playtime_seconds INTEGER DEFAULT 0
+                # Players table
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS players (
+                        player_id TEXT PRIMARY KEY,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        total_sessions INTEGER DEFAULT 0,
+                        total_playtime_seconds INTEGER DEFAULT 0
+                    )
+                """)
+
+                # Sessions table
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS sessions (
+                        session_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        player_id TEXT,
+                        started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        ended_at TIMESTAMP,
+                        scenes_completed INTEGER DEFAULT 0,
+                        FOREIGN KEY (player_id) REFERENCES players (player_id)
+                    )
+                """)
+
+                # Scene attempts table
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS scene_attempts (
+                        attempt_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        player_id TEXT,
+                        scene_id TEXT,
+                        character_id TEXT,
+                        started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        ended_at TIMESTAMP,
+                        outcome TEXT,
+                        final_trust INTEGER,
+                        correct_actions INTEGER,
+                        incorrect_actions INTEGER,
+                        interrupted_npc BOOLEAN,
+                        data JSON,
+                        FOREIGN KEY (player_id) REFERENCES players (player_id)
+                    )
+                """)
+
+                # Personality profiles table
+                # Note: impulsiveness, cooperation, problem_solving, patience are stored as TEXT
+                # when encryption is enabled (encrypted JSON), otherwise as INTEGER
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS personality_profiles (
+                        player_id TEXT PRIMARY KEY,
+                        impulsiveness TEXT DEFAULT '50',
+                        cooperation TEXT DEFAULT '50',
+                        problem_solving TEXT DEFAULT '50',
+                        patience TEXT DEFAULT '50',
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (player_id) REFERENCES players (player_id)
+                    )
+                """)
+
+                # Relationships table
+                # Note: trust and familiarity are stored as TEXT when encryption is enabled
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS relationships (
+                        player_id TEXT,
+                        character_id TEXT,
+                        trust TEXT DEFAULT '0',
+                        familiarity TEXT DEFAULT '0',
+                        last_interaction TIMESTAMP,
+                        PRIMARY KEY (player_id, character_id),
+                        FOREIGN KEY (player_id) REFERENCES players (player_id)
+                    )
+                """)
+
+                conn.commit()
+                logger.info(
+                    "Database tables initialized successfully for player: %s", self.player_id
+                )
+
+        except sqlite3.IntegrityError as e:
+            logger.error("Database integrity error during initialization: %s", e, exc_info=True)
+            raise DatabaseIntegrityError(
+                f"Database integrity error during initialization: {e}"
+            ) from e
+        except sqlite3.OperationalError as e:
+            logger.error(
+                "Database operational error during initialization (possible lock or access issue): %s",
+                e,
+                exc_info=True,
             )
-        ''')
-
-        # Sessions table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS sessions (
-                session_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                player_id TEXT,
-                started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                ended_at TIMESTAMP,
-                scenes_completed INTEGER DEFAULT 0,
-                FOREIGN KEY (player_id) REFERENCES players (player_id)
-            )
-        ''')
-
-        # Scene attempts table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS scene_attempts (
-                attempt_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                player_id TEXT,
-                scene_id TEXT,
-                character_id TEXT,
-                started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                ended_at TIMESTAMP,
-                outcome TEXT,
-                final_trust INTEGER,
-                correct_actions INTEGER,
-                incorrect_actions INTEGER,
-                interrupted_npc BOOLEAN,
-                data JSON,
-                FOREIGN KEY (player_id) REFERENCES players (player_id)
-            )
-        ''')
-
-        # Personality profiles table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS personality_profiles (
-                player_id TEXT PRIMARY KEY,
-                impulsiveness INTEGER DEFAULT 50,
-                cooperation INTEGER DEFAULT 50,
-                problem_solving INTEGER DEFAULT 50,
-                patience INTEGER DEFAULT 50,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (player_id) REFERENCES players (player_id)
-            )
-        ''')
-
-        # Relationships table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS relationships (
-                player_id TEXT,
-                character_id TEXT,
-                trust INTEGER DEFAULT 0,
-                familiarity INTEGER DEFAULT 0,
-                last_interaction TIMESTAMP,
-                PRIMARY KEY (player_id, character_id),
-                FOREIGN KEY (player_id) REFERENCES players (player_id)
-            )
-        ''')
-
-        conn.commit()
-        conn.close()
+            raise DatabaseOperationalError(
+                f"Database operational error during initialization: {e}"
+            ) from e
+        except sqlite3.Error as e:
+            logger.error("Database error during initialization: %s", e, exc_info=True)
+            raise DatabaseError(f"Failed to initialize database: {e}") from e
+        except Exception as e:
+            logger.error("Unexpected error during database initialization: %s", e, exc_info=True)
+            raise DatabaseError(f"Unexpected error during database initialization: {e}") from e
 
     def _load_from_database(self):
         """Load existing player data from database."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
 
-        # Check if player exists, if not create them
-        cursor.execute('SELECT * FROM players WHERE player_id = ?', (self.player_id,))
-        player = cursor.fetchone()
+                # Check if player exists, if not create them
+                cursor.execute("SELECT * FROM players WHERE player_id = ?", (self.player_id,))
+                player = cursor.fetchone()
 
-        if not player:
-            # New player
-            cursor.execute('''
-                INSERT INTO players (player_id) VALUES (?)
-            ''', (self.player_id,))
+                if not player:
+                    # New player
+                    cursor.execute(
+                        """
+                        INSERT INTO players (player_id) VALUES (?)
+                    """,
+                        (self.player_id,),
+                    )
 
-            cursor.execute('''
-                INSERT INTO personality_profiles (player_id) VALUES (?)
-            ''', (self.player_id,))
+                    cursor.execute(
+                        """
+                        INSERT INTO personality_profiles (player_id) VALUES (?)
+                    """,
+                        (self.player_id,),
+                    )
 
-            conn.commit()
-        else:
-            # Load personality profile
-            cursor.execute('''
-                SELECT impulsiveness, cooperation, problem_solving, patience
-                FROM personality_profiles WHERE player_id = ?
-            ''', (self.player_id,))
-            profile = cursor.fetchone()
-            if profile:
-                self.personality_profile = {
-                    'impulsiveness': profile[0],
-                    'cooperation': profile[1],
-                    'problem_solving': profile[2],
-                    'patience': profile[3]
-                }
+                    conn.commit()
+                    logger.info("Created new player record: %s", self.player_id)
+                else:
+                    # Load personality profile
+                    cursor.execute(
+                        """
+                        SELECT impulsiveness, cooperation, problem_solving, patience
+                        FROM personality_profiles WHERE player_id = ?
+                    """,
+                        (self.player_id,),
+                    )
+                    profile = cursor.fetchone()
+                    if profile:
+                        # Decrypt if encryption is enabled
+                        try:
+                            self.personality_profile = {
+                                "impulsiveness": self._decrypt_field(profile[0], int),
+                                "cooperation": self._decrypt_field(profile[1], int),
+                                "problem_solving": self._decrypt_field(profile[2], int),
+                                "patience": self._decrypt_field(profile[3], int),
+                            }
+                        except (DecryptionError, EncryptionKeyError) as e:
+                            logger.error(
+                                "Failed to decrypt personality profile for player %s: %s",
+                                self.player_id,
+                                e,
+                            )
+                            # Fall back to defaults if decryption fails
+                            self.personality_profile = {
+                                "impulsiveness": 50,
+                                "cooperation": 50,
+                                "problem_solving": 50,
+                                "patience": 50,
+                            }
 
-            # Load relationships
-            cursor.execute('''
-                SELECT character_id, trust, familiarity
-                FROM relationships WHERE player_id = ?
-            ''', (self.player_id,))
-            for row in cursor.fetchall():
-                self.relationships[row[0]] = {
-                    'trust': row[1],
-                    'familiarity': row[2]
-                }
+                    # Load relationships
+                    cursor.execute(
+                        """
+                        SELECT character_id, trust, familiarity
+                        FROM relationships WHERE player_id = ?
+                    """,
+                        (self.player_id,),
+                    )
+                    for row in cursor.fetchall():
+                        try:
+                            self.relationships[row[0]] = {
+                                "trust": self._decrypt_field(row[1], int),
+                                "familiarity": self._decrypt_field(row[2], int),
+                            }
+                        except (DecryptionError, EncryptionKeyError) as e:
+                            logger.error(
+                                "Failed to decrypt relationship data for player %s, character %s: %s",
+                                self.player_id,
+                                row[0],
+                                e,
+                            )
+                            # Skip this relationship if decryption fails
+                            continue
 
-            # Load scene statistics
-            cursor.execute('''
-                SELECT COUNT(*), SUM(CASE WHEN outcome = 'success' THEN 1 ELSE 0 END)
-                FROM scene_attempts WHERE player_id = ?
-            ''', (self.player_id,))
-            stats = cursor.fetchone()
-            if stats[0]:
-                self.total_scenes_played = stats[0]
-                self.total_successes = stats[1] or 0
-                self.total_failures = stats[0] - (stats[1] or 0)
+                    # Load scene statistics
+                    cursor.execute(
+                        """
+                        SELECT COUNT(*), SUM(CASE WHEN outcome = 'success' THEN 1 ELSE 0 END)
+                        FROM scene_attempts WHERE player_id = ?
+                    """,
+                        (self.player_id,),
+                    )
+                    stats = cursor.fetchone()
+                    if stats[0]:
+                        self.total_scenes_played = stats[0]
+                        self.total_successes = stats[1] or 0
+                        self.total_failures = stats[0] - (stats[1] or 0)
 
-            # Load scene attempt counts
-            cursor.execute('''
-                SELECT scene_id, COUNT(*) FROM scene_attempts
-                WHERE player_id = ? GROUP BY scene_id
-            ''', (self.player_id,))
-            for row in cursor.fetchall():
-                self.scene_attempts[row[0]] = row[1]
+                    # Load scene attempt counts
+                    cursor.execute(
+                        """
+                        SELECT scene_id, COUNT(*) FROM scene_attempts
+                        WHERE player_id = ? GROUP BY scene_id
+                    """,
+                        (self.player_id,),
+                    )
+                    for row in cursor.fetchall():
+                        self.scene_attempts[row[0]] = row[1]
 
-        # Update last seen
-        cursor.execute('''
-            UPDATE players SET last_seen = CURRENT_TIMESTAMP
-            WHERE player_id = ?
-        ''', (self.player_id,))
+                    logger.info(
+                        "Loaded player data: %s (scenes: %d, success rate: %.1f%%)",
+                        self.player_id,
+                        self.total_scenes_played,
+                        (self.total_successes / max(1, self.total_scenes_played)) * 100,
+                    )
 
-        conn.commit()
-        conn.close()
+                # Update last seen
+                cursor.execute(
+                    """
+                    UPDATE players SET last_seen = CURRENT_TIMESTAMP
+                    WHERE player_id = ?
+                """,
+                    (self.player_id,),
+                )
+
+                conn.commit()
+
+        except sqlite3.IntegrityError as e:
+            logger.error(
+                "Database integrity error loading player %s: %s", self.player_id, e, exc_info=True
+            )
+            raise DatabaseIntegrityError(
+                f"Database integrity error loading player data: {e}"
+            ) from e
+        except sqlite3.OperationalError as e:
+            logger.error(
+                "Database operational error loading player %s (possible lock or access issue): %s",
+                self.player_id,
+                e,
+                exc_info=True,
+            )
+            raise DatabaseOperationalError(
+                f"Database operational error loading player data: {e}"
+            ) from e
+        except sqlite3.Error as e:
+            logger.error("Database error loading player %s: %s", self.player_id, e, exc_info=True)
+            raise DatabaseError(f"Failed to load player data: {e}") from e
+        except Exception as e:
+            logger.error("Unexpected error loading player %s: %s", self.player_id, e, exc_info=True)
+            raise DatabaseError(f"Unexpected error loading player data: {e}") from e
 
     def start_scene(self, scene_id: str, character_id: str, initial_state: Dict):
         """Record the start of a new scene attempt."""
         self.current_scene_data = {
-            'scene_id': scene_id,
-            'character_id': character_id,
-            'started_at': datetime.now(),
-            'initial_state': initial_state.copy(),
-            'interrupted_count': 0,
-            'rapid_action_count': 0
+            "scene_id": scene_id,
+            "character_id": character_id,
+            "started_at": datetime.now(),
+            "initial_state": initial_state.copy(),
+            "interrupted_count": 0,
+            "rapid_action_count": 0,
         }
 
     def record_interruption(self):
         """Record that player interrupted the NPC."""
-        self.current_scene_data['interrupted_count'] = \
-            self.current_scene_data.get('interrupted_count', 0) + 1
+        self.current_scene_data["interrupted_count"] = (
+            self.current_scene_data.get("interrupted_count", 0) + 1
+        )
 
     def record_rapid_actions(self):
         """Record that player performed rapid button mashing."""
-        self.current_scene_data['rapid_action_count'] = \
-            self.current_scene_data.get('rapid_action_count', 0) + 1
+        self.current_scene_data["rapid_action_count"] = (
+            self.current_scene_data.get("rapid_action_count", 0) + 1
+        )
 
     def record_patient_wait(self):
         """Record that player waited patiently for NPC.
@@ -251,17 +371,16 @@ class PlayerMemory:
         This is called when the waiting indicator reaches 5 dots,
         indicating the player is being patient rather than spamming.
         """
-        self.current_scene_data['patient_waits'] = \
-            self.current_scene_data.get('patient_waits', 0) + 1
+        self.current_scene_data["patient_waits"] = (
+            self.current_scene_data.get("patient_waits", 0) + 1
+        )
         # Reward patience in personality profile
-        self.personality_profile['patience'] = min(
-            100,
-            self.personality_profile['patience'] + PERSONALITY_PATIENCE_INCREMENT
+        self.personality_profile["patience"] = min(
+            100, self.personality_profile["patience"] + PERSONALITY_PATIENCE_INCREMENT
         )
         # Slightly reduce impulsiveness for patient behavior
-        self.personality_profile['impulsiveness'] = max(
-            0,
-            self.personality_profile['impulsiveness'] - PERSONALITY_IMPULSIVENESS_DECREMENT
+        self.personality_profile["impulsiveness"] = max(
+            0, self.personality_profile["impulsiveness"] - PERSONALITY_IMPULSIVENESS_DECREMENT
         )
 
     def end_scene(self, outcome: str, final_state: Dict):
@@ -269,70 +388,141 @@ class PlayerMemory:
         if not self.current_scene_data:
             return
 
-        scene_id = self.current_scene_data['scene_id']
-        character_id = self.current_scene_data['character_id']
+        scene_id = self.current_scene_data["scene_id"]
+        character_id = self.current_scene_data["character_id"]
 
         # Calculate metrics
-        interrupted = self.current_scene_data.get('interrupted_count', 0) > 0
-        correct_actions = final_state.get('correct_actions', 0)
-        incorrect_actions = final_state.get('incorrect_actions', 0)
-        final_trust = final_state.get('trust', 0)
+        interrupted = self.current_scene_data.get("interrupted_count", 0) > 0
+        correct_actions = final_state.get("correct_actions", 0)
+        incorrect_actions = final_state.get("incorrect_actions", 0)
+        final_trust = final_state.get("trust", 0)
 
         # Update personality based on behavior
         self._update_personality(
-            interrupted=self.current_scene_data.get('interrupted_count', 0),
-            rapid_actions=self.current_scene_data.get('rapid_action_count', 0),
+            interrupted=self.current_scene_data.get("interrupted_count", 0),
+            rapid_actions=self.current_scene_data.get("rapid_action_count", 0),
             correct_actions=correct_actions,
             incorrect_actions=incorrect_actions,
-            outcome=outcome
+            outcome=outcome,
         )
 
         # Update relationship with character
         self._update_relationship(character_id, final_trust)
 
         # Save to database
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
 
-        cursor.execute('''
-            INSERT INTO scene_attempts
-            (player_id, scene_id, character_id, ended_at, outcome,
-             final_trust, correct_actions, incorrect_actions, interrupted_npc, data)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            self.player_id,
-            scene_id,
-            character_id,
-            datetime.now(),
-            outcome,
-            final_trust,
-            correct_actions,
-            incorrect_actions,
-            interrupted,
-            json.dumps(final_state)
-        ))
+                # Encrypt scene data if enabled
+                try:
+                    encrypted_data = self._encrypt_field(final_state)
+                except (EncryptionError, EncryptionKeyError) as e:
+                    logger.error(
+                        "Failed to encrypt scene data for player %s: %s",
+                        self.player_id,
+                        e,
+                        exc_info=True,
+                    )
+                    raise DatabaseError(f"Failed to encrypt scene data: {e}") from e
 
-        # Update personality in database
-        cursor.execute('''
-            UPDATE personality_profiles
-            SET impulsiveness = ?, cooperation = ?, problem_solving = ?,
-                patience = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE player_id = ?
-        ''', (
-            self.personality_profile['impulsiveness'],
-            self.personality_profile['cooperation'],
-            self.personality_profile['problem_solving'],
-            self.personality_profile['patience'],
-            self.player_id
-        ))
+                cursor.execute(
+                    """
+                    INSERT INTO scene_attempts
+                    (player_id, scene_id, character_id, ended_at, outcome,
+                     final_trust, correct_actions, incorrect_actions, interrupted_npc, data)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        self.player_id,
+                        scene_id,
+                        character_id,
+                        datetime.now(),
+                        outcome,
+                        final_trust,
+                        correct_actions,
+                        incorrect_actions,
+                        interrupted,
+                        encrypted_data,
+                    ),
+                )
 
-        conn.commit()
-        conn.close()
+                # Update personality in database (encrypt if enabled)
+                try:
+                    cursor.execute(
+                        """
+                        UPDATE personality_profiles
+                        SET impulsiveness = ?, cooperation = ?, problem_solving = ?,
+                            patience = ?, updated_at = CURRENT_TIMESTAMP
+                        WHERE player_id = ?
+                    """,
+                        (
+                            self._encrypt_field(self.personality_profile["impulsiveness"]),
+                            self._encrypt_field(self.personality_profile["cooperation"]),
+                            self._encrypt_field(self.personality_profile["problem_solving"]),
+                            self._encrypt_field(self.personality_profile["patience"]),
+                            self.player_id,
+                        ),
+                    )
+                except (EncryptionError, EncryptionKeyError) as e:
+                    logger.error(
+                        "Failed to encrypt personality data for player %s: %s",
+                        self.player_id,
+                        e,
+                        exc_info=True,
+                    )
+                    raise DatabaseError(f"Failed to encrypt personality data: {e}") from e
+
+                conn.commit()
+                logger.info(
+                    "Scene attempt recorded for player %s: scene=%s, outcome=%s, trust=%d",
+                    self.player_id,
+                    scene_id,
+                    outcome,
+                    final_trust,
+                )
+
+        except sqlite3.IntegrityError as e:
+            logger.error(
+                "Database integrity error recording scene attempt for player %s: %s",
+                self.player_id,
+                e,
+                exc_info=True,
+            )
+            raise DatabaseIntegrityError(
+                f"Database integrity error recording scene attempt: {e}"
+            ) from e
+        except sqlite3.OperationalError as e:
+            logger.error(
+                "Database operational error recording scene attempt for player %s (possible lock): %s",
+                self.player_id,
+                e,
+                exc_info=True,
+            )
+            raise DatabaseOperationalError(
+                f"Database operational error recording scene attempt: {e}"
+            ) from e
+        except sqlite3.Error as e:
+            logger.error(
+                "Database error recording scene attempt for player %s: %s",
+                self.player_id,
+                e,
+                exc_info=True,
+            )
+            raise DatabaseError(f"Failed to record scene attempt: {e}") from e
+        except Exception as e:
+            logger.error(
+                "Unexpected error recording scene attempt for player %s: %s",
+                self.player_id,
+                e,
+                exc_info=True,
+            )
+            raise DatabaseError(f"Unexpected error recording scene attempt: {e}") from e
 
         # Update scene attempt count
         self.scene_attempts[scene_id] = self.scene_attempts.get(scene_id, 0) + 1
         self.total_scenes_played += 1
-        if outcome == 'success':
+        if outcome == "success":
             self.total_successes += 1
         else:
             self.total_failures += 1
@@ -351,81 +541,194 @@ class PlayerMemory:
         """Update personality profile based on scene behavior."""
         # Impulsiveness (increases with interruptions and rapid actions)
         if interrupted > 0:
-            self.personality_profile['impulsiveness'] = min(
+            self.personality_profile["impulsiveness"] = min(
                 100,
-                self.personality_profile['impulsiveness']
+                self.personality_profile["impulsiveness"]
                 + (interrupted * PERSONALITY_IMPULSIVENESS_INCREMENT),
             )
         else:
             # Slowly decrease if no interruptions
-            self.personality_profile['impulsiveness'] = max(
+            self.personality_profile["impulsiveness"] = max(
                 0,
-                self.personality_profile['impulsiveness'] - PERSONALITY_IMPULSIVENESS_DECREMENT,
+                self.personality_profile["impulsiveness"] - PERSONALITY_IMPULSIVENESS_DECREMENT,
             )
 
         # Patience (decreases with rapid actions)
         if rapid_actions > 0:
-            self.personality_profile['patience'] = max(
+            self.personality_profile["patience"] = max(
                 0,
-                self.personality_profile['patience']
+                self.personality_profile["patience"]
                 - (rapid_actions * PERSONALITY_PATIENCE_DECREMENT),
             )
         elif interrupted == 0:
             # Increase if patient
-            self.personality_profile['patience'] = min(
+            self.personality_profile["patience"] = min(
                 100,
-                self.personality_profile['patience'] + PERSONALITY_PATIENCE_INCREMENT,
+                self.personality_profile["patience"] + PERSONALITY_PATIENCE_INCREMENT,
             )
 
         # Cooperation (increases if low interruptions and good outcome)
-        if interrupted == 0 and outcome == 'success':
-            self.personality_profile['cooperation'] = min(
+        if interrupted == 0 and outcome == "success":
+            self.personality_profile["cooperation"] = min(
                 100,
-                self.personality_profile['cooperation'] + PERSONALITY_COOPERATION_INCREMENT,
+                self.personality_profile["cooperation"] + PERSONALITY_COOPERATION_INCREMENT,
             )
         elif interrupted > 2:
-            self.personality_profile['cooperation'] = max(
+            self.personality_profile["cooperation"] = max(
                 0,
-                self.personality_profile['cooperation'] - PERSONALITY_COOPERATION_DECREMENT,
+                self.personality_profile["cooperation"] - PERSONALITY_COOPERATION_DECREMENT,
             )
 
         # Problem solving (increases with correct actions)
         if correct_actions > incorrect_actions:
-            self.personality_profile['problem_solving'] = min(
+            self.personality_profile["problem_solving"] = min(
                 100,
-                self.personality_profile['problem_solving'] + PERSONALITY_PROBLEM_SOLVING_INCREMENT,
+                self.personality_profile["problem_solving"] + PERSONALITY_PROBLEM_SOLVING_INCREMENT,
             )
         elif incorrect_actions > correct_actions * 2:
-            self.personality_profile['problem_solving'] = max(
+            self.personality_profile["problem_solving"] = max(
                 0,
-                self.personality_profile['problem_solving'] - PERSONALITY_PROBLEM_SOLVING_DECREMENT,
+                self.personality_profile["problem_solving"] - PERSONALITY_PROBLEM_SOLVING_DECREMENT,
             )
 
     def _update_relationship(self, character_id: str, trust_change: int):
         """Update relationship with a character."""
         if character_id not in self.relationships:
-            self.relationships[character_id] = {'trust': 0, 'familiarity': 0}
+            self.relationships[character_id] = {"trust": 0, "familiarity": 0}
 
-        self.relationships[character_id]['trust'] += trust_change
-        self.relationships[character_id]['familiarity'] += 1
+        self.relationships[character_id]["trust"] += trust_change
+        self.relationships[character_id]["familiarity"] += 1
 
-        # Save to database
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        # Save to database (encrypt if enabled)
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
 
-        cursor.execute('''
-            INSERT OR REPLACE INTO relationships
-            (player_id, character_id, trust, familiarity, last_interaction)
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-        ''', (
-            self.player_id,
-            character_id,
-            self.relationships[character_id]['trust'],
-            self.relationships[character_id]['familiarity']
-        ))
+                try:
+                    cursor.execute(
+                        """
+                        INSERT OR REPLACE INTO relationships
+                        (player_id, character_id, trust, familiarity, last_interaction)
+                        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    """,
+                        (
+                            self.player_id,
+                            character_id,
+                            self._encrypt_field(self.relationships[character_id]["trust"]),
+                            self._encrypt_field(self.relationships[character_id]["familiarity"]),
+                        ),
+                    )
+                except (EncryptionError, EncryptionKeyError) as e:
+                    logger.error(
+                        "Failed to encrypt relationship data for player %s with character %s: %s",
+                        self.player_id,
+                        character_id,
+                        e,
+                        exc_info=True,
+                    )
+                    raise DatabaseError(f"Failed to encrypt relationship data: {e}") from e
 
-        conn.commit()
-        conn.close()
+                conn.commit()
+                logger.debug(
+                    "Updated relationship for player %s with character %s: trust=%d, familiarity=%d",
+                    self.player_id,
+                    character_id,
+                    self.relationships[character_id]["trust"],
+                    self.relationships[character_id]["familiarity"],
+                )
+
+        except sqlite3.IntegrityError as e:
+            logger.error(
+                "Database integrity error updating relationship for player %s with character %s: %s",
+                self.player_id,
+                character_id,
+                e,
+                exc_info=True,
+            )
+            raise DatabaseIntegrityError(
+                f"Database integrity error updating relationship: {e}"
+            ) from e
+        except sqlite3.OperationalError as e:
+            logger.error(
+                "Database operational error updating relationship for player %s (possible lock): %s",
+                self.player_id,
+                e,
+                exc_info=True,
+            )
+            raise DatabaseOperationalError(
+                f"Database operational error updating relationship: {e}"
+            ) from e
+        except sqlite3.Error as e:
+            logger.error(
+                "Database error updating relationship for player %s with character %s: %s",
+                self.player_id,
+                character_id,
+                e,
+                exc_info=True,
+            )
+            raise DatabaseError(f"Failed to update relationship: {e}") from e
+        except Exception as e:
+            logger.error(
+                "Unexpected error updating relationship for player %s: %s",
+                self.player_id,
+                e,
+                exc_info=True,
+            )
+            raise DatabaseError(f"Unexpected error updating relationship: {e}") from e
+
+    def _encrypt_field(self, value: int | str | dict | list) -> str:
+        """Encrypt a field value if encryption is enabled.
+
+        Args:
+            value: Value to encrypt (int will be converted to string)
+
+        Returns:
+            str: Encrypted value or original value as string if encryption disabled
+
+        Raises:
+            EncryptionError: If encryption fails
+        """
+        if not is_encryption_enabled(DB_ENCRYPTION_KEY):
+            # Return as string for storage
+            return str(value)
+
+        try:
+            encrypted = encrypt_data(value, DB_ENCRYPTION_KEY)
+            return encrypted
+        except (EncryptionError, EncryptionKeyError) as e:
+            logger.error("Failed to encrypt field: %s", e, exc_info=True)
+            raise
+
+    def _decrypt_field(self, encrypted_value: str, return_type: type = str) -> Any:
+        """Decrypt a field value if encryption is enabled.
+
+        Args:
+            encrypted_value: Encrypted value from database
+            return_type: Expected type (int, str, dict, list)
+
+        Returns:
+            Decrypted value in requested type, or parsed value if encryption disabled
+
+        Raises:
+            DecryptionError: If decryption fails
+        """
+        if not is_encryption_enabled(DB_ENCRYPTION_KEY):
+            # Parse from string
+            if return_type == int:
+                return int(encrypted_value)
+            elif return_type == dict:
+                return json.loads(encrypted_value) if encrypted_value else {}
+            elif return_type == list:
+                return json.loads(encrypted_value) if encrypted_value else []
+            else:
+                return encrypted_value
+
+        try:
+            decrypted = decrypt_data(encrypted_value, DB_ENCRYPTION_KEY, return_type)
+            return decrypted
+        except (DecryptionError, EncryptionKeyError) as e:
+            logger.error("Failed to decrypt field: %s", e, exc_info=True)
+            raise
 
     def get_character_context(self, character_id: str) -> str:
         """Get context about player's history with this character for LLM."""
@@ -433,8 +736,8 @@ class PlayerMemory:
             return "This is your first time meeting this player."
 
         rel = self.relationships[character_id]
-        familiarity = rel['familiarity']
-        trust = rel['trust']
+        familiarity = rel["familiarity"]
+        trust = rel["trust"]
 
         if familiarity == FAMILIARITY_NEW:
             context = "You've met this player once before. "
@@ -463,33 +766,33 @@ class PlayerMemory:
         summary = "Player behavioral profile:\n"
 
         # Impulsiveness
-        if p['impulsiveness'] > PERSONALITY_HIGH_THRESHOLD:
+        if p["impulsiveness"] > PERSONALITY_HIGH_THRESHOLD:
             summary += "- VERY IMPULSIVE: Acts without thinking, interrupts frequently\n"
-        elif p['impulsiveness'] > PERSONALITY_MID_THRESHOLD:
+        elif p["impulsiveness"] > PERSONALITY_MID_THRESHOLD:
             summary += "- Somewhat impulsive: Tends to act quickly\n"
         else:
             summary += "- Thoughtful: Takes time to consider actions\n"
 
         # Patience
-        if p['patience'] > PERSONALITY_HIGH_THRESHOLD:
+        if p["patience"] > PERSONALITY_HIGH_THRESHOLD:
             summary += "- VERY PATIENT: Waits for instructions, listens carefully\n"
-        elif p['patience'] > PERSONALITY_MID_THRESHOLD:
+        elif p["patience"] > PERSONALITY_MID_THRESHOLD:
             summary += "- Patient: Generally waits for guidance\n"
         else:
             summary += "- IMPATIENT: Button mashes, doesn't wait for instructions\n"
 
         # Cooperation
-        if p['cooperation'] > PERSONALITY_HIGH_THRESHOLD:
+        if p["cooperation"] > PERSONALITY_HIGH_THRESHOLD:
             summary += "- HIGHLY COOPERATIVE: Follows instructions well\n"
-        elif p['cooperation'] > PERSONALITY_MID_THRESHOLD:
+        elif p["cooperation"] > PERSONALITY_MID_THRESHOLD:
             summary += "- Cooperative: Usually follows guidance\n"
         else:
             summary += "- UNCOOPERATIVE: Ignores instructions, acts independently\n"
 
         # Problem solving
-        if p['problem_solving'] > PERSONALITY_HIGH_THRESHOLD:
+        if p["problem_solving"] > PERSONALITY_HIGH_THRESHOLD:
             summary += "- SKILLED: Makes mostly correct decisions\n"
-        elif p['problem_solving'] > PERSONALITY_MID_THRESHOLD:
+        elif p["problem_solving"] > PERSONALITY_MID_THRESHOLD:
             summary += "- Competent: Decent decision-making\n"
         else:
             summary += "- STRUGGLES: Often makes incorrect choices\n"
@@ -508,7 +811,7 @@ Relationship with you ({character_id}):
 Statistics:
 - Total scenes played: {self.total_scenes_played}
 - Success rate: {int((self.total_successes / max(1, self.total_scenes_played)) * 100)}%
-- This scene attempts: {self.scene_attempts.get(self.current_scene_data.get('scene_id', ''), 0)}
+- This scene attempts: {self.scene_attempts.get(self.current_scene_data.get("scene_id", ""), 0)}
 
 INSTRUCTION: Adapt your dialogue to match this player's history and personality.
 """

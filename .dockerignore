@@ -1,0 +1,87 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environments
+.venv
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+.DS_Store
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+*.cover
+.hypothesis/
+cover/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Cache & logs
+*.log
+.cache/
+.ruff_cache/
+
+# Project-specific
+voicecache/
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+*.db-journal
+audio/*.wav
+audio/*.mp3
+audio/*.ogg
+
+# Large files
+art/merlins_workshop.glb
+
+# Archive & legacy
+archive/
+legacy_files/
+
+# Claude Code
+.claude/
+
+# Web development
+web/node_modules/
+web/package-lock.json
+web/.eslintrc.json
+web/.prettierrc
+web/package.json
+
+# Lock files (we'll use pyproject.toml)
+uv.lock
+requirements.txt

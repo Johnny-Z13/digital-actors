@@ -6,17 +6,17 @@ in fatality. Navigate evidence, jury sympathy, and the judge's trust to achieve
 acquittal, plea deal, or face guilty verdict.
 """
 
-from scenes.base import (
+from llm_prompt_core.types import Line
+from scenes.base.base import (
+    AudioAssets,
+    CharacterRequirement,
+    FailureCriterion,
     Scene,
+    SceneArtAssets,
     SceneControl,
     StateVariable,
     SuccessCriterion,
-    FailureCriterion,
-    CharacterRequirement,
-    SceneArtAssets,
-    AudioAssets
 )
-from llm_prompt_core.types import Line
 
 
 class CrownCourt(Scene):
@@ -27,23 +27,19 @@ class CrownCourt(Scene):
         audio = AudioAssets(
             background_music="/audio/courtroom_ambience.mp3",
             sfx_library={
-                'gavel': '/audio/sfx/gavel.mp3',
-                'murmur': '/audio/sfx/crowd_murmur.mp3',
-                'paper_shuffle': '/audio/sfx/papers.mp3',
-                'door_close': '/audio/sfx/courtroom_door.mp3',
+                "gavel": "/audio/sfx/gavel.mp3",
+                "murmur": "/audio/sfx/crowd_murmur.mp3",
+                "paper_shuffle": "/audio/sfx/papers.mp3",
+                "door_close": "/audio/sfx/courtroom_door.mp3",
             },
-            volume_levels={
-                'music': 0.2,
-                'sfx': 0.6,
-                'voice': 1.0
-            }
+            volume_levels={"music": 0.2, "sfx": 0.6, "voice": 1.0},
         )
 
         # Art assets configuration
         art_assets = SceneArtAssets(
             scene_type="character",  # Use default character scene (Judge sphere)
-            background_image=None,   # Could add courtroom background in future
-            audio=audio
+            background_image=None,  # Could add courtroom background in future
+            audio=audio,
         )
 
         # Define interactive controls (decision points in the trial)
@@ -52,56 +48,56 @@ class CrownCourt(Scene):
                 id="challenge_eyewitness",
                 label="CHALLENGE EYEWITNESS",
                 type="button",
-                color=0xffa500,  # Orange - risky but potentially rewarding
-                position={'x': -0.6, 'y': 0.0, 'z': 0},
+                color=0xFFA500,  # Orange - risky but potentially rewarding
+                position={"x": -0.6, "y": 0.0, "z": 0},
                 description="Question the credibility of the witness who claims to have seen Daniel fleeing the scene.",
                 action_type="risky",
                 npc_aware=True,
-                visible_in_phases=[2]  # Only visible in Phase 2 (cross-examination)
+                visible_in_phases=[2],  # Only visible in Phase 2 (cross-examination)
             ),
             SceneControl(
                 id="character_witness",
                 label="CALL CHARACTER WITNESS",
                 type="button",
-                color=0x4169e1,  # Royal blue - safe, emotional appeal
-                position={'x': -0.2, 'y': 0.0, 'z': 0},
+                color=0x4169E1,  # Royal blue - safe, emotional appeal
+                position={"x": -0.2, "y": 0.0, "z": 0},
                 description="Bring in someone who can vouch for Daniel's good character.",
                 action_type="safe",
                 npc_aware=True,
-                visible_in_phases=[2, 3]  # Visible in Phases 2-3
+                visible_in_phases=[2, 3],  # Visible in Phases 2-3
             ),
             SceneControl(
                 id="question_fingerprint",
                 label="QUESTION FORENSICS",
                 type="button",
-                color=0xff4500,  # Orange-red - technical challenge
-                position={'x': 0.2, 'y': 0.0, 'z': 0},
+                color=0xFF4500,  # Orange-red - technical challenge
+                position={"x": 0.2, "y": 0.0, "z": 0},
                 description="Challenge the chain of custody and reliability of fingerprint evidence.",
                 action_type="risky",
                 npc_aware=True,
-                visible_in_phases=[2]  # Only visible in Phase 2
+                visible_in_phases=[2],  # Only visible in Phase 2
             ),
             SceneControl(
                 id="reveal_truth",
                 label="REVEAL THE TRUTH",
                 type="button",
-                color=0xff0000,  # Red - critical, irreversible decision
-                position={'x': 0.6, 'y': 0.0, 'z': 0},
+                color=0xFF0000,  # Red - critical, irreversible decision
+                position={"x": 0.6, "y": 0.0, "z": 0},
                 description="Reveal that Daniel confessed privately that he was at the scene, but claims he was trying to rescue someone inside.",
                 action_type="critical",
                 npc_aware=True,
-                visible_in_phases=[3, 4]  # Visible in Phases 3-4
+                visible_in_phases=[3, 4],  # Visible in Phases 3-4
             ),
             SceneControl(
                 id="closing_argument",
                 label="CLOSING ARGUMENT",
                 type="button",
-                color=0xffd700,  # Gold - climactic moment
-                position={'x': 0.0, 'y': 0.3, 'z': 0},
+                color=0xFFD700,  # Gold - climactic moment
+                position={"x": 0.0, "y": 0.3, "z": 0},
                 description="Deliver your final argument to the jury.",
                 action_type="critical",
                 npc_aware=True,
-                visible_in_phases=[4]  # Only visible in Phase 4
+                visible_in_phases=[4],  # Only visible in Phase 4
             ),
         ]
 
@@ -112,49 +108,49 @@ class CrownCourt(Scene):
                 initial_value=75.0,  # Prosecution starts with strong case
                 min_value=0.0,
                 max_value=100.0,
-                update_rate=None  # Changed by player actions, not time
+                update_rate=None,  # Changed by player actions, not time
             ),
             StateVariable(
                 name="jury_sympathy",
                 initial_value=30.0,  # Defendant looks guilty initially
                 min_value=0.0,
                 max_value=100.0,
-                update_rate=None  # Changed by player arguments
+                update_rate=None,  # Changed by player arguments
             ),
             StateVariable(
                 name="judge_trust",
                 initial_value=50.0,  # Judge starts neutral
                 min_value=0.0,
                 max_value=100.0,
-                update_rate=None  # Changed by procedural respect/violations
+                update_rate=None,  # Changed by procedural respect/violations
             ),
             StateVariable(
                 name="evidence_challenged",
                 initial_value=0,  # Count of successfully challenged evidence
                 min_value=0,
                 max_value=5,
-                update_rate=None
+                update_rate=None,
             ),
             StateVariable(
                 name="moral_weight",
                 initial_value=0.0,  # Neutral framing
                 min_value=-50.0,  # Negative = indefensible
-                max_value=50.0,   # Positive = victim of circumstance
-                update_rate=None
+                max_value=50.0,  # Positive = victim of circumstance
+                update_rate=None,
             ),
             StateVariable(
                 name="time_remaining",
                 initial_value=720.0,  # 12 minutes
                 min_value=0.0,
                 max_value=720.0,
-                update_rate=-1.0  # Decreases 1 second per second
+                update_rate=-1.0,  # Decreases 1 second per second
             ),
             StateVariable(
                 name="phase",
                 initial_value=1,  # Start in Phase 1 (Opening)
                 min_value=1,
                 max_value=4,
-                update_rate=None  # Changed based on time thresholds
+                update_rate=None,  # Changed based on time thresholds
             ),
         ]
 
@@ -165,21 +161,21 @@ class CrownCourt(Scene):
                 description="Full acquittal with strong defense",
                 condition="state['prosecution_strength'] < 40 and state['jury_sympathy'] > 70 and state['judge_trust'] > 60",
                 message="[Judge bangs gavel] The jury finds the defendant... not guilty. Mr. Price, you are free to go. [pause] Counselor, well argued.",
-                required=False
+                required=False,
             ),
             SuccessCriterion(
                 id="acquittal_doubt",
                 description="Acquittal through reasonable doubt",
                 condition="state['prosecution_strength'] < 50 and state['jury_sympathy'] > 50",
                 message="[Judge, measured tone] Not guilty. However, Mr. Price, I hope you understand the gravity of what occurred. This court is adjourned.",
-                required=False
+                required=False,
             ),
             SuccessCriterion(
                 id="plea_deal",
                 description="Plea deal accepted",
                 condition="state['prosecution_strength'] > 60 and state['jury_sympathy'] < 40 and state['moral_weight'] > 10",
                 message="[Judge nods] The court accepts the plea agreement. Mr. Price will serve 18 months with parole eligibility. A reasonable resolution.",
-                required=False
+                required=False,
             ),
         ]
 
@@ -190,21 +186,21 @@ class CrownCourt(Scene):
                 description="Jury finds defendant guilty",
                 condition="state['prosecution_strength'] > 70 or state['jury_sympathy'] < 20",
                 message="[Judge, solemn] The jury finds the defendant guilty of arson resulting in fatality. Sentencing will be scheduled. [long pause] I'm sorry, Counselor. You did what you could.",
-                ending_type="failure"
+                ending_type="failure",
             ),
             FailureCriterion(
                 id="mistrial",
                 description="Mistrial due to procedural failure",
                 condition="state['judge_trust'] < 20",
                 message="[Judge, sharp tone] Counselor, your conduct has compromised these proceedings. I am declaring a mistrial. We will reconvene with new counsel.",
-                ending_type="failure"
+                ending_type="failure",
             ),
             FailureCriterion(
                 id="time_expired",
                 description="Time runs out before closing arguments",
                 condition="state['time_remaining'] <= 0",
                 message="[Judge] We've run out of time. Based on the evidence presented, I must instruct the jury to deliberate. [pause] I fear the outcome will not favor your client.",
-                ending_type="partial_failure"
+                ending_type="partial_failure",
             ),
         ]
 
@@ -214,19 +210,19 @@ class CrownCourt(Scene):
                 skill="legal_expertise",
                 importance="highly_recommended",
                 impact_without="Will struggle to make procedural arguments and may miss evidence challenges.",
-                alternative_path=True  # Can succeed with emotional jury appeal
+                alternative_path=True,  # Can succeed with emotional jury appeal
             ),
             CharacterRequirement(
                 skill="ethical_reasoning",
                 importance="recommended",
                 impact_without="May miss moral framing opportunities and find it harder to navigate the 'reveal truth' dilemma.",
-                alternative_path=True
+                alternative_path=True,
             ),
             CharacterRequirement(
                 skill="investigation",
                 importance="helpful",
                 impact_without="Less effective at challenging eyewitness testimony and forensic evidence.",
-                alternative_path=True
+                alternative_path=True,
             ),
         ]
 
@@ -235,11 +231,26 @@ class CrownCourt(Scene):
             Line(text="[Judge enters, courtroom rises]", delay=0),
             Line(text="[Sound of gavel] Be seated.", delay=0.3),
             Line(text="We are here for the case of The Crown versus Daniel Price.", delay=0.6),
-            Line(text="Mr. Price stands accused of arson resulting in the death of one Margaret Holloway, age 67.", delay=0.9),
-            Line(text="[Adjusts glasses, looks at player] Counselor, the prosecution has presented their case.", delay=1.2),
-            Line(text="They claim your client was seen fleeing the scene at 11:47 PM, and his fingerprints were found on a container of accelerant.", delay=1.5),
-            Line(text="[Leans forward] Yet you maintain his innocence. Very well. You may begin your defense.", delay=1.8),
-            Line(text="But be warned—this court values evidence over emotion, and procedure over theatrics.", delay=2.1),
+            Line(
+                text="Mr. Price stands accused of arson resulting in the death of one Margaret Holloway, age 67.",
+                delay=0.9,
+            ),
+            Line(
+                text="[Adjusts glasses, looks at player] Counselor, the prosecution has presented their case.",
+                delay=1.2,
+            ),
+            Line(
+                text="They claim your client was seen fleeing the scene at 11:47 PM, and his fingerprints were found on a container of accelerant.",
+                delay=1.5,
+            ),
+            Line(
+                text="[Leans forward] Yet you maintain his innocence. Very well. You may begin your defense.",
+                delay=1.8,
+            ),
+            Line(
+                text="But be warned—this court values evidence over emotion, and procedure over theatrics.",
+                delay=2.1,
+            ),
             Line(text="[Gestures] Proceed when ready, Counselor.", delay=2.4),
         ]
 
@@ -283,5 +294,5 @@ What will you say?""",
             failure_criteria=failure_criteria,
             character_requirements=character_requirements,
             time_limit=720.0,  # 12 minutes
-            allow_freeform_dialogue=True
+            allow_freeform_dialogue=True,
         )

@@ -18,25 +18,27 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional, Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class RuleAction(Enum):
     """Actions that rules can trigger."""
-    CONTINUE = "continue"           # Let natural dialogue flow
-    ADVANCE_PHASE = "advance_phase" # Time to move to next phase
+
+    CONTINUE = "continue"  # Let natural dialogue flow
+    ADVANCE_PHASE = "advance_phase"  # Time to move to next phase
     TRIGGER_URGENCY = "trigger_urgency"  # Make NPC show urgency
-    PROMPT_PLAYER = "prompt_player" # Player has been idle
-    GIVE_HINT = "give_hint"         # Help struggling player
-    SPAWN_CRISIS = "spawn_crisis"   # Create emergency event
-    CONSULT_LLM = "consult_llm"     # No rule matched, ask LLM
+    PROMPT_PLAYER = "prompt_player"  # Player has been idle
+    GIVE_HINT = "give_hint"  # Help struggling player
+    SPAWN_CRISIS = "spawn_crisis"  # Create emergency event
+    CONSULT_LLM = "consult_llm"  # No rule matched, ask LLM
 
 
 @dataclass
 class RuleDecision:
     """Result of a rules-based evaluation."""
+
     action: RuleAction
     data: dict[str, Any] = field(default_factory=dict)
     reason: str = ""
@@ -63,7 +65,7 @@ class DirectorRules:
         """Initialize the rules engine with default thresholds."""
         # Scene timing thresholds (seconds)
         self.phase_transition_times = {
-            1: 75,   # Phase 1 → 2 after 1:15
+            1: 75,  # Phase 1 → 2 after 1:15
             2: 150,  # Phase 2 → 3 after 2:30
             3: 210,  # Phase 3 → 4 after 3:30
         }
@@ -83,41 +85,41 @@ class DirectorRules:
 
         # Default cooldown durations
         self._default_cooldowns = {
-            'phase_transition': 60,
-            'oxygen_warning': 30,
-            'urgency_trigger': 45,
-            'player_prompt': 20,
-            'hint_given': 25,
-            'emotional_beat': 45,
+            "phase_transition": 60,
+            "oxygen_warning": 30,
+            "urgency_trigger": 45,
+            "player_prompt": 20,
+            "hint_given": 25,
+            "emotional_beat": 45,
         }
 
         # Scene-specific cooldown overrides
         # Different scenes have different pacing needs
         self._scene_cooldowns = {
-            'submarine': {
-                'oxygen_warning': 30,      # Don't warn about O2 more than every 30s
-                'phase_transition': 60,    # Min time between phase changes
-                'emotional_beat': 45,      # Space out emotional moments
-                'player_prompt': 20,       # Don't nag player too often
-                'urgency_trigger': 30,     # Can trigger urgency more often (high tension)
-                'hint_given': 20,          # More frequent hints (complex scenario)
+            "submarine": {
+                "oxygen_warning": 30,  # Don't warn about O2 more than every 30s
+                "phase_transition": 60,  # Min time between phase changes
+                "emotional_beat": 45,  # Space out emotional moments
+                "player_prompt": 20,  # Don't nag player too often
+                "urgency_trigger": 30,  # Can trigger urgency more often (high tension)
+                "hint_given": 20,  # More frequent hints (complex scenario)
             },
-            'crown_court': {
-                'oxygen_warning': 60,      # N/A but keep for consistency
-                'phase_transition': 90,    # Slower pacing for courtroom drama
-                'emotional_beat': 60,      # More space for dramatic beats
-                'player_prompt': 30,       # More patience in formal setting
-                'urgency_trigger': 60,     # Less frequent urgency (formal setting)
-                'hint_given': 30,          # Less hand-holding
+            "crown_court": {
+                "oxygen_warning": 60,  # N/A but keep for consistency
+                "phase_transition": 90,  # Slower pacing for courtroom drama
+                "emotional_beat": 60,  # More space for dramatic beats
+                "player_prompt": 30,  # More patience in formal setting
+                "urgency_trigger": 60,  # Less frequent urgency (formal setting)
+                "hint_given": 30,  # Less hand-holding
             },
-            'default': {
-                'phase_transition': 60,
-                'oxygen_warning': 30,
-                'urgency_trigger': 45,
-                'player_prompt': 20,
-                'hint_given': 25,
-                'emotional_beat': 45,
-            }
+            "default": {
+                "phase_transition": 60,
+                "oxygen_warning": 30,
+                "urgency_trigger": 45,
+                "player_prompt": 20,
+                "hint_given": 25,
+                "emotional_beat": 45,
+            },
         }
 
         # Start with default cooldowns
@@ -133,14 +135,16 @@ class DirectorRules:
             scene_id: Current scene identifier
         """
         # Determine which cooldown profile to use
-        scene_key = 'default'
-        if 'submarine' in scene_id.lower():
-            scene_key = 'submarine'
-        elif 'court' in scene_id.lower():
-            scene_key = 'crown_court'
+        scene_key = "default"
+        if "submarine" in scene_id.lower():
+            scene_key = "submarine"
+        elif "court" in scene_id.lower():
+            scene_key = "crown_court"
 
         # Apply scene-specific cooldowns
-        self.cooldown_durations = self._scene_cooldowns.get(scene_key, self._default_cooldowns).copy()
+        self.cooldown_durations = self._scene_cooldowns.get(
+            scene_key, self._default_cooldowns
+        ).copy()
         logger.info("[DirectorRules] Applied %s cooldown profile", scene_key)
 
     def evaluate(
@@ -164,10 +168,10 @@ class DirectorRules:
         Returns:
             RuleDecision with action and data, or CONSULT_LLM if no rule matched
         """
-        current_phase = scene_state.get('phase', 1)
-        oxygen = scene_state.get('oxygen', 100)
-        radiation = scene_state.get('radiation', 0)
-        time_remaining = scene_state.get('time_remaining', 300)
+        current_phase = scene_state.get("phase", 1)
+        oxygen = scene_state.get("oxygen", 100)
+        radiation = scene_state.get("radiation", 0)
+        time_remaining = scene_state.get("time_remaining", 300)
 
         # RULE 1: Time-based phase transitions (highest priority)
         phase_decision = self._check_phase_transition(current_phase, elapsed_time, time_remaining)
@@ -196,33 +200,29 @@ class DirectorRules:
 
         # No rule matched - consult LLM
         return RuleDecision(
-            action=RuleAction.CONSULT_LLM,
-            reason="No fast rule matched - deferring to LLM director"
+            action=RuleAction.CONSULT_LLM, reason="No fast rule matched - deferring to LLM director"
         )
 
     def _check_phase_transition(
-        self,
-        current_phase: int,
-        elapsed_time: float,
-        time_remaining: float
-    ) -> Optional[RuleDecision]:
+        self, current_phase: int, elapsed_time: float, time_remaining: float
+    ) -> RuleDecision | None:
         """Check if it's time to advance to the next phase."""
-        if not self._check_cooldown('phase_transition'):
+        if not self._check_cooldown("phase_transition"):
             return None
 
         # Check time-based transition
         if current_phase in self.phase_transition_times:
             threshold = self.phase_transition_times[current_phase]
             if elapsed_time >= threshold:
-                self._set_cooldown('phase_transition')
+                self._set_cooldown("phase_transition")
                 return RuleDecision(
                     action=RuleAction.ADVANCE_PHASE,
                     data={
-                        'from_phase': current_phase,
-                        'to_phase': current_phase + 1,
-                        'trigger': 'time_elapsed'
+                        "from_phase": current_phase,
+                        "to_phase": current_phase + 1,
+                        "trigger": "time_elapsed",
                     },
-                    reason=f"Phase {current_phase}→{current_phase + 1}: {elapsed_time:.0f}s elapsed"
+                    reason=f"Phase {current_phase}→{current_phase + 1}: {elapsed_time:.0f}s elapsed",
                 )
 
         # Check time_remaining based transition (Pressure Point uses countdown)
@@ -230,126 +230,113 @@ class DirectorRules:
             phase_thresholds = {1: 405, 2: 330, 3: 270}  # Matches web_server.py
             if current_phase in phase_thresholds:
                 if time_remaining < phase_thresholds[current_phase]:
-                    self._set_cooldown('phase_transition')
+                    self._set_cooldown("phase_transition")
                     return RuleDecision(
                         action=RuleAction.ADVANCE_PHASE,
                         data={
-                            'from_phase': current_phase,
-                            'to_phase': current_phase + 1,
-                            'trigger': 'time_remaining'
+                            "from_phase": current_phase,
+                            "to_phase": current_phase + 1,
+                            "trigger": "time_remaining",
                         },
-                        reason=f"Phase {current_phase}→{current_phase + 1}: {time_remaining:.0f}s remaining"
+                        reason=f"Phase {current_phase}→{current_phase + 1}: {time_remaining:.0f}s remaining",
                     )
 
         return None
 
     def _check_resource_critical(
-        self,
-        oxygen: float,
-        radiation: float,
-        scene_id: str
-    ) -> Optional[RuleDecision]:
+        self, oxygen: float, radiation: float, scene_id: str
+    ) -> RuleDecision | None:
         """Check for critical resource levels requiring immediate action."""
         # Submarine-specific: Oxygen critical
-        if 'submarine' in scene_id.lower() and oxygen <= self.oxygen_critical_threshold:
-            if self._check_cooldown('oxygen_warning'):
-                self._set_cooldown('oxygen_warning')
+        if "submarine" in scene_id.lower() and oxygen <= self.oxygen_critical_threshold:
+            if self._check_cooldown("oxygen_warning"):
+                self._set_cooldown("oxygen_warning")
                 return RuleDecision(
                     action=RuleAction.SPAWN_CRISIS,
                     data={
-                        'event_type': 'crisis',
-                        'resource': 'oxygen',
-                        'level': oxygen,
-                        'event_description': 'Oxygen critically low - emergency situation'
+                        "event_type": "crisis",
+                        "resource": "oxygen",
+                        "level": oxygen,
+                        "event_description": "Oxygen critically low - emergency situation",
                     },
-                    reason=f"CRITICAL: Oxygen at {oxygen}% - below {self.oxygen_critical_threshold}%"
+                    reason=f"CRITICAL: Oxygen at {oxygen}% - below {self.oxygen_critical_threshold}%",
                 )
 
         # Radiation critical
         if radiation >= self.radiation_critical_threshold:
-            if self._check_cooldown('urgency_trigger'):
-                self._set_cooldown('urgency_trigger')
+            if self._check_cooldown("urgency_trigger"):
+                self._set_cooldown("urgency_trigger")
                 return RuleDecision(
                     action=RuleAction.TRIGGER_URGENCY,
                     data={
-                        'behavior_change': 'more_worried',
-                        'reason': f'radiation_critical_{radiation}'
+                        "behavior_change": "more_worried",
+                        "reason": f"radiation_critical_{radiation}",
                     },
-                    reason=f"CRITICAL: Radiation at {radiation}% - above {self.radiation_critical_threshold}%"
+                    reason=f"CRITICAL: Radiation at {radiation}% - above {self.radiation_critical_threshold}%",
                 )
 
         return None
 
     def _check_resource_urgent(
-        self,
-        oxygen: float,
-        radiation: float,
-        scene_id: str
-    ) -> Optional[RuleDecision]:
+        self, oxygen: float, radiation: float, scene_id: str
+    ) -> RuleDecision | None:
         """Check for urgent (but not critical) resource warnings."""
         # Oxygen urgent
-        if 'submarine' in scene_id.lower() and oxygen <= self.oxygen_urgent_threshold:
+        if "submarine" in scene_id.lower() and oxygen <= self.oxygen_urgent_threshold:
             if oxygen > self.oxygen_critical_threshold:  # Not critical yet
-                if self._check_cooldown('oxygen_warning'):
-                    self._set_cooldown('oxygen_warning')
+                if self._check_cooldown("oxygen_warning"):
+                    self._set_cooldown("oxygen_warning")
                     return RuleDecision(
                         action=RuleAction.TRIGGER_URGENCY,
-                        data={
-                            'behavior_change': 'more_urgent',
-                            'reason': f'oxygen_low_{oxygen}'
-                        },
-                        reason=f"URGENT: Oxygen at {oxygen}% - approaching critical"
+                        data={"behavior_change": "more_urgent", "reason": f"oxygen_low_{oxygen}"},
+                        reason=f"URGENT: Oxygen at {oxygen}% - approaching critical",
                     )
 
         # Radiation urgent
-        if radiation >= self.radiation_urgent_threshold and radiation < self.radiation_critical_threshold:
-            if self._check_cooldown('urgency_trigger'):
-                self._set_cooldown('urgency_trigger')
+        if (
+            radiation >= self.radiation_urgent_threshold
+            and radiation < self.radiation_critical_threshold
+        ):
+            if self._check_cooldown("urgency_trigger"):
+                self._set_cooldown("urgency_trigger")
                 return RuleDecision(
                     action=RuleAction.TRIGGER_URGENCY,
                     data={
-                        'behavior_change': 'more_worried',
-                        'reason': f'radiation_high_{radiation}'
+                        "behavior_change": "more_worried",
+                        "reason": f"radiation_high_{radiation}",
                     },
-                    reason=f"URGENT: Radiation at {radiation}% - dangerous levels"
+                    reason=f"URGENT: Radiation at {radiation}% - dangerous levels",
                 )
 
         return None
 
-    def _check_player_idle(self, player_idle_seconds: float) -> Optional[RuleDecision]:
+    def _check_player_idle(self, player_idle_seconds: float) -> RuleDecision | None:
         """Check if player has been idle too long."""
         if player_idle_seconds >= self.player_idle_threshold:
-            if self._check_cooldown('player_prompt'):
-                self._set_cooldown('player_prompt')
+            if self._check_cooldown("player_prompt"):
+                self._set_cooldown("player_prompt")
                 return RuleDecision(
                     action=RuleAction.PROMPT_PLAYER,
-                    data={
-                        'idle_seconds': player_idle_seconds,
-                        'hint_type': 'subtle'
-                    },
-                    reason=f"Player idle for {player_idle_seconds:.0f}s - prompting"
+                    data={"idle_seconds": player_idle_seconds, "hint_type": "subtle"},
+                    reason=f"Player idle for {player_idle_seconds:.0f}s - prompting",
                 )
         return None
 
-    def _check_player_struggling(
-        self,
-        failed_attempts: int,
-        oxygen: float
-    ) -> Optional[RuleDecision]:
+    def _check_player_struggling(self, failed_attempts: int, oxygen: float) -> RuleDecision | None:
         """Check if player is struggling and needs help."""
         if failed_attempts >= self.player_struggling_threshold:
-            if self._check_cooldown('hint_given'):
-                self._set_cooldown('hint_given')
+            if self._check_cooldown("hint_given"):
+                self._set_cooldown("hint_given")
                 # More direct hint if oxygen is low
-                hint_type = 'direct' if oxygen < 50 else 'subtle'
+                hint_type = "direct" if oxygen < 50 else "subtle"
                 return RuleDecision(
                     action=RuleAction.GIVE_HINT,
                     data={
-                        'hint_type': hint_type,
-                        'failed_attempts': failed_attempts,
-                        'hint_content': 'what to do next'
+                        "hint_type": hint_type,
+                        "failed_attempts": failed_attempts,
+                        "hint_content": "what to do next",
                     },
-                    reason=f"Player struggling: {failed_attempts} failures - giving {hint_type} hint"
+                    reason=f"Player struggling: {failed_attempts} failures - giving {hint_type} hint",
                 )
         return None
 
@@ -374,21 +361,21 @@ class DirectorRules:
         """Get current rules engine status for debugging."""
         now = time.time()
         return {
-            'cooldowns': {
+            "cooldowns": {
                 action: max(0, self.cooldowns.get(action, 0) - now)
                 for action in self.cooldown_durations
             },
-            'thresholds': {
-                'oxygen_critical': self.oxygen_critical_threshold,
-                'oxygen_urgent': self.oxygen_urgent_threshold,
-                'radiation_critical': self.radiation_critical_threshold,
-                'player_idle': self.player_idle_threshold,
-            }
+            "thresholds": {
+                "oxygen_critical": self.oxygen_critical_threshold,
+                "oxygen_urgent": self.oxygen_urgent_threshold,
+                "radiation_critical": self.radiation_critical_threshold,
+                "player_idle": self.player_idle_threshold,
+            },
         }
 
 
 # Global instance for convenience
-_director_rules: Optional[DirectorRules] = None
+_director_rules: DirectorRules | None = None
 
 
 def get_director_rules() -> DirectorRules:

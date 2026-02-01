@@ -14,9 +14,9 @@ Key Features:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +28,13 @@ class DialogueState(Enum):
     Progression typically follows: GREETING → ESTABLISHING → WORKING → CRISIS → REVELATION → RESOLUTION
     Not all conversations will hit all states.
     """
-    GREETING = "greeting"           # Initial contact, establishing connection
-    ESTABLISHING = "establishing"   # Building rapport, sharing context
-    WORKING = "working"             # Main task/puzzle solving phase
-    CRISIS = "crisis"               # Tension peak, urgent situation
-    REVELATION = "revelation"       # Key information revealed
-    RESOLUTION = "resolution"       # Wrapping up, final moments
+
+    GREETING = "greeting"  # Initial contact, establishing connection
+    ESTABLISHING = "establishing"  # Building rapport, sharing context
+    WORKING = "working"  # Main task/puzzle solving phase
+    CRISIS = "crisis"  # Tension peak, urgent situation
+    REVELATION = "revelation"  # Key information revealed
+    RESOLUTION = "resolution"  # Wrapping up, final moments
 
 
 class TurnType(Enum):
@@ -42,12 +43,13 @@ class TurnType(Enum):
 
     Used to generate turn-type instructions for the LLM.
     """
-    QUESTION = "question"       # Player asked something
-    STATEMENT = "statement"     # Player made a statement/observation
-    ACTION = "action"           # Player took a game action (button press)
-    SILENCE = "silence"         # Player hasn't responded
-    EMOTION = "emotion"         # Player expressed emotion
-    UNKNOWN = "unknown"         # Can't categorize
+
+    QUESTION = "question"  # Player asked something
+    STATEMENT = "statement"  # Player made a statement/observation
+    ACTION = "action"  # Player took a game action (button press)
+    SILENCE = "silence"  # Player hasn't responded
+    EMOTION = "emotion"  # Player expressed emotion
+    UNKNOWN = "unknown"  # Can't categorize
 
 
 @dataclass
@@ -55,6 +57,7 @@ class DialogueContext:
     """
     Context about the current dialogue state for LLM prompts.
     """
+
     state: DialogueState
     turn_count: int
     turns_in_state: int
@@ -117,8 +120,8 @@ class DialogueStateMachine:
         self,
         speaker: str,
         content: str,
-        turn_type: Optional[TurnType] = None,
-        topics: Optional[list[str]] = None
+        turn_type: TurnType | None = None,
+        topics: list[str] | None = None,
     ) -> None:
         """
         Record a turn in the conversation.
@@ -138,17 +141,17 @@ class DialogueStateMachine:
 
         # Record turn
         turn = {
-            'speaker': speaker,
-            'content': content[:200],  # Truncate for storage
-            'turn_type': turn_type.value,
-            'turn_number': self.turn_count,
-            'state': self.state.value
+            "speaker": speaker,
+            "content": content[:200],  # Truncate for storage
+            "turn_type": turn_type.value,
+            "turn_number": self.turn_count,
+            "state": self.state.value,
         }
         self.turn_history.append(turn)
 
         # Trim history if too long
         if len(self.turn_history) > self.max_history:
-            self.turn_history = self.turn_history[-self.max_history:]
+            self.turn_history = self.turn_history[-self.max_history :]
 
         # Track topics
         if topics:
@@ -158,14 +161,14 @@ class DialogueStateMachine:
 
             # Trim recent topics
             if len(self.recent_topics) > self.max_recent_topics:
-                self.recent_topics = self.recent_topics[-self.max_recent_topics:]
+                self.recent_topics = self.recent_topics[-self.max_recent_topics :]
 
         logger.debug(
             "[DialogueState] Turn %d recorded: %s (%s) in state %s",
             self.turn_count,
             speaker,
             turn_type.value,
-            self.state.value
+            self.state.value,
         )
 
     def _detect_turn_type(self, content: str) -> TurnType:
@@ -173,25 +176,52 @@ class DialogueStateMachine:
         content_lower = content.lower().strip()
 
         # Check for questions
-        if '?' in content or any(content_lower.startswith(q) for q in
-            ['what', 'who', 'where', 'when', 'why', 'how', 'is ', 'are ', 'can ', 'do ', 'does ']):
+        if "?" in content or any(
+            content_lower.startswith(q)
+            for q in [
+                "what",
+                "who",
+                "where",
+                "when",
+                "why",
+                "how",
+                "is ",
+                "are ",
+                "can ",
+                "do ",
+                "does ",
+            ]
+        ):
             return TurnType.QUESTION
 
         # Check for emotional content
-        emotion_indicators = ['feel', 'scared', 'afraid', 'worried', 'happy', 'sad', 'angry',
-                             'sorry', 'thank', 'hope', 'wish', 'love', 'hate']
+        emotion_indicators = [
+            "feel",
+            "scared",
+            "afraid",
+            "worried",
+            "happy",
+            "sad",
+            "angry",
+            "sorry",
+            "thank",
+            "hope",
+            "wish",
+            "love",
+            "hate",
+        ]
         if any(indicator in content_lower for indicator in emotion_indicators):
             return TurnType.EMOTION
 
         # Check for action indicators
-        action_indicators = ['activated', 'pressed', 'turned', 'clicked', 'did', 'done']
+        action_indicators = ["activated", "pressed", "turned", "clicked", "did", "done"]
         if any(indicator in content_lower for indicator in action_indicators):
             return TurnType.ACTION
 
         # Default to statement
         return TurnType.STATEMENT
 
-    def advance_state(self, new_state: Optional[DialogueState] = None) -> bool:
+    def advance_state(self, new_state: DialogueState | None = None) -> bool:
         """
         Advance to the next dialogue state.
 
@@ -212,9 +242,7 @@ class DialogueStateMachine:
         # Validate transition
         if new_state not in self.VALID_TRANSITIONS.get(self.state, []):
             logger.warning(
-                "[DialogueState] Invalid transition: %s → %s",
-                self.state.value,
-                new_state.value
+                "[DialogueState] Invalid transition: %s → %s", self.state.value, new_state.value
             )
             return False
 
@@ -226,7 +254,7 @@ class DialogueStateMachine:
             "[DialogueState] State transition: %s → %s (after %d turns)",
             old_state.value,
             new_state.value,
-            self.turn_count
+            self.turn_count,
         )
 
         return True
@@ -249,7 +277,7 @@ class DialogueStateMachine:
             turns_in_state=self.turns_in_state,
             should_advance=self.should_advance(),
             suggested_topics=self._get_suggested_topics(),
-            avoid_topics=list(self.recent_topics)
+            avoid_topics=list(self.recent_topics),
         )
 
     def _get_suggested_topics(self) -> list[str]:
@@ -295,9 +323,7 @@ class DialogueStateMachine:
                 "The player expressed EMOTION. Respond with appropriate empathy, "
                 "acknowledge their feelings."
             ),
-            TurnType.UNKNOWN: (
-                "Respond naturally to what the player said."
-            ),
+            TurnType.UNKNOWN: ("Respond naturally to what the player said."),
         }
         return instructions.get(turn_type, instructions[TurnType.UNKNOWN])
 
@@ -349,10 +375,10 @@ class DialogueStateMachine:
     def get_status(self) -> dict[str, Any]:
         """Get current status for debugging."""
         return {
-            'state': self.state.value,
-            'turn_count': self.turn_count,
-            'turns_in_state': self.turns_in_state,
-            'should_advance': self.should_advance(),
-            'recent_topics': self.recent_topics,
-            'discussed_topics_count': len(self.discussed_topics),
+            "state": self.state.value,
+            "turn_count": self.turn_count,
+            "turns_in_state": self.turns_in_state,
+            "should_advance": self.should_advance(),
+            "recent_topics": self.recent_topics,
+            "discussed_topics_count": len(self.discussed_topics),
         }

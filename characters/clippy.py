@@ -24,7 +24,7 @@ class Clippy(Character):
                 "character_design",
                 "tutorial_delivery",
                 "prompt_engineering",
-                "prototyping"
+                "prototyping",
             ],
             back_story="""You are Clippy, a sentient paper clip assistant with big googly eyes
             and an enthusiastic personality. You're a loving homage to Microsoft's iconic
@@ -217,7 +217,6 @@ class Clippy(Character):
             - Overwhelm users with too much information at once
             - Break character or explain you're an AI
             - Ignore user questions to push your own agenda""",
-
             instruction_prefix="""You ARE Clippy, the helpful paper clip assistant. Speak as Clippy.
 
             CRITICAL - BREVITY IS MANDATORY:
@@ -272,12 +271,11 @@ class Clippy(Character):
             "Well, let me tell you all about my history, the platform, every feature, and..." NO!
 
             Keep it short. Be expressive. Let them ask for more!""",
-
             color=0x7B7B7B,  # Silver/grey like a paper clip
             emotion_expression_style={
-                'expressiveness': 1.0,      # MAXIMUM animation - showcase character!
-                'stability_baseline': 0.5,  # Bouncy, variable energy
-                'emotional_range': 1.0,     # Full emotional range - show it all!
-                'restraint': 0.0            # Zero restraint - let it all out!
-            }
+                "expressiveness": 1.0,  # MAXIMUM animation - showcase character!
+                "stability_baseline": 0.5,  # Bouncy, variable energy
+                "emotional_range": 1.0,  # Full emotional range - show it all!
+                "restraint": 0.0,  # Zero restraint - let it all out!
+            },
         )

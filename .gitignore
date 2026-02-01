@@ -7,7 +7,8 @@ data/
 *.db-journal
 
 # Large 3D model files (exceed GitHub 100MB limit)
-art/merlins_workshop.glb
+# Ignore all GLB files (World Labs generated models)
+*.glb
 
 # Claude Code settings (user-specific)
 .claude/

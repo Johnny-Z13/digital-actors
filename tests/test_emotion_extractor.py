@@ -4,13 +4,14 @@ Unit tests for EmotionExtractor
 Tests emotional cue extraction and categorization functionality.
 """
 
-import sys
 import os
+import sys
 
 # Add parent directory to path so we can import emotion_extractor
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import unittest
+
 from emotion_extractor import EmotionExtractor
 
 
@@ -65,102 +66,99 @@ class TestEmotionExtractor(unittest.TestCase):
         """Test categorization of vocal quality cues."""
         result = self.extractor.categorize_cue("whisper")
 
-        self.assertEqual(result['category'], 'vocal_quality')
-        self.assertEqual(result['emotion'], 'secretive')
-        self.assertGreater(result['intensity'], 0.0)
+        self.assertEqual(result["category"], "vocal_quality")
+        self.assertEqual(result["emotion"], "secretive")
+        self.assertGreater(result["intensity"], 0.0)
 
     def test_categorize_physical(self):
         """Test categorization of physical action cues."""
         result = self.extractor.categorize_cue("coughing violently")
 
-        self.assertEqual(result['category'], 'physical')
-        self.assertEqual(result['emotion'], 'distress')
-        self.assertGreaterEqual(result['intensity'], 0.9)  # "violently" should boost intensity
-        self.assertIn('violently', result['modifiers'])
+        self.assertEqual(result["category"], "physical")
+        self.assertEqual(result["emotion"], "distress")
+        self.assertGreaterEqual(result["intensity"], 0.9)  # "violently" should boost intensity
+        self.assertIn("violently", result["modifiers"])
 
     def test_categorize_emotion(self):
         """Test categorization of direct emotion cues."""
         result = self.extractor.categorize_cue("panicked")
 
-        self.assertEqual(result['category'], 'emotion')
-        self.assertEqual(result['emotion'], 'panic')
-        self.assertGreater(result['intensity'], 0.0)
+        self.assertEqual(result["category"], "emotion")
+        self.assertEqual(result["emotion"], "panic")
+        self.assertGreater(result["intensity"], 0.0)
 
     def test_categorize_pacing(self):
         """Test categorization of pacing cues."""
         result = self.extractor.categorize_cue("long pause")
 
-        self.assertEqual(result['category'], 'pacing')
-        self.assertEqual(result['emotion'], 'neutral')  # Pacing doesn't imply emotion
+        self.assertEqual(result["category"], "pacing")
+        self.assertEqual(result["emotion"], "neutral")  # Pacing doesn't imply emotion
 
     def test_intensity_modifier_very(self):
         """Test that intensity modifiers work correctly."""
         result = self.extractor.categorize_cue("very scared")
 
-        self.assertEqual(result['category'], 'emotion')
-        self.assertAlmostEqual(result['intensity'], 0.8)  # "very" = 0.8
-        self.assertIn('very', result['modifiers'])
+        self.assertEqual(result["category"], "emotion")
+        self.assertAlmostEqual(result["intensity"], 0.8)  # "very" = 0.8
+        self.assertIn("very", result["modifiers"])
 
     def test_intensity_modifier_slightly(self):
         """Test slight intensity modifier."""
         result = self.extractor.categorize_cue("slightly worried")
 
-        self.assertEqual(result['category'], 'emotion')
-        self.assertAlmostEqual(result['intensity'], 0.3)  # "slightly" = 0.3
+        self.assertEqual(result["category"], "emotion")
+        self.assertAlmostEqual(result["intensity"], 0.3)  # "slightly" = 0.3
 
     def test_voice_breaking_categorization(self):
         """Test that 'voice breaking' is correctly categorized."""
         result = self.extractor.categorize_cue("voice breaking")
 
-        self.assertEqual(result['category'], 'vocal_quality')
-        self.assertEqual(result['emotion'], 'distress')
+        self.assertEqual(result["category"], "vocal_quality")
+        self.assertEqual(result["emotion"], "distress")
 
     def test_breathing_heavily_categorization(self):
         """Test that 'breathing heavily' is correctly categorized."""
         result = self.extractor.categorize_cue("breathing heavily")
 
-        self.assertEqual(result['category'], 'physical')
-        self.assertEqual(result['emotion'], 'distress')
+        self.assertEqual(result["category"], "physical")
+        self.assertEqual(result["emotion"], "distress")
 
     def test_calm_categorization(self):
         """Test that 'calm' is correctly categorized."""
         result = self.extractor.categorize_cue("calm")
 
-        self.assertEqual(result['category'], 'emotion')
-        self.assertEqual(result['emotion'], 'calm')
+        self.assertEqual(result["category"], "emotion")
+        self.assertEqual(result["emotion"], "calm")
 
     def test_measured_tone_categorization(self):
         """Test that 'measured' is correctly categorized as vocal quality."""
         result = self.extractor.categorize_cue("measured")
 
-        self.assertEqual(result['category'], 'vocal_quality')
-        self.assertEqual(result['emotion'], 'calm')
+        self.assertEqual(result["category"], "vocal_quality")
+        self.assertEqual(result["emotion"], "calm")
 
     def test_unknown_cue_categorization(self):
         """Test that unknown cues are handled gracefully."""
         result = self.extractor.categorize_cue("xyzabc123")
 
-        self.assertEqual(result['category'], 'unknown')
-        self.assertEqual(result['emotion'], 'neutral')
-        self.assertEqual(result['raw'], 'xyzabc123')
+        self.assertEqual(result["category"], "unknown")
+        self.assertEqual(result["emotion"], "neutral")
+        self.assertEqual(result["raw"], "xyzabc123")
 
     def test_case_insensitive_extraction(self):
         """Test that cue extraction is case insensitive."""
         result1 = self.extractor.categorize_cue("PANICKED")
         result2 = self.extractor.categorize_cue("panicked")
 
-        self.assertEqual(result1['category'], result2['category'])
-        self.assertEqual(result1['emotion'], result2['emotion'])
+        self.assertEqual(result1["category"], result2["category"])
+        self.assertEqual(result1["emotion"], result2["emotion"])
 
     def test_real_world_engineer_response(self):
         """Test a realistic response from the Engineer character."""
         text = "[sharp intake of breath] [pause, breathing] The radiation... [voice breaking] it's spreading too fast."
         cleaned, cues = self.extractor.extract_cues(text)
 
-        self.assertEqual(
-            cleaned,
-            "The radiation... it's spreading too fast."
-        )
+        self.assertEqual(cleaned, "The radiation... it's spreading too fast.")
         self.assertEqual(len(cues), 3)
         self.assertIn("sharp intake of breath", cues)
         self.assertIn("pause, breathing", cues)
@@ -171,10 +169,7 @@ class TestEmotionExtractor(unittest.TestCase):
         text = "[pause, considering] [measured tone] Counselor, that is a valid point."
         cleaned, cues = self.extractor.extract_cues(text)
 
-        self.assertEqual(
-            cleaned,
-            "Counselor, that is a valid point."
-        )
+        self.assertEqual(cleaned, "Counselor, that is a valid point.")
         self.assertEqual(len(cues), 2)
 
     def test_multiple_spaces_cleanup(self):
@@ -234,5 +229,5 @@ class TestEmotionMapping(unittest.TestCase):
         self.assertEqual(emotion, "fear")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
