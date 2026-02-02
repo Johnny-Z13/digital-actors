@@ -52,6 +52,11 @@ def get_all_handler_scene_ids() -> list[str]:
 # Register built-in handlers
 def _register_builtin_handlers() -> None:
     """Register all built-in scene handlers."""
+    # Submarine handler
+    from scenes.handlers.submarine_handler import get_handler as get_submarine_handler
+
+    register_handler("submarine", get_submarine_handler)
+
     # Life Raft handler
     from scenes.handlers.life_raft_handler import get_handler as get_life_raft_handler
 

@@ -187,6 +187,13 @@ class Submarine(Scene):
                 update_rate=0.0,  # Updated by player actions (ballast, blow valves)
             ),
             StateVariable(
+                name="power_level",
+                initial_value=15.0,  # Power percentage (0-100)
+                min_value=0.0,
+                max_value=100.0,
+                update_rate=-0.2,  # Decreases by 0.2% per second (draining emergency power)
+            ),
+            StateVariable(
                 name="phase",
                 initial_value=1,  # Current phase (1-4)
                 min_value=1,

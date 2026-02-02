@@ -48,6 +48,20 @@ export class BaseScene {
         this._boundOnResize = this.onWindowResize.bind(this);
         this._boundOnMouseMove = this._onMouseMove.bind(this);
         this._boundOnClick = this._onClick.bind(this);
+
+        // Debug camera controls (SHIFT+WASDQE)
+        this.debugKeys = {
+            shift: false,
+            w: false,
+            a: false,
+            s: false,
+            d: false,
+            q: false,
+            e: false
+        };
+        this.debugCameraSpeed = 0.05; // Movement speed
+        this._boundOnKeyDown = this._onKeyDown.bind(this);
+        this._boundOnKeyUp = this._onKeyUp.bind(this);
     }
 
     // =========================================================================
@@ -71,11 +85,14 @@ export class BaseScene {
         window.addEventListener('resize', this._boundOnResize);
         window.addEventListener('mousemove', this._boundOnMouseMove);
         window.addEventListener('click', this._boundOnClick);
+        window.addEventListener('keydown', this._boundOnKeyDown);
+        window.addEventListener('keyup', this._boundOnKeyUp);
 
         // Start animation loop
         this.animate();
 
         console.log(`[${this.constructor.name}] Initialized`);
+        console.log('[DEBUG] Camera controls enabled: Hold SHIFT + WASDQE (W=forward, S=back, A=left, D=right, Q=down, E=up)');
     }
 
     /**
@@ -97,6 +114,8 @@ export class BaseScene {
         window.removeEventListener('resize', this._boundOnResize);
         window.removeEventListener('mousemove', this._boundOnMouseMove);
         window.removeEventListener('click', this._boundOnClick);
+        window.removeEventListener('keydown', this._boundOnKeyDown);
+        window.removeEventListener('keyup', this._boundOnKeyUp);
 
         // Dispose Three.js objects
         if (this.renderer) {
@@ -150,6 +169,9 @@ export class BaseScene {
         if (this.isDisposed) return;
 
         this.animationFrameId = requestAnimationFrame(() => this.animate());
+
+        // Update debug camera controls
+        this._updateDebugCamera();
 
         // Update controls if present
         if (this.controls && this.controls.update) {
@@ -267,6 +289,87 @@ export class BaseScene {
         // Check for userData action
         if (object.userData && object.userData.action) {
             this.onButtonClick(object.userData.action);
+        }
+    }
+
+    // =========================================================================
+    // DEBUG CAMERA CONTROLS - SHIFT+WASDQE
+    // =========================================================================
+
+    /**
+     * Internal keyboard down handler for debug camera controls.
+     */
+    _onKeyDown(event) {
+        const key = event.key.toLowerCase();
+        if (key === 'shift') this.debugKeys.shift = true;
+        if (key === 'w') this.debugKeys.w = true;
+        if (key === 'a') this.debugKeys.a = true;
+        if (key === 's') this.debugKeys.s = true;
+        if (key === 'd') this.debugKeys.d = true;
+        if (key === 'q') this.debugKeys.q = true;
+        if (key === 'e') this.debugKeys.e = true;
+    }
+
+    /**
+     * Internal keyboard up handler for debug camera controls.
+     */
+    _onKeyUp(event) {
+        const key = event.key.toLowerCase();
+        if (key === 'shift') this.debugKeys.shift = false;
+        if (key === 'w') this.debugKeys.w = false;
+        if (key === 'a') this.debugKeys.a = false;
+        if (key === 's') this.debugKeys.s = false;
+        if (key === 'd') this.debugKeys.d = false;
+        if (key === 'q') this.debugKeys.q = false;
+        if (key === 'e') this.debugKeys.e = false;
+    }
+
+    /**
+     * Update debug camera position based on keyboard input.
+     * Only active when SHIFT is held.
+     */
+    _updateDebugCamera() {
+        // Only move camera if SHIFT is held
+        if (!this.debugKeys.shift || !this.camera) return;
+
+        const speed = this.debugCameraSpeed;
+        const camera = this.camera;
+
+        // Get camera direction vectors
+        const forward = new THREE.Vector3();
+        camera.getWorldDirection(forward);
+        forward.normalize();
+
+        const right = new THREE.Vector3();
+        right.crossVectors(forward, camera.up).normalize();
+
+        // WASD movement
+        if (this.debugKeys.w) {
+            camera.position.addScaledVector(forward, speed);
+        }
+        if (this.debugKeys.s) {
+            camera.position.addScaledVector(forward, -speed);
+        }
+        if (this.debugKeys.a) {
+            camera.position.addScaledVector(right, -speed);
+        }
+        if (this.debugKeys.d) {
+            camera.position.addScaledVector(right, speed);
+        }
+
+        // Q/E for vertical movement
+        if (this.debugKeys.q) {
+            camera.position.y -= speed;
+        }
+        if (this.debugKeys.e) {
+            camera.position.y += speed;
+        }
+
+        // Update controls target to maintain relative position
+        if (this.controls && this.controls.target) {
+            const targetOffset = new THREE.Vector3();
+            targetOffset.subVectors(this.controls.target, camera.position);
+            this.controls.target.copy(camera.position).add(targetOffset);
         }
     }
 
