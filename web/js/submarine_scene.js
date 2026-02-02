@@ -14,11 +14,13 @@ export class SubmarineScene {
         this.radiationLevel = 0; // Radiation percentage (0-100)
         this.timeRemaining = 480; // 8 minutes in seconds
         this.hullPressure = 2400; // Depth in feet
+        this.powerLevel = 15; // Power percentage (0-100)
         this.systemsRepaired = 0; // Systems repaired counter (0-4)
         this.phase = 1; // Current phase (1-4)
         this.radiationText = null;
         this.timeText = null;
         this.pressureText = null;
+        this.powerText = null;
         this.systemsText = null;
         this.phaseText = null;
         this.warningLights = [];
@@ -51,9 +53,22 @@ export class SubmarineScene {
         this.lastButtonClick = 0;
         this.buttonDebounceMs = 500; // Prevent clicking same button within 500ms
 
+        // Debug camera controls (SHIFT+WASD)
+        this.debugKeys = {
+            shift: false,
+            w: false,
+            a: false,
+            s: false,
+            d: false,
+            q: false,
+            e: false
+        };
+        this.debugCameraSpeed = 0.05; // Movement speed
+
         this.init();
         this.animate();
         this.setupInteraction();
+        this.setupDebugControls();
     }
 
     initAudio() {
@@ -595,6 +610,68 @@ export class SubmarineScene {
         pressureLabelMesh.position.set(0.0, 2.25, -2.74);
         this.scene.add(pressureLabelMesh);
 
+        // === POWER LEVEL GAUGE (RIGHT SIDE, BELOW TIME) ===
+        // Panel background
+        const powerPanelGeometry = new THREE.BoxGeometry(0.7, 0.5, 0.1);
+        const powerPanelMaterial = new THREE.MeshStandardMaterial({
+            color: 0x2a2a2a,
+            roughness: 0.7,
+            metalness: 0.3,
+        });
+        const powerPanel = new THREE.Mesh(powerPanelGeometry, powerPanelMaterial);
+        powerPanel.position.set(0.6, 2.0, -2.8);
+        this.scene.add(powerPanel);
+
+        // Display screen
+        const powerDisplayGeometry = new THREE.PlaneGeometry(0.55, 0.3);
+        const powerDisplayMaterial = new THREE.MeshBasicMaterial({
+            color: 0x0a0a0a,
+        });
+        const powerDisplay = new THREE.Mesh(powerDisplayGeometry, powerDisplayMaterial);
+        powerDisplay.position.set(0.6, 2.0, -2.75);
+        this.scene.add(powerDisplay);
+
+        // Power text (will be updated in animate)
+        const powerCanvas = document.createElement('canvas');
+        powerCanvas.width = 256;
+        powerCanvas.height = 128;
+        const powerContext = powerCanvas.getContext('2d');
+        powerContext.fillStyle = '#33ff33';
+        powerContext.font = 'bold 48px monospace';
+        powerContext.textAlign = 'center';
+        powerContext.textBaseline = 'middle';
+        powerContext.fillText('15%', 128, 64);
+
+        const powerTexture = new THREE.CanvasTexture(powerCanvas);
+        const powerTextMaterial = new THREE.MeshBasicMaterial({
+            map: powerTexture,
+            transparent: true,
+        });
+        const powerTextMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.25), powerTextMaterial);
+        powerTextMesh.position.set(0.6, 2.0, -2.74);
+        this.scene.add(powerTextMesh);
+
+        this.powerText = { canvas: powerCanvas, context: powerContext, texture: powerTexture, mesh: powerTextMesh };
+
+        // Power label
+        const powerLabelCanvas = document.createElement('canvas');
+        powerLabelCanvas.width = 256;
+        powerLabelCanvas.height = 64;
+        const powerLabelContext = powerLabelCanvas.getContext('2d');
+        powerLabelContext.fillStyle = '#ffffff';
+        powerLabelContext.font = 'bold 20px monospace';
+        powerLabelContext.textAlign = 'center';
+        powerLabelContext.fillText('POWER', 128, 32);
+
+        const powerLabelTexture = new THREE.CanvasTexture(powerLabelCanvas);
+        const powerLabelMaterial = new THREE.MeshBasicMaterial({
+            map: powerLabelTexture,
+            transparent: true,
+        });
+        const powerLabelMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.1), powerLabelMaterial);
+        powerLabelMesh.position.set(0.6, 2.25, -2.74);
+        this.scene.add(powerLabelMesh);
+
         // === SYSTEMS REPAIRED COUNTER (BOTTOM LEFT) ===
         // Panel background
         const systemsPanelGeometry = new THREE.BoxGeometry(0.5, 0.35, 0.1);
@@ -925,6 +1002,81 @@ export class SubmarineScene {
         });
     }
 
+    setupDebugControls() {
+        // Debug camera controls: SHIFT+WASDQE for free camera movement
+        console.log('[DEBUG] Camera controls enabled: Hold SHIFT + WASD to fly around, Q/E for up/down');
+
+        this.keydownHandler = (event) => {
+            const key = event.key.toLowerCase();
+            if (key === 'shift') this.debugKeys.shift = true;
+            if (key === 'w') this.debugKeys.w = true;
+            if (key === 'a') this.debugKeys.a = true;
+            if (key === 's') this.debugKeys.s = true;
+            if (key === 'd') this.debugKeys.d = true;
+            if (key === 'q') this.debugKeys.q = true;
+            if (key === 'e') this.debugKeys.e = true;
+        };
+
+        this.keyupHandler = (event) => {
+            const key = event.key.toLowerCase();
+            if (key === 'shift') this.debugKeys.shift = false;
+            if (key === 'w') this.debugKeys.w = false;
+            if (key === 'a') this.debugKeys.a = false;
+            if (key === 's') this.debugKeys.s = false;
+            if (key === 'd') this.debugKeys.d = false;
+            if (key === 'q') this.debugKeys.q = false;
+            if (key === 'e') this.debugKeys.e = false;
+        };
+
+        window.addEventListener('keydown', this.keydownHandler);
+        window.addEventListener('keyup', this.keyupHandler);
+    }
+
+    updateDebugCamera() {
+        // Only move camera if SHIFT is held
+        if (!this.debugKeys.shift) return;
+
+        const speed = this.debugCameraSpeed;
+        const camera = this.camera;
+
+        // Get camera direction vectors
+        const forward = new THREE.Vector3();
+        camera.getWorldDirection(forward);
+        forward.normalize();
+
+        const right = new THREE.Vector3();
+        right.crossVectors(forward, camera.up).normalize();
+
+        // WASD movement
+        if (this.debugKeys.w) {
+            camera.position.addScaledVector(forward, speed);
+        }
+        if (this.debugKeys.s) {
+            camera.position.addScaledVector(forward, -speed);
+        }
+        if (this.debugKeys.a) {
+            camera.position.addScaledVector(right, -speed);
+        }
+        if (this.debugKeys.d) {
+            camera.position.addScaledVector(right, speed);
+        }
+
+        // Q/E for vertical movement
+        if (this.debugKeys.q) {
+            camera.position.y -= speed;
+        }
+        if (this.debugKeys.e) {
+            camera.position.y += speed;
+        }
+
+        // Update controls target to maintain relative position
+        if (this.controls) {
+            const targetOffset = new THREE.Vector3();
+            targetOffset.subVectors(this.controls.target, this.camera.position);
+            this.controls.target.copy(this.camera.position).add(targetOffset);
+        }
+    }
+
     flashButton(button) {
         const originalEmissive = button.material.emissiveIntensity;
         button.material.emissiveIntensity = 1.0;
@@ -1013,6 +1165,30 @@ export class SubmarineScene {
                 context.fillStyle = '#33ccff';  // Cyan normally
             }
             context.font = 'bold 40px monospace';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(display, 128, 64);
+            texture.needsUpdate = true;
+        }
+
+        // Update power gauge every 10 frames
+        if (this.powerText && this.frameCount % 10 === 0) {
+            const powerPercent = Math.round(this.powerLevel);
+            const display = `${powerPercent}%`;
+
+            const { context, texture, canvas } = this.powerText;
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            // Color changes based on power level (lower = more danger)
+            if (powerPercent < 25) {
+                context.fillStyle = '#ff3333';  // Red when critical
+            } else if (powerPercent < 50) {
+                context.fillStyle = '#ffaa33';  // Orange when low
+            } else if (powerPercent < 75) {
+                context.fillStyle = '#ffff33';  // Yellow when moderate
+            } else {
+                context.fillStyle = '#33ff33';  // Green when good
+            }
+            context.font = 'bold 48px monospace';
             context.textAlign = 'center';
             context.textBaseline = 'middle';
             context.fillText(display, 128, 64);
@@ -1141,6 +1317,9 @@ export class SubmarineScene {
             this.mouseNeedsUpdate = false; // Reset flag
         }
 
+        // Update debug camera controls
+        this.updateDebugCamera();
+
         this.controls.update();
         this.renderer.render(this.scene, this.camera);
     }
@@ -1175,6 +1354,11 @@ export class SubmarineScene {
     // Method to update hull pressure/depth externally
     setHullPressure(depth) {
         this.hullPressure = depth;
+    }
+
+    // Method to update power level externally
+    setPowerLevel(percentage) {
+        this.powerLevel = percentage;
     }
 
     // Method to update systems repaired counter externally
@@ -1245,6 +1429,14 @@ export class SubmarineScene {
 
         // Stop alarm
         this.stopAlarm();
+
+        // Remove debug keyboard event listeners
+        if (this.keydownHandler) {
+            window.removeEventListener('keydown', this.keydownHandler);
+        }
+        if (this.keyupHandler) {
+            window.removeEventListener('keyup', this.keyupHandler);
+        }
 
         // Close audio context
         if (this.audioContext) {
