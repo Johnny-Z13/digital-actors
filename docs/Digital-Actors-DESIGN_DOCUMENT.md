@@ -152,7 +152,7 @@ Check: oxygen > 0? radiation < 95? → Continue
 
 | Name | ID | Role | Personality | Skills | Color | Backstory Summary |
 |------|-----|------|-------------|--------|-------|-------------------|
-| **Lt. Cmdr. James Kovich** | engineer | Submarine Commander (Flagship Demo) | Competent but scared, emotionally vulnerable father facing impossible choice. Reveals son Adrian in med bay during Phase 3. | submarine_engineering, crisis_management, technical_communication, reactor_systems, leadership_under_pressure | Blue (0x1976d2) | 28-year-old naval engineer, 15 years service. Professional exterior, breaks down gradually. Uses backchanneling ("That's it... keep going...") and parenthetical emotional cues. |
+| **Lt. Cmdr. James Smith** | engineer | Submarine Commander (Flagship Demo) | Competent but scared, emotionally vulnerable father facing impossible choice. Reveals son Adrian in med bay during Phase 3. | submarine_engineering, crisis_management, technical_communication, reactor_systems, leadership_under_pressure | Blue (0x1976d2) | 28-year-old naval engineer, 15 years service. Professional exterior, breaks down gradually. Uses backchanneling ("That's it... keep going...") and parenthetical emotional cues. |
 | **Eliza** | eliza | AI Caretaker | Professional yet warm facility manager. Helpful, knowledgeable, slightly formal but caring. | facility_management, systems_knowledge, empathy | Cyan (0x4fc3f7) | AI managing research facility. References system protocols in dialogue. Subtle sense of humor. |
 | **Merlin** | wizard | Wise Wizard | Ancient sorcerer, mystical speech patterns, patient teacher. Uses metaphors and riddles. | magic, ancient_wisdom | Purple (0x9c27b0) | Centuries of knowledge, naturally fails submarine scenario due to lack of technical expertise. Philosophical approach to problems. |
 | **Detective Stone** | detective | Hard-boiled Detective | Noir detective, cynical, world-weary. Direct, observant, personal code of honor. Dry sardonic humor. | investigation, street_smarts | Brown (0x795548) | Classic noir detective. Uses metaphors and slang. Lacks technical engineering knowledge. |
@@ -372,7 +372,7 @@ Check: oxygen > 0? radiation < 95? → Continue
 - ✅ **LLM abstraction layer** - llm_prompt_core/ supporting Claude, OpenAI, Gemini with template system and prompt builder.
 - ✅ **Three.js 3D rendering engine** - app.js (1,342 lines), submarine_scene.js (1,239 lines) with WebGL rendering, raycasting, particle effects.
 - ✅ **Submarine emergency scenario** - Complete 8-minute scenario with 4 phases, 6 controls, 8 state variables, 3 endings. Polished flagship demo.
-- ✅ **5 character definitions** - Eliza, Merlin, Detective Stone, James Kovich (Engineer), Custom template. Each with backstory, skills, voice IDs.
+- ✅ **5 character definitions** - Eliza, Merlin, Detective Stone, James Smith (Engineer), Custom template. Each with backstory, skills, voice IDs.
 - ✅ **Documentation suite** - 15+ markdown files including README.md (15KB), CREATE_CHARACTER.md (15KB), system docs (PLAYER_MEMORY, WORLD_DIRECTOR, INTERRUPTION, SCENE_ARCHITECTURE), llm_prompt_core/README.md (20KB).
 - ✅ **Configuration system** - constants.py centralizing all magic numbers (temperatures, penalties, cooldowns, thresholds).
 
@@ -511,7 +511,7 @@ Check: oxygen > 0? radiation < 95? → Continue
 | `/world_director.py` | 449 | AI dungeon master, situation evaluation, dynamic event spawning |
 | `/response_queue.py` | 370 | Priority-based dialogue queue, cancellation logic, async processing |
 | `/scenes/submarine.py` | 1,400+ | Flagship demo scenario: 8-minute submarine emergency with 4 phases |
-| `/characters/engineer.py` | ~200 | Lt. Commander James Kovich character definition |
+| `/characters/engineer.py` | ~200 | Lt. Commander James Smith character definition |
 | `/constants.py` | ~100 | Centralized configuration (temperatures, penalties, thresholds) |
 | `/web/js/app.js` | 1,342 | Frontend WebSocket client, chat UI, scene management |
 | `/web/js/submarine_scene.js` | 1,239 | Three.js submarine interior rendering, raycasting, particle effects |

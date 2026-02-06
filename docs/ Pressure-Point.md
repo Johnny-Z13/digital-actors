@@ -2,7 +2,7 @@
 
 Two strangers. One impossible choice. Your voice is all that stands between salvation and the deep.
 
-In Pressure Point, you are trapped in a sinking nuclear submarine, guided only by the voice of Lt. Commander James Kovich …a man you'll never see, but will come to know in the most intimate way possible. As radiation spreads and the ocean crushes inward, your hands become his hands. Your words become his anchor. And when he faces an impossible moral choice, sacrifice his son to save the crew, or let everyone die together, your voice will determine what kind of man he becomes in his final moments.
+In Pressure Point, you are trapped in a sinking nuclear submarine, guided only by the voice of Lt. Commander James Smith …a man you'll never see, but will come to know in the most intimate way possible. As radiation spreads and the ocean crushes inward, your hands become his hands. Your words become his anchor. And when he faces an impossible moral choice, sacrifice his son to save the crew, or let everyone die together, your voice will determine what kind of man he becomes in his final moments.
 
 This is foxhole bonding at crushing depth. Every conversation matters. Your empathy, your advice, your humanity shapes not just the ending, but the soul of the man on the other end of the radio.
 
@@ -18,9 +18,9 @@ CRISIS: 		Catastrophic reactor containment failure spreading lethal radiation th
 
 PLAYER ROLE: 	Junior systems operator trapped in the aft compartment
 
-NPC: 			Lieutenant Commander "James" Kovich, trapped in forward compartment with the reactor controls
+NPC: 			Lieutenant Commander "James" Smith, trapped in forward compartment with the reactor controls
 
-THE DILEMMA: 	James's son, Dr. Adrian Kovich(marine biologist), is unconscious in the flooded med bay. The only way to successfully execute the emergency ascent requires flooding that compartment completely
+THE DILEMMA: 	James's son, Dr. Adrian Smith(marine biologist), is unconscious in the flooded med bay. The only way to successfully execute the emergency ascent requires flooding that compartment completely
 
 PHASE 1: Impact & Connection  
 00:00 \- 01:15.
@@ -132,7 +132,7 @@ Screenplay
 
 \[SCREEN: Black. Player hears their own breathing in a dive helmet. Muffled klaxon alarms. Distant groaning metal.\]
 
-JAMES: (distant, crackled radio) …anyone copy? This is Kovich, forward control, does anyone copy…
+JAMES: (distant, crackled radio) …anyone copy? This is Smith, forward control, does anyone copy…
 
 \[Emergency lighting flickers on. Player sees flooded compartment, tilted 15 degrees. Sparking panels. Their hands gripping a rail.\]
 
@@ -144,7 +144,7 @@ JAMES: (clearer, desperate) If anyone can hear this, the reactor containment is 
 
 JAMES: (sharp intake of breath) Oh thank God. Thank God. Okay. Okay, you're in aft compartment, right? I can see you on thermals. What's your name?
 
-JAMES: (trying to steady his voice) Okay, \[Name\]. I'm Lieutenant Commander James Kovich. I'm... (pause, breathing) ...I'm trapped in forward control. The bulkhead door sealed when the reactor blew and I can't …look, that doesn't matter. What matters is you're alive and I can see the emergency power junction right next to you. That red panel, see it?
+JAMES: (trying to steady his voice) Okay, \[Name\]. I'm Lieutenant Commander James Smith. I'm... (pause, breathing) ...I'm trapped in forward control. The bulkhead door sealed when the reactor blew and I can't …look, that doesn't matter. What matters is you're alive and I can see the emergency power junction right next to you. That red panel, see it?
 
 \[Player can look around. Red panel visible, sparking\]
 

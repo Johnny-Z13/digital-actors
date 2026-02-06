@@ -1,5 +1,5 @@
 # Submarine Emergency - Visual Flowchart
-## Lt. Commander James Kovich Scenario
+## Lt. Commander James Smith Scenario
 
 This flowchart shows the main decision paths and ending conditions for the Submarine Emergency scenario.
 

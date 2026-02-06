@@ -3,6 +3,7 @@ import { SubmarineScene } from '/scenes/submarine/submarine_scene.js';
 import { DetectiveScene } from '/scenes/detective/detective_scene.js';
 import { MerlinsRoomScene } from '/scenes/wizard/merlins_room_scene.js';
 import { LifeRaftScene } from './life_raft_scene.js';
+import { FoxholeScene } from '/scenes/foxhole/foxhole_scene.js';
 import { WelcomeScene } from './welcome_scene.js';
 
 class ChatApp {
@@ -190,6 +191,9 @@ class ChatApp {
         } else if (sceneId === 'life_raft') {
             this.sceneType = 'life_raft';
             this.scene = new LifeRaftScene(container, (action) => this.handleButtonClick(action));
+        } else if (sceneId === 'foxhole') {
+            this.sceneType = 'foxhole';
+            this.scene = new FoxholeScene(container, (action) => this.handleButtonClick(action));
         } else {
             this.sceneType = 'character';
             this.scene = new CharacterScene(container);
@@ -2066,7 +2070,7 @@ class ChatApp {
             'eliza': 'Eliza',
             'wizard': 'Merlin',
             'detective': 'Detective Stone',
-            'engineer': 'Lt. Cmdr. James Kovich',
+            'engineer': 'Lt. Cmdr. James Smith',
             'judge': 'Judge Harriet Thorne',
             'mara_vane': 'Mara Vane',
             'captain_hale': 'Captain Hale',

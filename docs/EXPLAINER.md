@@ -87,7 +87,7 @@ These make the characters smarter and the scenes more dynamic.
 
 **Example:**
 - You ask: "Do you have family?"
-- System finds: "Kovich has a son named Adrian, age 12, aboard the submarine"
+- System finds: "Smith has a son named Adrian, age 12, aboard the submarine"
 - AI can now mention Adrian naturally
 
 Facts are defined per-scene. Submarine facts stay in the submarine; detective facts stay in the detective scene.

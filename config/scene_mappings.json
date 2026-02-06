@@ -14,7 +14,7 @@
     },
     "submarine": {
       "character": "engineer",
-      "characterName": "Lt. Cmdr. James Kovich",
+      "characterName": "Lt. Cmdr. James Smith",
       "sceneClass": "SubmarineScene",
       "displayName": "Pressure Point",
       "tagline": "Trapped in a sinking nuclear submarine. Radiation spreading. Your voice is all that stands between salvation and the deep.",
@@ -36,6 +36,15 @@
       "sceneClass": "LifeRaftScene",
       "displayName": "Life Raft",
       "tagline": "Your submersible is sinking. One seat on the rescue chopper. Earn survival through conversation, not choices.",
+      "requiresCustomScene": true,
+      "category": "survival"
+    },
+    "foxhole": {
+      "character": "kovich",
+      "characterName": "Lt. Cmdr. James Kovich",
+      "sceneClass": "FoxholeScene",
+      "displayName": "Foxhole",
+      "tagline": "Two strangers. One impossible choice. Your voice is all that stands between salvation and the deep.",
       "requiresCustomScene": true,
       "category": "survival"
     },

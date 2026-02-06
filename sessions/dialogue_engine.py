@@ -323,7 +323,7 @@ Empathy: {empathy:.0f}% | Commitment: {commitment:.0f}% | Presence: {presence:.0
 
         if is_james_death:
             dying_instruction = """
-CRITICAL: Lt. Commander James Kovich is NOW DYING from lethal radiation exposure at 93%.
+CRITICAL: Lt. Commander James Smith is NOW DYING from lethal radiation exposure at 93%.
 The player is still alive but will die in moments.
 
 Generate James's FINAL DYING WORDS as he succumbs to radiation poisoning.

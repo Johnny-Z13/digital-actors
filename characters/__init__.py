@@ -13,6 +13,7 @@ from characters.detective import Detective
 from characters.eliza import Eliza
 from characters.engineer import Engineer
 from characters.judge import Judge
+from characters.kovich import Kovich
 from characters.mara_vane import MaraVane
 from characters.wizard import Wizard
 
@@ -25,6 +26,7 @@ CHARACTERS = {
     "custom": Custom(),
     "engineer": Engineer(),
     "judge": Judge(),
+    "kovich": Kovich(),
     "mara_vane": MaraVane(),
     "captain_hale": CaptainHale(),
 }
@@ -39,6 +41,7 @@ __all__ = [
     "Eliza",
     "Engineer",
     "Judge",
+    "Kovich",
     "MaraVane",
     "Wizard",
 ]

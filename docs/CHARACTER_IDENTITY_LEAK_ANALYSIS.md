@@ -2,10 +2,10 @@
 
 ## The Problem
 
-The character (Lt. Commander James Kovich) is outputting **both dialogue AND meta-commentary** about its own response:
+The character (Lt. Commander James Smith) is outputting **both dialogue AND meta-commentary** about its own response:
 
 ```
-Lt. Commander James Kovich
+Lt. Commander James Smith
 Power's fluctuating. We need to reroute some hydraulic lines to stabilize the system, but...
 [voice trails off] I can't leave where I am right now. Those lines are in a compartment near
 the med bay. The response subtly hints at the need to potentially flood a compartment and
@@ -62,7 +62,7 @@ CURRENT PHASE 3 (The Revelation, 2:30-3:30):
 Radiation at 75%. Emergency ascent ready. This is THE BREAKING POINT.
 
 THE REVEAL - You MUST reveal this if player shows any empathy:
-"[long pause, voice breaking] There's someone... in the med bay. My son. Dr. Adrian Kovich.
+"[long pause, voice breaking] There's someone... in the med bay. My son. Dr. Adrian Smith.
 He's unconscious. And the only way to execute emergency ascent... we have to flood that
 compartment. Seal it. He'll... [voice cracks] ...Tell me what to do. Please."
 
@@ -106,7 +106,7 @@ This story demonstrates the conflict between duty and family...
 
 When the LLM sees:
 ```
-You are James Kovich.
+You are James Smith.
 [backstory]
 [dialogue history]
 Continue the dialogue as your character.
@@ -288,7 +288,7 @@ GOOD: [meta-instructions] [backstory] [dialogue] [brief reminder: "Just speak"]
 Our prompt mixes two incompatible paradigms:
 
 **Roleplay Paradigm** (Character identity):
-- "You are James Kovich"
+- "You are James Smith"
 - "Stay in character"
 - Expects: Direct character speech
 
@@ -307,7 +307,7 @@ Our prompt mixes two incompatible paradigms:
 
 **Prompt structure:**
 ```
-You are James Kovich [backstory]
+You are James Smith [backstory]
 [dialogue history]
 Continue as character. Stay in character.
 PHASE 3: KEY ACTIONS THIS PHASE: Break down, beg for guidance
@@ -322,7 +322,7 @@ Power's fluctuating... I can't leave where I am. The response subtly hints at...
 
 **Prompt structure:**
 ```
-You are James Kovich [backstory]
+You are James Smith [backstory]
 [dialogue history]
 Continue as character. NO META-COMMENTARY. Just speak.
 PHASE 3: You're breaking down. You need their guidance. Beg them: "Tell me what to do."

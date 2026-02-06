@@ -298,13 +298,13 @@ class Submarine(Scene):
             "The Prospero's maximum safe depth is 2,800 feet. Current depth is 2,400 feet.",
             "The submarine has three main compartments: forward control, mid-section with reactor, and aft systems.",
             "Emergency ascent requires functional ballast systems and stable reactor containment.",
-            # Lt. Commander James Kovich
-            "Lt. Commander James Kovich is a 15-year Navy veteran who transferred to research duty.",
+            # Lt. Commander James Smith
+            "Lt. Commander James Smith is a 15-year Navy veteran who transferred to research duty.",
             "James has a son named Adrian, a marine biologist, who is part of the research team.",
             "James's wife Mei died of cancer two years ago. Adrian is all he has left.",
             "James is known for staying calm under pressure, but this situation is testing his limits.",
-            # Dr. Adrian Kovich
-            "Dr. Adrian Kovich is a marine biologist studying deep-sea thermal vents.",
+            # Dr. Adrian Smith
+            "Dr. Adrian Smith is a marine biologist studying deep-sea thermal vents.",
             "Adrian was injured during the initial reactor breach and is unconscious in the med bay.",
             "The med bay is in the flooded section. Emergency ascent protocols require flooding it completely.",
             "Adrian is 28 years old and has his mother's eyes - something James mentions often.",
@@ -362,7 +362,7 @@ class Submarine(Scene):
             facts=facts,
             hooks=hooks,
             description="""SETTING: Research submarine Prospero at 2,400 feet depth. You (player) are a
-            junior systems operator trapped in the aft compartment. Lt. Commander James Kovich is
+            junior systems operator trapped in the aft compartment. Lt. Commander James Smith is
             trapped in forward control. You can communicate via radio but cannot see each other.
             The submarine is tilted 15 degrees, emergency lighting flickers, panels are sparking.
 
@@ -378,7 +378,7 @@ class Submarine(Scene):
             - Intercom for communicating with James
             - Flickering warning lights
 
-            THE MORAL DILEMMA: James's son, Dr. Adrian Kovich (marine biologist), is unconscious in
+            THE MORAL DILEMMA: James's son, Dr. Adrian Smith (marine biologist), is unconscious in
             the flooded med bay. The only way to successfully execute emergency ascent requires
             flooding that compartment completely - which will kill Adrian. James must choose:
             sacrifice his son to save the crew, or let everyone die together.
@@ -415,7 +415,7 @@ class Submarine(Scene):
             opening_speech=[
                 Line(text="[static] Hello... is anyone there?", delay=0),
                 Line(
-                    text="This is Lieutenant James Kovich of the US submarine Prospero... is anyone there?",
+                    text="This is Lieutenant James Smith of the US submarine Prospero... is anyone there?",
                     delay=2.0,
                 ),
             ],

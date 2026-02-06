@@ -57,6 +57,8 @@ DEFAULT_VOICE_IDS = {
     "captain_hale": os.getenv("ELEVENLABS_VOICE_CAPTAIN_HALE", "SOYHLrjzK2X1ezoPC6cr"),
     # Rachel - friendly, helpful (good for Clippy assistant)
     "clippy": os.getenv("ELEVENLABS_VOICE_CLIPPY", "21m00Tcm4TlvDq8ikWAM"),
+    # Adam - same as engineer (Kovich is also submarine officer)
+    "kovich": os.getenv("ELEVENLABS_VOICE_KOVICH", "pNInz6obpgDQGcFmaJgB"),
     # Default fallback voice
     "default": os.getenv("ELEVENLABS_VOICE_DEFAULT", "21m00Tcm4TlvDq8ikWAM"),
 }
@@ -97,6 +99,12 @@ VOICE_SETTINGS = {
         "stability": 0.4,  # More animated, helpful assistant
         "similarity_boost": 0.8,
         "style": 0.3,  # More expressive style
+        "use_speaker_boost": True,
+    },
+    "kovich": {
+        "stability": 0.6,  # Controlled, deliberate British restraint
+        "similarity_boost": 0.8,
+        "style": 0.15,  # Subtle style for dry wit
         "use_speaker_boost": True,
     },
     "default": {

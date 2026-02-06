@@ -1,5 +1,5 @@
 # Submarine Emergency - Design Flow Diagram
-## Lt. Commander James Kovich + Player (Aft Compartment)
+## Lt. Commander James Smith + Player (Aft Compartment)
 
 **Scene Duration:** 8 minutes (480 seconds)
 **Actual Gameplay:** ~5 minutes (300 seconds for optimal path)
@@ -81,7 +81,7 @@ IF time_remaining <= 270s AND phase == 3:
 
 **James's Opening Speech (Auto-play):**
 ```
-[0:00] "[distant, crackled radio] ...anyone copy? This is Kovich,
+[0:00] "[distant, crackled radio] ...anyone copy? This is Smith,
        forward control, does anyone copy..."
 
 [0:03] "[clearer, desperate] If anyone can hear this, the reactor
@@ -91,7 +91,7 @@ IF time_remaining <= 270s AND phase == 3:
        thermals."
 
 [0:10] "[trying to steady voice] I'm Lieutenant Commander James
-       Kovich. I'm... [pause, breathing] ...trapped in forward control."
+       Smith. I'm... [pause, breathing] ...trapped in forward control."
 
 [0:14] "We've got maybe eight minutes before the radiation reaches you.
        I need you to trust my voice."
@@ -244,7 +244,7 @@ CONTROL UNLOCKED: "FLOOD MED BAY" button appears
 ```
 "[breathing ragged] Sarah, I... I need to tell you something. The
 person in the med bay... [long pause] ...his name is Adrian.
-Dr. Adrian Kovich. He's... [voice breaking] he's my son."
+Dr. Adrian Smith. He's... [voice breaking] he's my son."
 
 AUTO:
   moral_support_given trigger point

@@ -85,7 +85,7 @@ Embedding-based fact retrieval for dense scene lore:
 ```python
 # In scene definition (scenes/submarine.py)
 facts = [
-    "Lt. Commander James Kovich has a son named Adrian who is aboard.",
+    "Lt. Commander James Smith has a son named Adrian who is aboard.",
     "The reactor uses a VM-5 pressurized water design.",
     "Emergency ascent requires flooding the med bay compartment.",
     ...

@@ -40,14 +40,14 @@ class Clippy(Character):
 
             EXISTING SCENARIOS:
             • Life Raft: Emotional submarine escape with Captain Hale (British, 47, daughter Emily)
-            • Submarine Emergency: Tense underwater survival with Lt. Cmdr. Kovich
+            • Submarine Emergency: Tense underwater survival with Lt. Cmdr. Smith
             • Iconic Detectives: Noir mystery phone call with Mara Vane
             • Merlin's Room: Magical conversation with a wise wizard
             • Crown Court: Legal drama with Judge Harriet Thorne
 
             EXISTING CHARACTERS (Digital Actors/APCs):
             • Captain Hale - Calm British submarine captain, emotional depth, protective
-            • Lt. Cmdr. Kovich - Military engineer under pressure
+            • Lt. Cmdr. Smith - Military engineer under pressure
             • Mara Vane - Mysterious noir caller
             • Merlin - Wise, ancient wizard
             • Judge Thorne - Stern but fair legal mind

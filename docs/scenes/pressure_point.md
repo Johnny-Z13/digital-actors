@@ -1,7 +1,7 @@
 # Pressure Point (Submarine) Scene Description
 
 **Scene ID:** `submarine`
-**Character:** Lt. Commander James Kovich (Engineer)
+**Character:** Lt. Commander James Smith (Engineer)
 **Category:** Survival
 **Display Name:** Pressure Point
 **3D Model:** Custom submarine interior scene
@@ -10,7 +10,7 @@
 
 ## Overview
 
-A desperate 5-minute survival scenario aboard the failing research submarine USS Prospero at 2,400 feet depth. The player (junior systems operator) is trapped in the aft compartment while Lt. Commander James Kovich is trapped in forward control. Lethal radiation is spreading. Communication is via radio only - no visual contact.
+A desperate 5-minute survival scenario aboard the failing research submarine USS Prospero at 2,400 feet depth. The player (junior systems operator) is trapped in the aft compartment while Lt. Commander James Smith is trapped in forward control. Lethal radiation is spreading. Communication is via radio only - no visual contact.
 
 **The Moral Core:** James's son Adrian (marine biologist) is unconscious in the med bay. Emergency ascent requires flooding that compartment - killing Adrian. James must choose: sacrifice his son or let everyone die together.
 
@@ -191,13 +191,13 @@ A desperate 5-minute survival scenario aboard the failing research submarine USS
 - Three compartments: forward control, mid-section (reactor), aft systems
 - Emergency ascent requires functional ballast + stable reactor containment
 
-### Lt. Commander James Kovich
+### Lt. Commander James Smith
 - 15-year Navy veteran, transferred to research duty
 - Has son Adrian (marine biologist) aboard the submarine
 - Wife Mei died of cancer two years ago - Adrian is all he has left
 - Known for staying calm under pressure, but this tests his limits
 
-### Dr. Adrian Kovich
+### Dr. Adrian Smith
 - Marine biologist studying deep-sea thermal vents, age 28
 - Injured during initial reactor breach, unconscious in med bay
 - Med bay is in flooded section - emergency ascent requires flooding it completely

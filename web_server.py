@@ -825,7 +825,7 @@ RIGHT NOW - PHASE 3 (The Revelation, 2:30-3:30):
 Radiation at 75%. Emergency ascent ready. You're at the breaking point.
 
 IF PLAYER SHOWS EMPATHY, REVEAL THIS NOW:
-"[long pause, voice breaking] There's someone... in the med bay. My son. Dr. Adrian Kovich.
+"[long pause, voice breaking] There's someone... in the med bay. My son. Dr. Adrian Smith.
 He's unconscious. And the only way to execute emergency ascent... we have to flood that
 compartment. Seal it. He'll... [voice cracks] ...Tell me what to do. Please."
 
@@ -1374,7 +1374,7 @@ OUTPUT (one per line, nothing else):"""
 
     async def trigger_james_death(self) -> None:
         """Trigger James's death speech BEFORE player dies (at 93% radiation)."""
-        logger.info("[JAMES_DEATH] Triggering James Kovich's death at 93%% radiation")
+        logger.info("[JAMES_DEATH] Triggering James Smith's death at 93%% radiation")
 
         # CRITICAL: Clear all queued responses - James is dying, nothing else matters
         cleared_count = await self.response_queue.clear_all_except_critical()
@@ -1384,7 +1384,7 @@ OUTPUT (one per line, nothing else):"""
 
         # Generate James's final dying words
         dying_instruction = """
-CRITICAL: Lt. Commander James Kovich is NOW DYING from lethal radiation exposure at 93%.
+CRITICAL: Lt. Commander James Smith is NOW DYING from lethal radiation exposure at 93%.
 The player is still alive but will die in moments.
 
 Generate James's FINAL DYING WORDS as he succumbs to radiation poisoning.
@@ -1425,7 +1425,7 @@ Examples: [coughing violently] [voice barely audible] [choking] [static overwhel
         # Add to dialogue history
         self.dialogue_history += f"[{self.character_config['name']}]: {dying_speech}\n"
         self.dialogue_history += (
-            "[SYSTEM: Lt. Commander James Kovich has died from radiation exposure]\n"
+            "[SYSTEM: Lt. Commander James Smith has died from radiation exposure]\n"
         )
 
         # CRITICAL: Force reset npc_responding flag and re-enable input
@@ -2509,7 +2509,7 @@ This requires everything you have. Commit fully.
                     await asyncio.sleep(2.0)
 
                     # Add flooding event to dialogue history
-                    self.dialogue_history += "[SYSTEM EVENT: Med bay compartment flooded. Dr. Adrian Kovich deceased. Emergency ascent in progress.]\n"
+                    self.dialogue_history += "[SYSTEM EVENT: Med bay compartment flooded. Dr. Adrian Smith deceased. Emergency ascent in progress.]\n"
 
                     # Send state update
                     await self.ws.send_json({"type": "state_update", "state": self.scene_state})

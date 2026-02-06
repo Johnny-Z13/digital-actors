@@ -67,6 +67,11 @@ def _register_builtin_handlers() -> None:
 
     register_handler("iconic_detectives", get_detectives_handler)
 
+    # Foxhole handler
+    from scenes.handlers.foxhole_handler import get_handler as get_foxhole_handler
+
+    register_handler("foxhole", get_foxhole_handler)
+
 
 # Auto-register on import
 _register_builtin_handlers()

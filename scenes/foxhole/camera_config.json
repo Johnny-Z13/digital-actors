@@ -1,0 +1,6 @@
+{
+  "position": {"x": 0, "y": 1.6, "z": 5},
+  "target": {"x": 0, "y": 1, "z": 0},
+  "fov": 60,
+  "description": "Default bridge view - player perspective"
+}

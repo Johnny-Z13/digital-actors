@@ -93,7 +93,7 @@ Unlike other scenes, Welcome has no 3D interactive controls. Navigation is via:
 ## Content: What Clippy Explains
 
 ### Available Scenarios
-- **Pressure Point:** Submarine survival (Lt. Commander Kovich)
+- **Pressure Point:** Submarine survival (Lt. Commander Smith)
 - **Iconic Detectives:** Murder mystery phone call (Mara Vane)
 - **Life Raft:** Escape pod survival (Captain Hale)
 - **Crown Court:** Legal defense trial (Judge Whitmore)

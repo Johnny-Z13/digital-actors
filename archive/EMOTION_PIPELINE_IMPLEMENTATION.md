@@ -41,7 +41,7 @@ Successfully transformed the TTS system from basic text-to-speech into an emotio
 
 Updated all character classes with `emotion_expression_style` definitions:
 
-#### **Engineer (James Kovich)**
+#### **Engineer (James Smith)**
 - **Expressiveness:** 0.6 (military restraint, but human)
 - **Stability Baseline:** 0.4 (naturally more variable under command stress)
 - **Emotional Range:** 0.7 (emotions affect him, but controlled)

@@ -8,6 +8,7 @@ from scenes.base.base import Scene
 from scenes.conversation import Conversation
 from scenes.crown_court import CrownCourt
 from scenes.detective.iconic_detectives import IconicDetectives
+from scenes.foxhole.foxhole import Foxhole
 from scenes.introduction import Introduction
 from scenes.life_raft import LifeRaft
 from scenes.wizard.quest import MerlinsRoom
@@ -21,6 +22,7 @@ SCENES = {
     "conversation": Conversation(),
     "merlins_room": MerlinsRoom(),
     "submarine": Submarine(),
+    "foxhole": Foxhole(),
     "crown_court": CrownCourt(),
     "iconic_detectives": IconicDetectives(),
     "life_raft": LifeRaft(),
@@ -30,6 +32,7 @@ __all__ = [
     "SCENES",
     "Conversation",
     "CrownCourt",
+    "Foxhole",
     "IconicDetectives",
     "Introduction",
     "LifeRaft",
